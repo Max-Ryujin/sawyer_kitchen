@@ -23,7 +23,7 @@ from gymnasium.envs.mujoco.mujoco_env import MujocoEnv
 MODEL_XML_PATH = os.path.join(os.path.dirname(__file__), "kitchen", "kitchen.xml")
 
 DEFAULT_CAMERA_CONFIG = {
-    "distance": 5.2,
+    "distance": 4.6,
     "azimuth": 70.0,
     "elevation": -35.0,
     "lookat": np.array([-0.2, 0.5, 2.0]),

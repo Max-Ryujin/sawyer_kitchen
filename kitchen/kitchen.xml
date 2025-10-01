@@ -26,13 +26,13 @@
             <body name="backwall" pos="0 0 0">
                 <include file="../kitchen/assets/backwall_chain.xml"/>
             </body>
-            <body name="slidecabinet" pos="0.098 0.28 2.61">
+            <body name="slidecabinet" pos="0.4 0.3 2.6" >
                 <include file="../kitchen/assets/slidecabinet_chain.xml"/>
             </body>
-            <body name="hingecabinet1" pos="-1.0 -1.0 2.6" euler="0 0 1.57">
+            <body name="hingecabinet" pos="-0.504 0.28 2.6" >
                 <include file="../kitchen/assets/hingecabinet_chain.xml"/>
             </body>
-            <body name="microwave" pos="-0.892 -0.96 2.025" euler="0 0 1.57">
+            <body name="microwave" pos="-0.750 -0.025 1.6" euler="0 0 0.3">
                 <include file="../kitchen/assets/microwave_chain.xml"/>
             </body>
         </body>
