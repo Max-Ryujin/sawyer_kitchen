@@ -3,19 +3,19 @@
     <compiler inertiafromgeom="auto" inertiagrouprange="4 4" angle="radian"/>
 
     <asset>
-        <mesh file="../kitchen/meshes/hood.stl" name="hood"/>
-        <mesh file="../kitchen/meshes/lightswitch.stl" name="lightswitch"/>
-        <mesh file="../kitchen/meshes/lightswitchbase.stl" name="lightswitchbase"/>
-        <mesh file="../kitchen/meshes/knob.stl" name="knob"/>
-        <mesh file="../kitchen/meshes/stoverim.stl" name="stoverim"/>
-        <mesh file="../kitchen/meshes/burnerplate.stl" name="burnerplate"/>
-        <mesh file="../kitchen/meshes/ovenhandle.stl" name="ovenhandle"/>
-        <mesh file="../kitchen/meshes/oven.stl" name="oven"/>
-        <mesh file="../kitchen/meshes/oventop.stl" name="oventop"/>
-        <mesh file="../kitchen/meshes/ovenwindow.stl" name="ovenwindow"/>
+        <mesh file="../meshes/hood.stl" name="hood"/>
+        <mesh file="../meshes/lightswitch.stl" name="lightswitch"/>
+        <mesh file="../meshes/lightswitchbase.stl" name="lightswitchbase"/>
+        <mesh file="../meshes/knob.stl" name="knob"/>
+        <mesh file="../meshes/stoverim.stl" name="stoverim"/>
+        <mesh file="../meshes/burnerplate.stl" name="burnerplate"/>
+        <mesh file="../meshes/ovenhandle.stl" name="ovenhandle"/>
+        <mesh file="../meshes/oven.stl" name="oven"/>
+        <mesh file="../meshes/oventop.stl" name="oventop"/>
+        <mesh file="../meshes/ovenwindow.stl" name="ovenwindow"/>
 
-        <texture name="T_oven_wood" type="cube" height="1" width="1" file="../kitchen/textures/wood1.png"/>
-        <texture name="T_oven_metal" type="cube" height="1" width="1" file="../kitchen/textures/metal1.png"/>
+        <texture name="T_oven_wood" type="cube" height="1" width="1" file="../textures/wood1.png"/>
+        <texture name="T_oven_metal" type="cube" height="1" width="1" file="../textures/metal1.png"/>
 
         <material name="oven_wood" texture="T_oven_wood" texrepeat="3 3" reflectance="0.7" shininess=".4" texuniform="false"/>
         <material name="oven_metal" rgba="1 1 1 1" texture="T_oven_metal" texrepeat="3 3" reflectance="1" shininess="1" texuniform="false"/>

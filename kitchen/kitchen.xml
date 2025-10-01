@@ -1,4 +1,11 @@
 <mujoco model="kitchen">
+
+
+    <visual>
+        <global offwidth="2560" offheight="1920" />
+        <quality shadowsize="4096" offsamples="8" />
+        <map force="0.1" fogend="5" />
+    </visual>
     <compiler angle="radian" inertiafromgeom='auto' inertiagrouprange='4 5'/>
     <include file='../scenes/basic_scene.xml'/>
     <include file="../kitchen/assets/oven_asset.xml"/>
@@ -10,9 +17,9 @@
     <include file="../kitchen/assets/kettle_asset.xml"/>
     <worldbody>
         <body name="kitchen" pos="0 0 0">
-            <!--<body name="counters1" pos="0 0 0">-->
-                <!--<include file="../kitchen/assets/counters_chain.xml"/>-->
-            <!--</body>-->
+            <body name="counters1" pos="0 0 0">
+                <include file="../kitchen/assets/counters_chain.xml"/>
+            </body>
             <body name="oven" pos="0 0 0">
                 <include file="../kitchen/assets/oven_chain.xml"/>
             </body>
