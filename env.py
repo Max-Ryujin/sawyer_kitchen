@@ -20,6 +20,28 @@ import mujoco as mj
 from gymnasium.envs.mujoco.mujoco_env import MujocoEnv
 
 
+
+"""
+=== QPOS / QVEL OVERVIEW ===
+joint knob_Joint_1         | HINGE     | qpos[0], qvel[0]
+joint burner_Joint_1       | SLIDE     | qpos[1], qvel[1]
+joint knob_Joint_2         | HINGE     | qpos[2], qvel[2]
+joint burner_Joint_2       | SLIDE     | qpos[3], qvel[3]
+joint knob_Joint_3         | HINGE     | qpos[4], qvel[4]
+joint burner_Joint_3       | SLIDE     | qpos[5], qvel[5]
+joint knob_Joint_4         | HINGE     | qpos[6], qvel[6]
+joint burner_Joint_4       | SLIDE     | qpos[7], qvel[7]
+joint lightswitch_joint    | HINGE     | qpos[8], qvel[8]
+joint light_joint          | SLIDE     | qpos[9], qvel[9]
+joint slidedoor_joint      | SLIDE     | qpos[10], qvel[10]
+joint leftdoorhinge        | HINGE     | qpos[11], qvel[11]
+joint rightdoorhinge       | HINGE     | qpos[12], qvel[12]
+joint microjoint           | HINGE     | qpos[13], qvel[13]
+joint unnamed_joint_14     | FREE      | qpos[14:21] (x,y,z,quat wxyz), qvel[14:20] (lin+ang)
+=== END OVERVIEW ===
+"""
+
+
 MODEL_XML_PATH = os.path.join(os.path.dirname(__file__), "kitchen", "kitchen.xml")
 
 DEFAULT_CAMERA_CONFIG = {
@@ -60,6 +82,20 @@ class KitchenMinimalEnv(MujocoEnv):
         self.init_qpos = self.data.qpos
         self.init_qvel = self.data.qvel
 
+
+        jid = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_JOINT, "kettle_freejoint")
+        addr = self.model.jnt_qposadr[jid]
+        # position
+        self.data.qpos[addr:addr+3] = [-0.169, 0.0, 1.626]
+        # quaternion (w,x,y,z) = identity rotation
+        self.data.qpos[addr+3:addr+7] = [1.0, 0.0, 0.0, 0.0]
+        # velocities zero
+        vid = self.model.jnt_dofadr[jid]
+        self.data.qvel[vid:vid+6] = 0.0
+
+
+
+
         self._render_context = None
         self._width = 1920
         self._height = 2560
@@ -78,6 +114,16 @@ class KitchenMinimalEnv(MujocoEnv):
             self.data.qpos[:] = self.model.key_qpos[0] if self.model.key_qpos.size else np.zeros(self.nq)
         if self.model.nv:
             self.data.qvel[:] = np.zeros(self.nv)
+
+        jid = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_JOINT, "kettle_freejoint")
+        addr = self.model.jnt_qposadr[jid]
+        # position
+        self.data.qpos[addr:addr+3] = [-0.169, 0.0, 1.626]
+        # quaternion (w,x,y,z) = identity rotation
+        self.data.qpos[addr+3:addr+7] = [1.0, 0.0, 0.0, 0.0]
+        # velocities zero
+        vid = self.model.jnt_dofadr[jid]
+        self.data.qvel[vid:vid+6] = 0.0
 
 
         mj.mj_forward(self.model, self.data)

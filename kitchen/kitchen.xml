@@ -1,11 +1,6 @@
 <mujoco model="kitchen">
 
 
-    <visual>
-        <global offwidth="2560" offheight="1920" />
-        <quality shadowsize="4096" offsamples="8" />
-        <map force="0.1" fogend="5" />
-    </visual>
     <compiler angle="radian" inertiafromgeom='auto' inertiagrouprange='4 5'/>
     <include file='../scenes/basic_scene.xml'/>
     <include file="../kitchen/assets/oven_asset.xml"/>
