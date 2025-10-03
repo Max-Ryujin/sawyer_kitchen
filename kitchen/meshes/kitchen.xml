@@ -42,11 +42,11 @@
             </body>
         </body>
         <body name="kettle" pos="-0.169 0 1.626">
-            <freejoint name="kettle_freejoint"/>
+            <freejoint/>
             <include file="../kitchen/assets/kettle_chain.xml"/>
         </body>
         <body name="cup" pos="2.550 1.745 10.626">
-            <freejoint name="cup_freejoint"/>
+            <freejoint/>
             <include file="../kitchen/assets/cup_chain.xml"/>
         </body>
     </worldbody>

@@ -23,21 +23,31 @@ from gymnasium.envs.mujoco.mujoco_env import MujocoEnv
 
 """
 === QPOS / QVEL OVERVIEW ===
-joint knob_Joint_1         | HINGE     | qpos[0], qvel[0]
-joint burner_Joint_1       | SLIDE     | qpos[1], qvel[1]
-joint knob_Joint_2         | HINGE     | qpos[2], qvel[2]
-joint burner_Joint_2       | SLIDE     | qpos[3], qvel[3]
-joint knob_Joint_3         | HINGE     | qpos[4], qvel[4]
-joint burner_Joint_3       | SLIDE     | qpos[5], qvel[5]
-joint knob_Joint_4         | HINGE     | qpos[6], qvel[6]
-joint burner_Joint_4       | SLIDE     | qpos[7], qvel[7]
-joint lightswitch_joint    | HINGE     | qpos[8], qvel[8]
-joint light_joint          | SLIDE     | qpos[9], qvel[9]
-joint slidedoor_joint      | SLIDE     | qpos[10], qvel[10]
-joint leftdoorhinge        | HINGE     | qpos[11], qvel[11]
-joint rightdoorhinge       | HINGE     | qpos[12], qvel[12]
-joint microjoint           | HINGE     | qpos[13], qvel[13]
-joint unnamed_joint_14     | FREE      | qpos[14:21] (x,y,z,quat wxyz), qvel[14:20] (lin+ang)
+joint right_j0             | HINGE     | qpos[0], qvel[0]
+joint right_j1             | HINGE     | qpos[1], qvel[1]
+joint right_j2             | HINGE     | qpos[2], qvel[2]
+joint right_j3             | HINGE     | qpos[3], qvel[3]
+joint right_j4             | HINGE     | qpos[4], qvel[4]
+joint right_j5             | HINGE     | qpos[5], qvel[5]
+joint right_j6             | HINGE     | qpos[6], qvel[6]
+joint rc_close             | SLIDE     | qpos[7], qvel[7]
+joint lc_close             | SLIDE     | qpos[8], qvel[8]
+joint knob_Joint_1         | HINGE     | qpos[9], qvel[9]
+joint burner_Joint_1       | SLIDE     | qpos[10], qvel[10]
+joint knob_Joint_2         | HINGE     | qpos[11], qvel[11]
+joint burner_Joint_2       | SLIDE     | qpos[12], qvel[12]
+joint knob_Joint_3         | HINGE     | qpos[13], qvel[13]
+joint burner_Joint_3       | SLIDE     | qpos[14], qvel[14]
+joint knob_Joint_4         | HINGE     | qpos[15], qvel[15]
+joint burner_Joint_4       | SLIDE     | qpos[16], qvel[16]
+joint lightswitch_joint    | HINGE     | qpos[17], qvel[17]
+joint light_joint          | SLIDE     | qpos[18], qvel[18]
+joint slidedoor_joint      | SLIDE     | qpos[19], qvel[19]
+joint leftdoorhinge        | HINGE     | qpos[20], qvel[20]
+joint rightdoorhinge       | HINGE     | qpos[21], qvel[21]
+joint microjoint           | HINGE     | qpos[22], qvel[22]
+joint kettle_freejoint     | FREE      | qpos[23:30] (x,y,z,quat wxyz), qvel[23:29] (lin+ang)
+joint cup_freejoint        | FREE      | qpos[30:37] (x,y,z,quat wxyz), qvel[29:35] (lin+ang)
 === END OVERVIEW ===
 """
 
@@ -50,6 +60,15 @@ DEFAULT_CAMERA_CONFIG = {
     "elevation": -35.0,
     "lookat": np.array([-0.2, 0.5, 2.0]),
 }
+
+INIT_QPOS = np.array([ 1.48388023e-01, -1.76848573e+00,  1.84390296e+00, -2.47685760e+00,
+                            2.60252026e-01,  7.12533105e-01,  1.59515394e+00,  4.79267505e-02,
+                            3.71350919e-02, -2.66279850e-04, -5.18043486e-05,  3.12877220e-05,
+                            -4.51199853e-05, -3.90842156e-06, -4.22629655e-05,  6.28065475e-05,
+                            4.04984708e-05,  4.62730939e-04, -2.26906415e-04, -4.65501369e-04,
+                            -6.44129196e-03, -1.77048263e-03,  1.08009684e-03, -2.69397440e-01,
+                            3.50383255e-01,  1.61944683e+00,  1.00618764e+00,  4.06395120e-03,
+                            -6.62095997e-03, 0, -0.55, -0.55, 1.636, 1.0, 0.0, 0.0, 0.0])
 
 
 class KitchenMinimalEnv(MujocoEnv):
@@ -83,18 +102,12 @@ class KitchenMinimalEnv(MujocoEnv):
         self.init_qvel = self.data.qvel
 
 
-        jid = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_JOINT, "kettle_freejoint")
-        addr = self.model.jnt_qposadr[jid]
-        # position
-        self.data.qpos[addr:addr+3] = [-0.169, 0.0, 1.626]
-        # quaternion (w,x,y,z) = identity rotation
-        self.data.qpos[addr+3:addr+7] = [1.0, 0.0, 0.0, 0.0]
-        # velocities zero
-        vid = self.model.jnt_dofadr[jid]
-        self.data.qvel[vid:vid+6] = 0.0
-
-
-
+        # initial qpos
+        if INIT_QPOS.shape == self.init_qpos.shape:
+            self.init_qpos = INIT_QPOS
+        else:
+            print(f"Provided INIT_QPOS has wrong shape (expected {self.init_qpos.shape}, got {INIT_QPOS.shape}). Using default.")
+        self.init_qpos = np.zeros(self.nq)
 
         self._render_context = None
         self._width = 1920
@@ -115,16 +128,7 @@ class KitchenMinimalEnv(MujocoEnv):
         if self.model.nv:
             self.data.qvel[:] = np.zeros(self.nv)
 
-        jid = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_JOINT, "kettle_freejoint")
-        addr = self.model.jnt_qposadr[jid]
-        # position
-        self.data.qpos[addr:addr+3] = [-0.169, 0.0, 1.626]
-        # quaternion (w,x,y,z) = identity rotation
-        self.data.qpos[addr+3:addr+7] = [1.0, 0.0, 0.0, 0.0]
-        # velocities zero
-        vid = self.model.jnt_dofadr[jid]
-        self.data.qvel[vid:vid+6] = 0.0
-
+        self.data.qpos[:] = INIT_QPOS
 
         mj.mj_forward(self.model, self.data)
 
