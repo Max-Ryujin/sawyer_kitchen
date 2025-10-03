@@ -6,7 +6,6 @@ import os
 import gymnasium as gym
 import numpy as np
 import cv2
-import env as sawyer_kitchen
 import matplotlib.pyplot as plt
 
 def test_environment():
