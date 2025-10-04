@@ -36,9 +36,13 @@ def random_action_test(save_path: str, steps: int = 250):
 
 def handcrafted_kettle_policy(obs: np.ndarray, nu: int) -> np.ndarray:
     #TODO
-
-    return action = env.action_space.sample()
-
+    gym.register(
+        id="KitchenMinimalEnv-v0",
+        entry_point="env:KitchenMinimalEnv",
+    )
+    env = gym.make('KitchenMinimalEnv-v0',render_mode="rgb_array", width=2560, height=1920)
+    action = env.action_space.sample()
+    return action
 
 def collect_handcrafted_episode(save_path: str, steps: int = 500):
     gym.register(

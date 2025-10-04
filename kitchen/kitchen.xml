@@ -2,6 +2,14 @@
 
 
     <compiler angle="radian" inertiafromgeom='auto' inertiagrouprange='4 5'/>
+    
+    <!-- Particle assets for simple water simulation -->
+    <asset>
+        <!-- small blue particle material -->
+        <material name="water_blue" rgba="0.2 0.45 0.95 1" shininess="0.6" specular="0.3"/>
+        <!-- optional small sphere mesh for particle visualization (MuJoCo can render particles directly, but mesh helps if needed) -->
+        <mesh name="particle_sphere" file="../kitchen/meshes/knob.stl" scale="0.005 0.005 0.005"/>
+    </asset>
     <include file="../kitchen/assets/sawyer_assets/sawyer_dependencies.xml"/>
     <include file="../kitchen/assets/sawyer_assets/sawyer_joint_tor_act.xml"/>
     <include file="../kitchen/assets/sawyer_assets/gripper_pos_act.xml"/>
@@ -46,7 +54,12 @@
             <freejoint name="kettle_freejoint"/>
             <include file="../kitchen/assets/kettle_chain.xml"/>
         </body>
-        <body name="cup" pos="2.550 1.745 10.626">
+        <replicate count="8" offset="0 0.1 0" euler="90 0 0" pos="2.550 1.745 1.696">
+            <replicate count="8" sep="-" offset="0.1 0 0" euler="0 90 0">
+                <geom name="WaterBall" size=".02" type="sphere" rgba="0 0 1 0.5"/>
+            </replicate>
+        </replicate>
+        <body name="cup" pos="2.550 1.745 1.626">
             <freejoint name="cup_freejoint"/>
             <include file="../kitchen/assets/cup_chain.xml"/>
         </body>
