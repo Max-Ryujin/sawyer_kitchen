@@ -44,6 +44,67 @@ def handcrafted_kettle_policy(obs: np.ndarray, nu: int) -> np.ndarray:
     action = env.action_space.sample()
     return action
 
+
+def manuel_control(save_path: str = None):
+    gym.register(
+        id="KitchenMinimalEnv-v0",
+        entry_point="env:KitchenMinimalEnv",
+    )
+    env = gym.make('KitchenMinimalEnv-v0', render_mode="rgb_array", width=1280, height=720)
+    obs, info = env.reset()
+
+    import matplotlib.pyplot as plt
+
+    nu = env.unwrapped.nu
+    action = np.zeros(nu, dtype=float)
+
+    key_map = {
+        'q': (0, 1.0), 'a': (0, -1.0),
+        'w': (1, 1.0), 's': (1, -1.0),
+        'e': (2, 1.0), 'd': (2, -1.0),
+        'r': (3, 1.0), 'f': (3, -1.0),
+        't': (4, 1.0), 'g': (4, -1.0),
+        'y': (5, 1.0), 'h': (5, -1.0)
+    }
+
+    fig, ax = plt.subplots()
+    plt.ion()
+    img = None
+
+    def on_key(event):
+        k = event.key
+        if k in key_map:
+            idx, val = key_map[k]
+            if idx < action.shape[0]:
+                action[idx] = val
+
+    def on_key_release(event):
+        k = event.key
+        if k in key_map:
+            idx, val = key_map[k]
+            if idx < action.shape[0]:
+                action[idx] = 0.0
+
+    fig.canvas.mpl_connect('key_press_event', on_key)
+    fig.canvas.mpl_connect('key_release_event', on_key_release)
+
+    running = True
+    while plt.fignum_exists(fig.number):
+        obs, reward, term, trunc, info = env.step(action)
+        frame = env.render()
+        if img is None:
+            img = ax.imshow(frame)
+            ax.axis('off')
+        else:
+            img.set_data(frame)
+        plt.pause(0.001)
+        if term:
+            break
+
+    env.close()
+    plt.close(fig)
+
+
 def collect_handcrafted_episode(save_path: str, steps: int = 500):
     gym.register(
         id="KitchenMinimalEnv-v0",
@@ -77,12 +138,14 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", choices=["random", "policy"], default="random")
+    parser.add_argument("--mode", choices=["random", "policy", "manual"], default="random")
     parser.add_argument("--out", default="tmp/kitchen_run.mp4")
     parser.add_argument("--steps", type=int, default=400)
     args = parser.parse_args()
 
     if args.mode == "random":
         random_action_test(args.out, steps=args.steps)
+    elif args.mode == "manual":
+        manuel_control()
     else:
         collect_handcrafted_episode(args.out, steps=args.steps)
