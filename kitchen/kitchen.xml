@@ -2,14 +2,7 @@
 
 
     <compiler angle="radian" inertiafromgeom='auto' inertiagrouprange='4 5'/>
-    
-    <!-- Particle assets for simple water simulation -->
-    <asset>
-        <!-- small blue particle material -->
-        <material name="water_blue" rgba="0.2 0.45 0.95 1" shininess="0.6" specular="0.3"/>
-        <!-- optional small sphere mesh for particle visualization (MuJoCo can render particles directly, but mesh helps if needed) -->
-        <mesh name="particle_sphere" file="../kitchen/meshes/knob.stl" scale="0.005 0.005 0.005"/>
-    </asset>
+
     <include file="../kitchen/assets/sawyer_assets/sawyer_dependencies.xml"/>
     <include file="../kitchen/assets/sawyer_assets/sawyer_joint_tor_act.xml"/>
     <include file="../kitchen/assets/sawyer_assets/gripper_pos_act.xml"/>
@@ -22,6 +15,7 @@
     <include file="../kitchen/assets/microwave_asset.xml"/>
     <include file="../kitchen/assets/kettle_asset.xml"/>
     <include file="../kitchen/assets/cup_asset.xml"/>
+    <include file="../kitchen/assets/cup_custom_asset.xml"/>
     <worldbody>
 
             <!-- Sawyer Robot -->
@@ -54,14 +48,21 @@
             <freejoint name="kettle_freejoint"/>
             <include file="../kitchen/assets/kettle_chain.xml"/>
         </body>
-        <replicate count="8" offset="0 0.1 0" euler="90 0 0" pos="2.550 1.745 1.696">
-            <replicate count="8" sep="-" offset="0.1 0 0" euler="0 90 0">
-                <geom name="WaterBall" size=".02" type="sphere" rgba="0 0 1 0.5"/>
-            </replicate>
-        </replicate>
-        <body name="cup" pos="2.550 1.745 1.626">
+       <!-- <body name="cup" pos="2.550 1.745 1.626">
             <freejoint name="cup_freejoint"/>
             <include file="../kitchen/assets/cup_chain.xml"/>
+        </body>-->
+        <body name="cup_custom" pos="2.650 1.845 1.626" childclass="cup_custom">
+            <freejoint name="cup_custom_freejoint"/>
+            <include file="../kitchen/assets/cup_custom.xml"/>
+        </body>
+
+        <body name="water_particles" pos="2.650 1.845 1.681">
+
+            <geom type="sphere" size="0.008" rgba="0.2 0.45 0.95 0.7" mass="0.001" contype="0" conaffinity="0" group="3"/>
+            <inertial pos="0 0 0.055" mass="0.01" diaginertia="1e-06 1e-06 1e-06"/>
+            <geom type="sphere" size="0.008" rgba="0.2 0.45 0.95 0.7" mass="0.001" pos="0.01 0 0" contype="0" conaffinity="0" group="3"/>
+            <geom type="sphere" size="0.008" rgba="0.2 0.45 0.95 0.7" mass="0.001" pos="-0.01 0 0" contype="0" conaffinity="0" group="3"/>
         </body>
     </worldbody>
 
