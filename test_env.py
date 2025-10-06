@@ -140,7 +140,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", choices=["random", "policy", "manual"], default="random")
     parser.add_argument("--out", default="tmp/kitchen_run.mp4")
-    parser.add_argument("--steps", type=int, default=400)
+    parser.add_argument("--steps", type=int, default=200)
     args = parser.parse_args()
 
     if args.mode == "random":

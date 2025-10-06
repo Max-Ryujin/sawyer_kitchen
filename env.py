@@ -68,7 +68,9 @@ INIT_QPOS = np.array([ 1.48388023e-01, -1.76848573e+00,  1.84390296e+00, -2.4768
                             4.04984708e-05,  4.62730939e-04, -2.26906415e-04, -4.65501369e-04,
                             -6.44129196e-03, -1.77048263e-03,  1.08009684e-03, -0.169,
                             0,  1.61944683e+00,  1.00618764e+00,  4.06395120e-03,
-                            -6.62095997e-03, 0, -0.55, -0.55, 1.6, 1.0, 0.0, 0.0, 0.0])
+                            -6.62095997e-03, 0, -0.55, -0.55, 1.6, 1.0, 0.0, 0.0, 0.0,
+                             -0.55, -0.55, 1.7, 1.0, 0.0, 0.0, 0.0,
+                            ])
 
 
 class KitchenMinimalEnv(MujocoEnv):
@@ -101,13 +103,34 @@ class KitchenMinimalEnv(MujocoEnv):
         self.init_qpos = self.data.qpos
         self.init_qvel = self.data.qvel
 
-
         # initial qpos
-        if INIT_QPOS.shape == self.init_qpos.shape:
-            self.init_qpos = INIT_QPOS
-        else:
-            print(f"Provided INIT_QPOS has wrong shape (expected {self.init_qpos.shape}, got {INIT_QPOS.shape}). Using default.")
-        self.init_qpos = np.zeros(self.nq)
+        self.init_qpos[:INIT_QPOS.shape[0]] = INIT_QPOS
+
+
+        # Try to detect water particle geoms by type/size/rgba
+
+        geom_type = np.asarray(self.model.geom_type).reshape(-1)
+        ngeom = int(self.model.ngeom)
+        geom_size = np.asarray(self.model.geom_size).reshape(ngeom, -1)
+        geom_rgba = np.asarray(self.model.geom_rgba).reshape(ngeom, 4)
+        sphere_type = mj.mjtGeom.mjGEOM_SPHERE
+        target_rgba = np.array([0.2, 0.45, 0.95, 0.8])
+
+        mask = (geom_type == sphere_type)
+        mask &= np.all(np.isclose(geom_rgba, target_rgba, atol=1e-3), axis=1)
+        water_geom_ids = np.nonzero(mask)[0]
+
+
+        self._water_geom_ids = water_geom_ids.astype(int)
+        self.num_water_particles = int(self._water_geom_ids.size)
+        print(f"Number of water particles in the model: {self.num_water_particles}")
+        print(f"Water particle geom IDs: {self._water_geom_ids}")
+
+        # create array for the position of the water particles (will be filled at runtime)
+        self.water_particle_positions = np.zeros((self.num_water_particles, 3), dtype=np.float64)
+        self._update_water_particle_positions()
+
+
 
         self._render_context = None
         self._width = 1920
@@ -123,14 +146,15 @@ class KitchenMinimalEnv(MujocoEnv):
         super().reset(seed=seed)
 
         # Reset simulation state
-        if self.model.nq:
-            self.data.qpos[:] = self.model.key_qpos[0] if self.model.key_qpos.size else np.zeros(self.nq)
         if self.model.nv:
             self.data.qvel[:] = np.zeros(self.nv)
 
-        self.data.qpos[:] = INIT_QPOS
+        self.data.qpos[:INIT_QPOS.shape[0]] = INIT_QPOS
 
         mj.mj_forward(self.model, self.data)
+
+        # update water particle world positions now that we ran forward
+        self._update_water_particle_positions()
 
         obs = self._get_observation()
         info = {}
@@ -164,6 +188,10 @@ class KitchenMinimalEnv(MujocoEnv):
 
         # Step the physics forward.
         mj.mj_step(self.model, self.data)
+
+        # update water particle world positions after stepping
+        self._update_water_particle_positions()
+        print(f"Water particle positions: {self.water_particle_positions}")
 
         # Build observation
         obs = self._get_observation()
@@ -215,3 +243,11 @@ class KitchenMinimalEnv(MujocoEnv):
 
     def close(self):
         self._render_context = None
+
+    def _update_water_particle_positions(self) -> None:
+        """Read current world-space positions for detected water particle geoms into
+        self.water_particle_positions. Uses data.geom_xpos (ngeom x 3)."""
+        ngeom = int(self.model.ngeom)
+        geom_xpos = np.asarray(self.data.geom_xpos).reshape(ngeom, 3)
+        for i, gid in enumerate(self._water_geom_ids):
+            self.water_particle_positions[i, :] = geom_xpos[int(gid)]

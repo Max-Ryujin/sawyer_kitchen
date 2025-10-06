@@ -1,7 +1,7 @@
 <mujocoinclude>
     <body childclass="cup_custom" name="cup_custom_root">
         <inertial pos="0 0 0.055" mass="0.1" diaginertia="1e-06 1e-06 1e-06"/>
-        <!-- Cup base (solid) -->
+
         <geom name="cup_base"
               type="cylinder"
               size="0.045 0.005"
@@ -10,7 +10,6 @@
               mass="0.05"
               friction="0.8 0.1 0.1"/>
         
-        <!-- Cup walls (hollow cylinder) -->
         <geom name="cup_wall_outer"
               type="cylinder"
               size="0.045 0.05"
@@ -20,29 +19,6 @@
               friction="0.6 0.1 0.1"
               contype="1"
               conaffinity="1"/>
-        
-        <geom name="cup_wall_inner"
-              type="cylinder"
-              size="0.042 0.049"
-              pos="0 0 0.055"
-              material="cup_material"
-              mass="0.01"
-              friction="0.6 0.1 0.1"
-              contype="0"
-              conaffinity="0"/>
 
-        <geom name="cup_interior"
-              type="cylinder"
-              size="0.041 0.048"
-              pos="0 0 0.055"
-              rgba="0 0 0 0"
-              mass="0.001"
-              contype="0"
-              conaffinity="0"
-              group="2"/>
-        
-        <!-- Reference sites -->
-        <site name="cup_center" pos="0 0 0.055" size="0.01" rgba="1 0 0 0.5"/>
-        <site name="cup_grip" pos="0.06 0 0.07" size="0.008" rgba="0 1 0 0.5"/>
     </body>
 </mujocoinclude>

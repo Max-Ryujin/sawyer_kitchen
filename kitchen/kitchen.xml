@@ -48,22 +48,21 @@
             <freejoint name="kettle_freejoint"/>
             <include file="../kitchen/assets/kettle_chain.xml"/>
         </body>
-       <!-- <body name="cup" pos="2.550 1.745 1.626">
+       <!-- <body name="cup" pos="-0.55 -0.55 1.6">
             <freejoint name="cup_freejoint"/>
             <include file="../kitchen/assets/cup_chain.xml"/>
         </body>-->
         <body name="cup_custom" pos="2.650 1.845 1.626" childclass="cup_custom">
             <freejoint name="cup_custom_freejoint"/>
             <include file="../kitchen/assets/cup_custom.xml"/>
-        </body>
-
-        <body name="water_particles" pos="2.650 1.845 1.681">
-
-            <geom type="sphere" size="0.008" rgba="0.2 0.45 0.95 0.7" mass="0.001" contype="0" conaffinity="0" group="3"/>
-            <inertial pos="0 0 0.055" mass="0.01" diaginertia="1e-06 1e-06 1e-06"/>
-            <geom type="sphere" size="0.008" rgba="0.2 0.45 0.95 0.7" mass="0.001" pos="0.01 0 0" contype="0" conaffinity="0" group="3"/>
-            <geom type="sphere" size="0.008" rgba="0.2 0.45 0.95 0.7" mass="0.001" pos="-0.01 0 0" contype="0" conaffinity="0" group="3"/>
-        </body>
+        </body> 
+        <!-- add water balls -->
+        <replicate count="5" offset="0 0 0.01" euler="90 0 0">
+            <body name="water_balls" pos="-0.55 0.55 1.726">
+                <freejoint name="water_balls_freejoint"/>
+                <include file="../kitchen/assets/water_particle.xml"/>
+            </body>
+        </replicate>
     </worldbody>
 
 </mujoco>
