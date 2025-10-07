@@ -10,7 +10,9 @@ def random_action_test(save_path: str, steps: int = 250):
         id="KitchenMinimalEnv-v0",
         entry_point="env:KitchenMinimalEnv",
     )
-    env = gym.make('KitchenMinimalEnv-v0',render_mode="rgb_array", width=2560, height=1920)
+    env = gym.make(
+        "KitchenMinimalEnv-v0", render_mode="rgb_array", width=2560, height=1920
+    )
     obs, info = env.reset()
 
     frames = []
@@ -35,12 +37,14 @@ def random_action_test(save_path: str, steps: int = 250):
 
 
 def handcrafted_kettle_policy(obs: np.ndarray, nu: int) -> np.ndarray:
-    #TODO
+    # TODO
     gym.register(
         id="KitchenMinimalEnv-v0",
         entry_point="env:KitchenMinimalEnv",
     )
-    env = gym.make('KitchenMinimalEnv-v0',render_mode="rgb_array", width=2560, height=1920)
+    env = gym.make(
+        "KitchenMinimalEnv-v0", render_mode="rgb_array", width=2560, height=1920
+    )
     action = env.action_space.sample()
     return action
 
@@ -50,7 +54,9 @@ def manuel_control(save_path: str = None):
         id="KitchenMinimalEnv-v0",
         entry_point="env:KitchenMinimalEnv",
     )
-    env = gym.make('KitchenMinimalEnv-v0',render_mode="rgb_array", width=2560, height=1920)
+    env = gym.make(
+        "KitchenMinimalEnv-v0", render_mode="rgb_array", width=2560, height=1920
+    )
     obs, info = env.reset()
 
     import matplotlib.pyplot as plt
@@ -59,12 +65,18 @@ def manuel_control(save_path: str = None):
     action = np.zeros(nu, dtype=float)
 
     key_map = {
-        'q': (0, 1.0), 'a': (0, -1.0),
-        'w': (1, 1.0), 's': (1, -1.0),
-        'e': (2, 1.0), 'd': (2, -1.0),
-        'r': (3, 1.0), 'f': (3, -1.0),
-        't': (4, 1.0), 'g': (4, -1.0),
-        'y': (5, 1.0), 'h': (5, -1.0)
+        "q": (0, 1.0),
+        "a": (0, -1.0),
+        "w": (1, 1.0),
+        "s": (1, -1.0),
+        "e": (2, 1.0),
+        "d": (2, -1.0),
+        "r": (3, 1.0),
+        "f": (3, -1.0),
+        "t": (4, 1.0),
+        "g": (4, -1.0),
+        "y": (5, 1.0),
+        "h": (5, -1.0),
     }
 
     fig, ax = plt.subplots()
@@ -85,8 +97,8 @@ def manuel_control(save_path: str = None):
             if idx < action.shape[0]:
                 action[idx] = 0.0
 
-    fig.canvas.mpl_connect('key_press_event', on_key)
-    fig.canvas.mpl_connect('key_release_event', on_key_release)
+    fig.canvas.mpl_connect("key_press_event", on_key)
+    fig.canvas.mpl_connect("key_release_event", on_key_release)
 
     running = True
     while plt.fignum_exists(fig.number):
@@ -104,7 +116,9 @@ def collect_handcrafted_episode(save_path: str, steps: int = 500):
         id="KitchenMinimalEnv-v0",
         entry_point="env:KitchenMinimalEnv",
     )
-    env = gym.make('KitchenMinimalEnv-v0',render_mode="rgb_array", width=2560, height=1920)
+    env = gym.make(
+        "KitchenMinimalEnv-v0", render_mode="rgb_array", width=2560, height=1920
+    )
     actual_env = env.env.env
     obs, info = env.reset()
     nu = actual_env.nu
@@ -132,7 +146,9 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", choices=["random", "policy", "manual"], default="random")
+    parser.add_argument(
+        "--mode", choices=["random", "policy", "manual"], default="random"
+    )
     parser.add_argument("--out", default="tmp/kitchen_run.mp4")
     parser.add_argument("--steps", type=int, default=200)
     args = parser.parse_args()

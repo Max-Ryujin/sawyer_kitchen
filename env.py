@@ -10,6 +10,7 @@ Notes:
 - Update MODEL_XML_PATH to point to the kitchen xml.
 - Customize _get_observation() and _compute_reward() for your task.
 """
+
 import os
 from typing import Optional, Tuple, Dict
 
@@ -18,7 +19,6 @@ import numpy as np
 from gymnasium import spaces
 import mujoco as mj
 from gymnasium.envs.mujoco.mujoco_env import MujocoEnv
-
 
 
 """
@@ -61,30 +61,68 @@ DEFAULT_CAMERA_CONFIG = {
     "lookat": np.array([-0.2, 0.5, 2.0]),
 }
 
-INIT_QPOS = np.array([ 1.48388023e-01, -1.76848573e+00,  1.84390296e+00, -2.47685760e+00,
-                            2.60252026e-01,  7.12533105e-01,  1.59515394e+00,  4.79267505e-02,
-                            3.71350919e-02, -2.66279850e-04, -5.18043486e-05,  3.12877220e-05,
-                            -4.51199853e-05, -3.90842156e-06, -4.22629655e-05,  6.28065475e-05,
-                            4.04984708e-05,  4.62730939e-04, -2.26906415e-04, -4.65501369e-04,
-                            -6.44129196e-03, -1.77048263e-03,  1.08009684e-03, -0.169,
-                            0,  1.61944683e+00,  1.00618764e+00,  4.06395120e-03,
-                            -6.62095997e-03, 0, -0.55, -0.55, 1.6, 1.0, 0.0, 0.0, 0.0
-                            ])
+INIT_QPOS = np.array(
+    [
+        1.48388023e-01,
+        -1.76848573e00,
+        1.84390296e00,
+        -2.47685760e00,
+        2.60252026e-01,
+        7.12533105e-01,
+        1.59515394e00,
+        4.79267505e-02,
+        3.71350919e-02,
+        -2.66279850e-04,
+        -5.18043486e-05,
+        3.12877220e-05,
+        -4.51199853e-05,
+        -3.90842156e-06,
+        -4.22629655e-05,
+        6.28065475e-05,
+        4.04984708e-05,
+        4.62730939e-04,
+        -2.26906415e-04,
+        -4.65501369e-04,
+        -6.44129196e-03,
+        -1.77048263e-03,
+        1.08009684e-03,
+        -0.169,
+        0,
+        1.61944683e00,
+        1.00618764e00,
+        4.06395120e-03,
+        -6.62095997e-03,
+        0,
+        -0.55,
+        -0.55,
+        1.6,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+    ]
+)
 
 
 class KitchenMinimalEnv(MujocoEnv):
     metadata = {"render_modes": ["rgb_array"], "render_fps": 12}
 
-    def __init__(self, model_path: str = MODEL_XML_PATH, render_mode: str = "rgb_array", **kwargs):
+    def __init__(
+        self,
+        model_path: str = MODEL_XML_PATH,
+        render_mode: str = "rgb_array",
+        randomise_cup_position: bool = False,
+        **kwargs,
+    ):
 
         # load model and data
         self.model = mj.MjModel.from_xml_path(model_path)
         self.data = mj.MjData(self.model)
 
         # Determine sizes
-        self.nq = self.model.nq     # number of generalized coordinates
-        self.nv = self.model.nv     # number of generalized velocities
-        self.nu = self.model.nu     # number of actuators (action dim)
+        self.nq = self.model.nq  # number of generalized coordinates
+        self.nv = self.model.nv  # number of generalized velocities
+        self.nu = self.model.nu  # number of actuators (action dim)
 
         # By default, we use continuous actions in [-1, 1] mapped to ctrl ranges
         self.action_space = gym.spaces.Box(
@@ -97,14 +135,20 @@ class KitchenMinimalEnv(MujocoEnv):
             low=-np.inf, high=np.inf, shape=(obs_dim,), dtype=np.float32
         )
 
-        super().__init__(model_path=model_path, frame_skip=40, observation_space=self.observation_space, default_camera_config=DEFAULT_CAMERA_CONFIG, render_mode=render_mode, **kwargs)
+        super().__init__(
+            model_path=model_path,
+            frame_skip=40,
+            observation_space=self.observation_space,
+            default_camera_config=DEFAULT_CAMERA_CONFIG,
+            render_mode=render_mode,
+            **kwargs,
+        )
 
         self.init_qpos = self.data.qpos
         self.init_qvel = self.data.qvel
 
         # initial qpos
-        self.init_qpos[:INIT_QPOS.shape[0]] = INIT_QPOS
-
+        self.init_qpos[: INIT_QPOS.shape[0]] = INIT_QPOS
 
         # Try to detect water particle geoms by type/rgba
         geom_type = np.asarray(self.model.geom_type).reshape(-1)
@@ -113,10 +157,9 @@ class KitchenMinimalEnv(MujocoEnv):
         sphere_type = mj.mjtGeom.mjGEOM_SPHERE
         target_rgba = np.array([0.2, 0.45, 0.95, 0.8])
 
-        mask = (geom_type == sphere_type)
+        mask = geom_type == sphere_type
         mask &= np.all(np.isclose(geom_rgba, target_rgba, atol=1e-3), axis=1)
         water_geom_ids = np.nonzero(mask)[0]
-
 
         self._water_geom_ids = water_geom_ids.astype(int)
         self.num_water_particles = int(self._water_geom_ids.size)
@@ -124,21 +167,24 @@ class KitchenMinimalEnv(MujocoEnv):
         print(f"Water particle geom IDs: {self._water_geom_ids}")
 
         # create array for the position of the water particles (will be filled at runtime)
-        self.water_particle_positions = np.zeros((self.num_water_particles, 3), dtype=np.float64)
+        self.water_particle_positions = np.zeros(
+            (self.num_water_particles, 3), dtype=np.float64
+        )
         self._update_water_particle_positions()
-
-
 
         self._render_context = None
         self._width = 1920
         self._height = 2560
 
-
         # Reset to initial state
         self.reset(seed=None)
 
     def reset(
-        self, *, seed: Optional[int] = None, options: Optional[dict] = None
+        self,
+        *,
+        seed: Optional[int] = None,
+        options: Optional[dict] = None,
+        randomise_cup_position: bool = False,
     ) -> Tuple[np.ndarray, Dict]:
         super().reset(seed=seed)
 
@@ -146,25 +192,67 @@ class KitchenMinimalEnv(MujocoEnv):
         if self.model.nv:
             self.data.qvel[:] = np.zeros(self.nv)
 
-        self.data.qpos[:INIT_QPOS.shape[0]] = INIT_QPOS
+        self.data.qpos[: INIT_QPOS.shape[0]] = INIT_QPOS
 
         mj.mj_forward(self.model, self.data)
 
-        # update water particle world positions now that we ran forward
-        self._update_water_particle_positions()
-
-        # give water particles some initial random velocity
+        #  give water particles some initial random velocity
         for j in range(self.model.njnt):
             name = mj.mj_id2name(self.model, mj.mjtObj.mjOBJ_JOINT, j)
             if "water_balls_freejoint" in name:
                 start = self.model.jnt_dofadr[j]
-                self.data.qvel[start:start+3] = np.random.uniform(-0.05, 0.05, 3)
+                self.data.qvel[start : start + 3] = np.random.uniform(-0.05, 0.05, 3)
 
+        if randomise_cup_position:
+            self.randomise_cup_position()
+        else:
+            # update water particle world positions now that we ran forward
+            self._update_water_particle_positions()
 
         obs = self._get_observation()
         info = {}
         return obs, info
-    
+
+    def randomise_cup_position(self):
+        # randomize cup position within some bounds on reset
+        cup1_id = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_BODY, "cup1")
+        if cup1_id == -1:
+            raise ValueError("Could not find body 'cup1' in the model.")
+        cup1_pos = self.data.body_xpos[cup1_id]
+        cup1_pos[0] += self.np_random.uniform(-0.1, 0.1)
+        cup1_pos[1] += self.np_random.uniform(-0.1, 0.1)
+        self.data.body_xpos[cup1_id] = cup1_pos
+        print(f"Randomized cup1 position to: {cup1_pos}")
+        # also randomize cup0 similarly
+        cup0_id = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_BODY, "cup0")
+        if cup0_id == -1:
+            raise ValueError("Could not find body 'cup0' in the model.")
+        cup0_pos = self.data.body_xpos[cup0_id]
+        cup0_pos[0] += self.np_random.uniform(-0.1, 0.1)
+        cup0_pos[1] += self.np_random.uniform(-0.1, 0.1)
+        self.data.body_xpos[cup0_id] = cup0_pos
+        print(f"Randomized cup0 position to: {cup0_pos}")
+
+        # place water above cup1
+
+        # get cup1 by name
+        cup1_id = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_BODY, "cup1")
+        if cup1_id == -1:
+            raise ValueError("Could not find body 'cup1' in the model.")
+        cup1_pos = self.data.body_xpos[cup1_id]
+        # place water particles above cup1
+        for i, gid in enumerate(self._water_geom_ids):
+            self.data.geom_xpos[int(gid), 0] = cup1_pos[0] + np.random.uniform(
+                -0.01, 0.01
+            )
+            self.data.geom_xpos[int(gid), 1] = cup1_pos[1] + np.random.uniform(
+                -0.01, 0.01
+            )
+            self.data.geom_xpos[int(gid), 2] = (
+                cup1_pos[2] + i * 0.15 + np.random.uniform(0.01, 0.03)
+            )
+
+        self._update_water_particle_positions()
 
     def reset_model(self):
         qpos = self.init_qpos
@@ -179,12 +267,16 @@ class KitchenMinimalEnv(MujocoEnv):
         action = np.asarray(action, dtype=np.float32).reshape(self.nu)
         action = np.clip(action, -1.0, 1.0)
 
-
-        if hasattr(self.model, "actuator_ctrlrange") and self.model.actuator_ctrlrange.size:
+        if (
+            hasattr(self.model, "actuator_ctrlrange")
+            and self.model.actuator_ctrlrange.size
+        ):
             # actuator_ctrlrange has shape (nu, 2)
             ctrl_range = np.array(self.model.actuator_ctrlrange).reshape(self.nu, 2)
             # map action from [-1,1] -> [min,max]
-            data_ctrl = ((action + 1.0) / 2.0) * (ctrl_range[:, 1] - ctrl_range[:, 0]) + ctrl_range[:, 0]
+            data_ctrl = ((action + 1.0) / 2.0) * (
+                ctrl_range[:, 1] - ctrl_range[:, 0]
+            ) + ctrl_range[:, 0]
         else:
             data_ctrl = action
 
@@ -196,7 +288,7 @@ class KitchenMinimalEnv(MujocoEnv):
 
         # update water particle world positions after stepping
         self._update_water_particle_positions()
-        #print(f"Water particle positions: {self.water_particle_positions}")
+        # print(f"Water particle positions: {self.water_particle_positions}")
 
         # Build observation
         obs = self._get_observation()
@@ -212,13 +304,13 @@ class KitchenMinimalEnv(MujocoEnv):
         qvel = np.array(self.data.qvel).reshape(-1)
         obs = np.concatenate([qpos, qvel]).astype(np.float32)
         return obs
-    
+
     def _get_obs(self):
         # Gather simulated observation
-        #TODO 
+        # TODO
         #  robot_qpos, robot_qvel = robot_get_obs(
         #     self.model, self.data, self.model_names.joint_names
-        #)
+        # )
         # Simulate observation noise
         # robot_qpos += (
         # self.robot_noise_ratio
@@ -244,7 +336,6 @@ class KitchenMinimalEnv(MujocoEnv):
 
     def _is_terminated(self, obs: np.ndarray) -> bool:
         return False
-
 
     def close(self):
         self._render_context = None
