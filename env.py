@@ -68,8 +68,7 @@ INIT_QPOS = np.array([ 1.48388023e-01, -1.76848573e+00,  1.84390296e+00, -2.4768
                             4.04984708e-05,  4.62730939e-04, -2.26906415e-04, -4.65501369e-04,
                             -6.44129196e-03, -1.77048263e-03,  1.08009684e-03, -0.169,
                             0,  1.61944683e+00,  1.00618764e+00,  4.06395120e-03,
-                            -6.62095997e-03, 0, -0.55, -0.55, 1.6, 1.0, 0.0, 0.0, 0.0,
-                             -0.55, -0.55, 1.7, 1.0, 0.0, 0.0, 0.0,
+                            -6.62095997e-03, 0, -0.55, -0.55, 1.6, 1.0, 0.0, 0.0, 0.0
                             ])
 
 
@@ -107,11 +106,9 @@ class KitchenMinimalEnv(MujocoEnv):
         self.init_qpos[:INIT_QPOS.shape[0]] = INIT_QPOS
 
 
-        # Try to detect water particle geoms by type/size/rgba
-
+        # Try to detect water particle geoms by type/rgba
         geom_type = np.asarray(self.model.geom_type).reshape(-1)
         ngeom = int(self.model.ngeom)
-        geom_size = np.asarray(self.model.geom_size).reshape(ngeom, -1)
         geom_rgba = np.asarray(self.model.geom_rgba).reshape(ngeom, 4)
         sphere_type = mj.mjtGeom.mjGEOM_SPHERE
         target_rgba = np.array([0.2, 0.45, 0.95, 0.8])
@@ -156,6 +153,14 @@ class KitchenMinimalEnv(MujocoEnv):
         # update water particle world positions now that we ran forward
         self._update_water_particle_positions()
 
+        # give water particles some initial random velocity
+        for j in range(self.model.njnt):
+            name = mj.mj_id2name(self.model, mj.mjtObj.mjOBJ_JOINT, j)
+            if "water_balls_freejoint" in name:
+                start = self.model.jnt_dofadr[j]
+                self.data.qvel[start:start+3] = np.random.uniform(-0.05, 0.05, 3)
+
+
         obs = self._get_observation()
         info = {}
         return obs, info
@@ -191,7 +196,7 @@ class KitchenMinimalEnv(MujocoEnv):
 
         # update water particle world positions after stepping
         self._update_water_particle_positions()
-        print(f"Water particle positions: {self.water_particle_positions}")
+        #print(f"Water particle positions: {self.water_particle_positions}")
 
         # Build observation
         obs = self._get_observation()

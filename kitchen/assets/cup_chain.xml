@@ -1,15 +1,22 @@
-
 <mujocoinclude>
     <body childclass="cup" name="cuproot">
 
-      <geom name="cup"
-      mesh="cup"
-      pos="0 0 0.051"
-      material="cmwhite"/>
-      <geom material="cmwhite" euler="1.571 0 0" mesh="handle" pos="0.0585 0 0.0705"/>
-      <geom class="cm_col" pos="0 0 0.0525" size="0.042 0.0495" type="cylinder" mass=".1"/>
-      <geom class="cm_col" euler="1.57 0 0" pos="0.051 0 0.063" size="0.03 0.0075" type="cylinder" mass=".01"/>
+        <!-- Cup mesh -->
+        <geom name="cup" mesh="cup" pos="0 0 0.051" material="cmwhite"/>
+        <geom material="cmwhite" euler="1.571 0 0" mesh="handle" pos="0.0585 0 0.0705"/>
 
-      <site name="cup_site" size="0.01" rgba="0 0 0 0"/>
+        <!-- Physical parameters -->
+        <inertial pos="0 0 0.055" mass="0.1" diaginertia="1e-06 1e-06 1e-06"/>
+
+        <!-- <geom class="cm_col" pos="0 0 0.0525" size="0.042 0.0495" type="cylinder" mass=".1"/>
+        <geom class="cm_col" euler="1.57 0 0" pos="0.051 0 0.063" size="0.03 0.0075" type="cylinder" mass=".01"/> -->
+
+        <!-- Collision walls -->
+        <geom type="box" class="cm_col" mass="0.01" size="0.001 0.04 0.06" rgba="0 1 0 0.4" pos="0.045 0 0.04"/>  <!-- right wall -->
+        <geom type="box" class="cm_col" mass="0.01" size="0.001 0.04 0.06" rgba="0 1 0 0.4" pos="-0.045 0 0.04"/> <!-- left wall -->
+        <geom type="box" class="cm_col" mass="0.01" size="0.04 0.001 0.06" rgba="0 1 0 0.4" pos="0 0.045 0.04"/>  <!-- front wall -->
+        <geom type="box" class="cm_col" mass="0.01" size="0.04 0.001 0.06" rgba="0 1 0 0.4" pos="0 -0.045 0.04"/> <!-- back wall -->
+        <geom type="box" class="cm_col" mass="0.01" size="0.04 0.04 0.007" rgba="0 1 0 0.4" pos="0 0 0"/>     <!-- bottom -->
+
     </body>
 </mujocoinclude>

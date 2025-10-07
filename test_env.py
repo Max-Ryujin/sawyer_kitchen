@@ -50,7 +50,7 @@ def manuel_control(save_path: str = None):
         id="KitchenMinimalEnv-v0",
         entry_point="env:KitchenMinimalEnv",
     )
-    env = gym.make('KitchenMinimalEnv-v0', render_mode="rgb_array", width=1280, height=720)
+    env = gym.make('KitchenMinimalEnv-v0',render_mode="rgb_array", width=2560, height=1920)
     obs, info = env.reset()
 
     import matplotlib.pyplot as plt
@@ -91,13 +91,7 @@ def manuel_control(save_path: str = None):
     running = True
     while plt.fignum_exists(fig.number):
         obs, reward, term, trunc, info = env.step(action)
-        frame = env.render()
-        if img is None:
-            img = ax.imshow(frame)
-            ax.axis('off')
-        else:
-            img.set_data(frame)
-        plt.pause(0.001)
+        print(action)
         if term:
             break
 
