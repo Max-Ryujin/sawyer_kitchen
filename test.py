@@ -8,33 +8,32 @@ import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 
+
 def test_environment():
     """Test the Sawyer Kitchen environment"""
-
-
 
     gym.register(
         id="KitchenMinimalEnv-v0",
         entry_point="env:KitchenMinimalEnv",
     )
-    env = gym.make('KitchenMinimalEnv-v0',render_mode="rgb_array", width=2560, height=1920)
+    env = gym.make(
+        "KitchenMinimalEnv-v0", render_mode="rgb_array", width=2560, height=1920
+    )
     print("Environment created successfully!")
-    
+
     print(f"Action space: {env.action_space}")
     print(f"Observation space: {env.observation_space}")
-    
+
     # Test reset
     print("Testing reset...")
-    obs, info = env.reset()
+    obs, info = env.reset(options={"randomise_cup_position": True})
     print(f"Initial observation shape: {obs.shape}")
-    
+
     img = [env.render()]
     plt.imsave(f"test.png", img[-1])
 
-    
-
-    
     return True
+
 
 if __name__ == "__main__":
     success = test_environment()

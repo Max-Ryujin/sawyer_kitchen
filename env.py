@@ -100,6 +100,13 @@ INIT_QPOS = np.array(
         0.0,
         0.0,
         0.0,
+        -0.9,
+        -0.9,
+        1.6,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
     ]
 )
 
@@ -188,9 +195,12 @@ class KitchenMinimalEnv(MujocoEnv):
         *,
         seed: Optional[int] = None,
         options: Optional[dict] = None,
-        randomise_cup_position: bool = False,
     ) -> Tuple[np.ndarray, Dict]:
         super().reset(seed=seed)
+
+        randomise_cup_position = (
+            options.get("randomise_cup_position", False) if options else False
+        )
 
         # Reset simulation state
         if self.model.nv:
@@ -205,7 +215,7 @@ class KitchenMinimalEnv(MujocoEnv):
             name = mj.mj_id2name(self.model, mj.mjtObj.mjOBJ_JOINT, j)
             if "water_balls_freejoint" in name:
                 start = self.model.jnt_dofadr[j]
-                self.data.qvel[start : start + 3] = np.random.uniform(-0.05, 0.05, 3)
+                self.data.qvel[start : start + 3] = np.random.uniform(-0.01, 0.01, 3)
 
         if randomise_cup_position:
             self.randomise_cup_position()
@@ -218,44 +228,56 @@ class KitchenMinimalEnv(MujocoEnv):
         return obs, info
 
     def randomise_cup_position(self):
-        # randomize cup position within some bounds on reset
-        cup1_id = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_BODY, "cup1")
-        if cup1_id == -1:
-            raise ValueError("Could not find body 'cup1' in the model.")
-        cup1_pos = self.data.body_xpos[cup1_id]
-        cup1_pos[0] += self.np_random.uniform(-0.1, 0.1)
-        cup1_pos[1] += self.np_random.uniform(-0.1, 0.1)
-        self.data.body_xpos[cup1_id] = cup1_pos
-        print(f"Randomized cup1 position to: {cup1_pos}")
-        # also randomize cup0 similarly
-        cup0_id = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_BODY, "cup0")
-        if cup0_id == -1:
-            raise ValueError("Could not find body 'cup0' in the model.")
-        cup0_pos = self.data.body_xpos[cup0_id]
-        cup0_pos[0] += self.np_random.uniform(-0.1, 0.1)
-        cup0_pos[1] += self.np_random.uniform(-0.1, 0.1)
-        self.data.body_xpos[cup0_id] = cup0_pos
-        print(f"Randomized cup0 position to: {cup0_pos}")
+        qpos = np.array(self.data.qpos).reshape(-1)
+        qvel = np.array(self.data.qvel).reshape(-1)
 
-        # place water above cup1
+        cup_joint_ids = []
+        for j in range(int(self.model.njnt)):
+            name = mj.mj_id2name(self.model, mj.mjtObj.mjOBJ_JOINT, j)
+            if name and "cup_freejoint" in name:
+                cup_joint_ids.append(int(j))
 
-        # get cup1 by name
-        cup1_id = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_BODY, "cup1")
-        if cup1_id == -1:
-            raise ValueError("Could not find body 'cup1' in the model.")
-        cup1_pos = self.data.body_xpos[cup1_id]
-        # place water particles above cup1
-        for i, gid in enumerate(self._water_geom_ids):
-            self.data.geom_xpos[int(gid), 0] = cup1_pos[0] + np.random.uniform(
-                -0.01, 0.01
-            )
-            self.data.geom_xpos[int(gid), 1] = cup1_pos[1] + np.random.uniform(
-                -0.01, 0.01
-            )
-            self.data.geom_xpos[int(gid), 2] = (
-                cup1_pos[2] + i * 0.15 + np.random.uniform(0.01, 0.03)
-            )
+        # Randomize cup positions
+        for jid in cup_joint_ids:
+            qpos_addr = int(self.model.jnt_qposadr[jid])
+            pos = np.copy(qpos[qpos_addr : qpos_addr + 3])
+            pos[0] += self.np_random.uniform(-0.1, 0.1)
+            pos[1] += self.np_random.uniform(-0.1, 0.1)
+            qpos[qpos_addr : qpos_addr + 3] = pos
 
+        # Apply full state so MuJoCo updates positions
+        self.set_state(qpos, qvel)
+
+        cup_jid_for_water = cup_joint_ids[1]
+        cup_qpos_addr = int(self.model.jnt_qposadr[cup_jid_for_water])
+        cup_pos = np.copy(self.data.qpos[cup_qpos_addr : cup_qpos_addr + 3])
+
+        water_joint_ids = []
+        for j in range(int(self.model.njnt)):
+            name = mj.mj_id2name(self.model, mj.mjtObj.mjOBJ_JOINT, j)
+            if name and "water_balls_freejoint" in name:
+                water_joint_ids.append(int(j))
+
+        for i, jid in enumerate(water_joint_ids):
+            qpos_addr = int(self.model.jnt_qposadr[jid])
+            x = cup_pos[0] + self.np_random.uniform(-0.01, 0.01)
+            y = cup_pos[1] + self.np_random.uniform(-0.01, 0.01)
+            z = cup_pos[2] + i * 0.05 + self.np_random.uniform(0.01, 0.02)
+
+            qpos[qpos_addr : qpos_addr + 3] = np.array([x, y, z])
+
+            if qpos_addr + 7 <= qpos.shape[0]:
+                qpos[qpos_addr + 3 : qpos_addr + 7] = np.array([1.0, 0.0, 0.0, 0.0])
+
+            if jid < int(self.model.njnt):
+                vel_addr = int(self.model.jnt_dofadr[jid])
+                # freejoint has 6 dofs (3 lin, 3 ang)
+                qvel[vel_addr : vel_addr + 6] = 0.0
+
+        # Apply state and forward simulate so data.geom_xpos update
+        self.set_state(qpos, qvel)
+        mj.mj_forward(self.model, self.data)
+        # update tracked water particle world positions now
         self._update_water_particle_positions()
 
     def reset_model(self):

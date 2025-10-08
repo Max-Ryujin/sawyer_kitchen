@@ -13,7 +13,7 @@ def random_action_test(save_path: str, steps: int = 250):
     env = gym.make(
         "KitchenMinimalEnv-v0", render_mode="rgb_array", width=2560, height=1920
     )
-    obs, info = env.reset()
+    obs, info = env.reset(options={"randomise_cup_position": True})
 
     frames = []
     for t in range(steps):

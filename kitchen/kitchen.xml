@@ -49,7 +49,7 @@
             <include file="../kitchen/assets/kettle_chain.xml"/>
         </body>
         <replicate count="2" offset="-0.35 -0.35 0">
-            <body name="cup" pos="-0.55 -0.55 1.6">
+            <body name="cup">
                 <freejoint name="cup_freejoint"/>
                 <include file="../kitchen/assets/cup_chain.xml"/>
             </body>
