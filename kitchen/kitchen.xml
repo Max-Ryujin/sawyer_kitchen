@@ -6,7 +6,7 @@
     <include file="../kitchen/assets/sawyer_assets/sawyer_dependencies.xml"/>
     <include file="../kitchen/assets/sawyer_assets/sawyer_joint_pos_act.xml"/>
     <include file="../kitchen/assets/sawyer_assets/gripper_pos_act.xml"/>
-    <include file="../kitchen/assets/sawyer_assets/sawyer_mocap_ee_act.xml"/>
+    <!--<include file="../kitchen/assets/sawyer_assets/sawyer_mocap_ee_act.xml"/>-->
     <include file='../scenes/basic_scene.xml'/>
     <include file="../kitchen/assets/oven_asset.xml"/>
     <include file="../kitchen/assets/counters_asset.xml"/>

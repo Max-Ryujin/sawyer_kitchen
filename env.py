@@ -131,6 +131,17 @@ class KitchenMinimalEnv(MujocoEnv):
         self.nv = self.model.nv  # number of generalized velocities
         self.nu = self.model.nu  # number of actuators (action dim)
 
+        # Get actuator control ranges for proper scaling
+        if (
+            hasattr(self.model, "actuator_ctrlrange")
+            and self.model.actuator_ctrlrange.size
+        ):
+            self.ctrl_range = np.array(self.model.actuator_ctrlrange).reshape(
+                self.nu, 2
+            )
+        else:
+            self.ctrl_range = np.tile(np.array([-1.0, 1.0]), (self.nu, 1))
+
         # By default, we use continuous actions in [-1, 1] mapped to ctrl ranges
         self.action_space = gym.spaces.Box(
             low=-1.0, high=1.0, shape=(self.nu,), dtype=np.float32
@@ -215,7 +226,8 @@ class KitchenMinimalEnv(MujocoEnv):
             name = mj.mj_id2name(self.model, mj.mjtObj.mjOBJ_JOINT, j)
             if "water_balls_freejoint" in name:
                 start = self.model.jnt_dofadr[j]
-                self.data.qvel[start : start + 3] = np.random.uniform(-0.01, 0.01, 3)
+                self.data.qvel[start : start + 2] = np.random.uniform(-0.01, 0.01, 2)
+                self.data.qvel[start + 2] = np.random.uniform(-0.1, -0.15)
 
         if randomise_cup_position:
             self.randomise_cup_position()
@@ -273,6 +285,8 @@ class KitchenMinimalEnv(MujocoEnv):
                 vel_addr = int(self.model.jnt_dofadr[jid])
                 # freejoint has 6 dofs (3 lin, 3 ang)
                 qvel[vel_addr : vel_addr + 6] = 0.0
+                # give some initial downward velocity
+                qvel[vel_addr + 2] = self.np_random.uniform(-0.1, -0.15)
 
         # Apply state and forward simulate so data.geom_xpos update
         self.set_state(qpos, qvel)
@@ -363,30 +377,15 @@ class KitchenMinimalEnv(MujocoEnv):
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, bool, Dict]:
         # Clip action and map into data.ctrl. The interpretation of ctrl depends on the actuator.
         action = np.asarray(action, dtype=np.float32).reshape(self.nu)
-        action = np.clip(action, -1.0, 1.0)
-
-        if (
-            hasattr(self.model, "actuator_ctrlrange")
-            and self.model.actuator_ctrlrange.size
-        ):
-            # actuator_ctrlrange has shape (nu, 2)
-            ctrl_range = np.array(self.model.actuator_ctrlrange).reshape(self.nu, 2)
-            # map action from [-1,1] -> [min,max]
-            data_ctrl = ((action + 1.0) / 2.0) * (
-                ctrl_range[:, 1] - ctrl_range[:, 0]
-            ) + ctrl_range[:, 0]
-        else:
-            data_ctrl = action
 
         # set controls
-        self.data.ctrl[: self.nu] = data_ctrl
+        self.data.ctrl[: self.nu] = action
 
         # Step the physics forward.
         mj.mj_step(self.model, self.data)
 
         # update water particle world positions after stepping
         self._update_water_particle_positions()
-        # print(f"Water particle positions: {self.water_particle_positions}")
 
         # Build observation
         obs = self._get_observation()
