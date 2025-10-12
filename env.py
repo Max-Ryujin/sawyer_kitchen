@@ -55,11 +55,18 @@ joint cup_freejoint        | FREE      | qpos[30:37] (x,y,z,quat wxyz), qvel[29:
 MODEL_XML_PATH = os.path.join(os.path.dirname(__file__), "kitchen", "kitchen.xml")
 
 DEFAULT_CAMERA_CONFIG = {
-    "distance": 4.6,
-    "azimuth": 70.0,
+    "distance": 1.6,
+    "azimuth": 180.0,
     "elevation": -35.0,
-    "lookat": np.array([-0.2, 0.5, 2.0]),
+    "lookat": np.array([-0.65, -0.65, 1.75]),
 }
+
+# DEFAULT_CAMERA_CONFIG = {
+#     "distance": 4.6,
+#     "azimuth": 70.0,
+#     "elevation": -35.0,
+#     "lookat": np.array([-0.2, 0.5, 2.0]),
+# }
 
 INIT_QPOS = np.array(
     [

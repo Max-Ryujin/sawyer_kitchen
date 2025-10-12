@@ -46,7 +46,7 @@ def get_object_pos(env, name_candidates=("cup_freejoint1", "cup1")) -> np.ndarra
     raise ValueError(f"No object found with names {name_candidates}")
 
 
-def make_gripper_action(env, close=True, close_val=1.0, open_val=-1.0) -> np.ndarray:
+def make_gripper_action(env, close=True, close_val=-1.0, open_val=0.015) -> np.ndarray:
     """Return array setting gripper actuator commands."""
     nu = int(env.unwrapped.nu)
     a = np.zeros(nu, dtype=np.float32)
@@ -167,13 +167,6 @@ def ik_step(
     rot_weight: float = 1.0,
     reg_strength: float = 3e-2,
 ) -> np.ndarray:
-    """
-    Compute a single-step joint delta (dq) that moves the end-effector slightly toward target_pos.
-
-    This function performs only one Jacobian-based update and should be called
-    at every simulation step to iteratively move the EE toward the target.
-    """
-
     site_id = mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, site_name)
     if site_id == -1:
         raise ValueError(f"Site {site_name} not found in model")
@@ -197,7 +190,7 @@ def ik_step(
     # Optional orientation error
     if target_quat is not None:
         site_quat = np.empty(4)
-        mj.mju_mat2Quat(site_quat, site_xmat)
+        mj.mju_mat2Quat(site_quat, site_xmat.reshape(9))
         diff_quat = np.empty(4)
         mj.mju_negQuat(diff_quat, site_quat)
         mj.mju_mulQuat(diff_quat, target_quat, diff_quat)
@@ -208,11 +201,6 @@ def ik_step(
     mj.mj_jacSite(model, data, jacp, jacr, site_id)
     jac = np.vstack([jacp, jacr]) if target_quat is not None else jacp
 
-    max_step = 1.5  # maximum multiplier
-    min_step = 0.1  # never go below this
-    # e.g., step grows with error (linear) but clips
-    step_size_adaptive = np.clip(0.5 + 4.0 * err_norm, min_step, max_step)
-
     dq = nullspace_method(jac, err[: jac.shape[0]], reg_strength)
-    dq *= step_size_adaptive
+    dq *= 2
     return dq[:7]

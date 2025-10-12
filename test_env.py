@@ -108,9 +108,15 @@ def test_policy(env, obs) -> np.ndarray:
         cup_pos = utils.get_object_pos(env, ("cup_freejoint1", "cup1"))
         target_pos = cup_pos + np.array([0.0, 0.0, 0.2])
 
+        target_quat = [0.707, 0.0, 0.0, 0.707]
+
         # Solve IK for the target position
         delta_q = utils.ik_step(
-            model, data, site_name="grip_site", target_pos=target_pos
+            model,
+            data,
+            site_name="grip_site",
+            target_pos=target_pos,
+            target_quat=target_quat,
         )
 
         # Default to last valid qpos if IK fails
@@ -119,14 +125,8 @@ def test_policy(env, obs) -> np.ndarray:
         # add two values for gripper control (use -1)
         action = np.pad(q_target, (0, env.unwrapped.nu - 7))
 
-        action += utils.make_gripper_action(env, close=False)
-
-        print("Target pos:", target_pos)
-        print("Current pos:", utils.get_effector_pos(env))
-        print(
-            "Position error:", np.linalg.norm(target_pos - utils.get_effector_pos(env))
-        )
-        if np.linalg.norm(target_pos - utils.get_effector_pos(env)) < 0.01:
+        action += utils.make_gripper_action(env, close=True)
+        if np.linalg.norm(target_pos - utils.get_effector_pos(env)) < 0.04:
             env._automaton_state = "move_down"
             print("Switching to move_down state")
         return action[:9]
@@ -148,6 +148,8 @@ def test_policy(env, obs) -> np.ndarray:
             env._automaton_state = "close_gripper"
             print("Switching to close_gripper state")
         return action[:9]
+    elif env._automaton_state == "close_gripper":
+        action = utils.make_gripper_action(env, close=True)
 
 
 def collect_policy_episode(save_path="tmp/policy.mp4", steps=800):
@@ -167,7 +169,7 @@ def collect_policy_episode(save_path="tmp/policy.mp4", steps=800):
 
     env.close()
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
-    imageio.mimwrite(save_path, frames, fps=env.metadata.get("render_fps", 24))
+    imageio.mimwrite(save_path, frames, fps=env.metadata.get("render_fps", 12))
     print(f"Saved test-policy video to {save_path}")
 
 
