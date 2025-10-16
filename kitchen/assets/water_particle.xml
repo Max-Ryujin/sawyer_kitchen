@@ -3,7 +3,7 @@
     <inertial pos="0 0 0" mass="0.01" diaginertia="1e-07 1e-07 1e-07"/>
     <geom name="water_particle_geom"
           type="sphere"
-          size="0.01"
+          size="0.005"
           rgba="0.2 0.45 0.95 0.8"
           pos="0 0 0"
           mass="0.02"

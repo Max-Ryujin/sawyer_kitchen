@@ -20,7 +20,7 @@
     <worldbody>
 
             <!-- Sawyer Robot -->
-        <body pos='0. -1.1 0.7' euler='0 0 1.57'>
+        <body pos='-0.05 -1.1 0.7' euler='0 0 1.57'>
             <geom type='cylinder' size='.120 .90' pos='-.04 0 -0.90'/>
             <include file="assets/sawyer_assets/sawyer_chain.xml"/>
         </body>
@@ -52,6 +52,8 @@
         <replicate count="2" offset="-0.35 -0.35 0">
             <body name="cup">
                 <freejoint name="cup_freejoint"/>
+                <site name="cup_center_site" pos="0 0 0.005" size="0.01" rgba="1 0 0 1"/>
+
                 <include file="../kitchen/assets/cup_chain.xml"/>
             </body>
         </replicate>
