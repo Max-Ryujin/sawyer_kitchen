@@ -51,34 +51,17 @@ joint cup_freejoint        | FREE      | qpos[30:37] (x,y,z,quat wxyz), qvel[29:
 === END OVERVIEW ===
 """
 
-
-MODEL_XML_PATH = os.path.join(os.path.dirname(__file__), "kitchen", "kitchen.xml")
-
-DEFAULT_CAMERA_CONFIG = {
-    "distance": 1.6,
-    "azimuth": 180.0,
-    "elevation": -35.0,
-    "lookat": np.array([-0.65, -0.65, 1.75]),
-}
-
-# DEFAULT_CAMERA_CONFIG = {
-#     "distance": 4.6,
-#     "azimuth": 70.0,
-#     "elevation": -35.0,
-#     "lookat": np.array([-0.2, 0.5, 2.0]),
-# }
-
 INIT_QPOS = np.array(
     [
-        1.48388023e-01,
+        0.0,
         -1.76848573e00,
         1.84390296e00,
         -2.47685760e00,
         2.60252026e-01,
         7.12533105e-01,
         1.59515394e00,
-        4.79267505e-02,
-        3.71350919e-02,
+        0.05,
+        0.05,
         -2.66279850e-04,
         -5.18043486e-05,
         3.12877220e-05,
@@ -116,6 +99,23 @@ INIT_QPOS = np.array(
         0.0,
     ]
 )
+
+
+MODEL_XML_PATH = os.path.join(os.path.dirname(__file__), "kitchen", "kitchen.xml")
+
+DEFAULT_CAMERA_CONFIG = {
+    "distance": 1.1,
+    "azimuth": 180.0,
+    "elevation": -60.0,
+    "lookat": np.array([-0.65, -0.65, 1.75]),
+}
+
+# DEFAULT_CAMERA_CONFIG = {
+#     "distance": 4.6,
+#     "azimuth": 70.0,
+#     "elevation": -35.0,
+#     "lookat": np.array([-0.2, 0.5, 2.0]),
+# }
 
 
 class KitchenMinimalEnv(MujocoEnv):
@@ -173,7 +173,7 @@ class KitchenMinimalEnv(MujocoEnv):
         self.init_qvel = self.data.qvel
 
         # initial qpos
-        self.init_qpos[: INIT_QPOS.shape[0]] = INIT_QPOS
+        self.init_qpos[: INIT_QPOS.shape[0]] = self.get_random_robot_qpos()
 
         # Try to detect water particle geoms by type/rgba
         geom_type = np.asarray(self.model.geom_type).reshape(-1)
@@ -188,8 +188,6 @@ class KitchenMinimalEnv(MujocoEnv):
 
         self._water_geom_ids = water_geom_ids.astype(int)
         self.num_water_particles = int(self._water_geom_ids.size)
-        print(f"Number of water particles in the model: {self.num_water_particles}")
-        print(f"Water particle geom IDs: {self._water_geom_ids}")
 
         # create array for the position of the water particles (will be filled at runtime)
         self.water_particle_positions = np.zeros(
@@ -208,6 +206,58 @@ class KitchenMinimalEnv(MujocoEnv):
         # Reset to initial state
         self.reset(seed=None)
 
+    def get_random_robot_qpos(self):
+        """Sample a random robot qpos within joint limits."""
+        INIT_QPOS = np.array(
+            [
+                1,  # np.random.uniform(0, 1.45),
+                -0.5,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                -2.66279850e-04,
+                -5.18043486e-05,
+                3.12877220e-05,
+                -4.51199853e-05,
+                -3.90842156e-06,
+                -4.22629655e-05,
+                6.28065475e-05,
+                4.04984708e-05,
+                4.62730939e-04,
+                -2.26906415e-04,
+                -4.65501369e-04,
+                -6.44129196e-03,
+                -1.77048263e-03,
+                1.08009684e-03,
+                -0.169,
+                0,
+                1.61944683e00,
+                1.00618764e00,
+                4.06395120e-03,
+                -6.62095997e-03,
+                0,
+                -0.55,
+                -0.55,
+                1.6,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                -0.9,
+                -0.9,
+                1.6,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+            ]
+        )
+        return INIT_QPOS
+
     def reset(
         self,
         *,
@@ -224,9 +274,10 @@ class KitchenMinimalEnv(MujocoEnv):
         if self.model.nv:
             self.data.qvel[:] = np.zeros(self.nv)
 
-        self.data.qpos[: INIT_QPOS.shape[0]] = INIT_QPOS
+        self.data.qpos[: INIT_QPOS.shape[0]] = self.get_random_robot_qpos()
+        self.set_state(self.data.qpos, self.data.qvel)
 
-        mj.mj_forward(self.model, self.data)
+        # mj.mj_forward(self.model, self.data)
 
         #  give water particles some initial random velocity
         for j in range(self.model.njnt):
@@ -293,7 +344,7 @@ class KitchenMinimalEnv(MujocoEnv):
                 # freejoint has 6 dofs (3 lin, 3 ang)
                 qvel[vel_addr : vel_addr + 6] = 0.0
                 # give some initial downward velocity
-                qvel[vel_addr + 2] = self.np_random.uniform(-0.1, -0.15)
+                qvel[vel_addr + 2] = self.np_random.uniform(-0.15, -0.2)
 
         # Apply state and forward simulate so data.geom_xpos update
         self.set_state(qpos, qvel)
@@ -382,7 +433,6 @@ class KitchenMinimalEnv(MujocoEnv):
         return True
 
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, bool, Dict]:
-        # Clip action and map into data.ctrl. The interpretation of ctrl depends on the actuator.
         action = np.asarray(action, dtype=np.float32).reshape(self.nu)
 
         # set controls

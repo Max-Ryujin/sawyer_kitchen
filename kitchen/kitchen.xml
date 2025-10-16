@@ -56,7 +56,7 @@
             </body>
         </replicate>
 
-        <replicate count="10" offset="0 0 0.03">
+        <replicate count="10" offset="0 0 0.025">
             <body name="water_balls" pos="-0.9 -0.9 1.69">
                 <freejoint name="water_balls_freejoint"/>
                 <include file="../kitchen/assets/water_particle.xml"/>

@@ -37,68 +37,6 @@ def random_action_test(save_path: str, steps: int = 250):
         print("No frames collected.")
 
 
-def manual_control(save_path: str = None):
-    gym.register(
-        id="KitchenMinimalEnv-v0",
-        entry_point="env:KitchenMinimalEnv",
-    )
-    env = gym.make(
-        "KitchenMinimalEnv-v0", render_mode="rgb_array", width=2560, height=1920
-    )
-    obs, info = env.reset()
-
-    import matplotlib.pyplot as plt
-
-    nu = env.unwrapped.nu
-    action = np.zeros(nu, dtype=float)
-
-    key_map = {
-        "q": (0, 1.0),
-        "a": (0, -1.0),
-        "w": (1, 1.0),
-        "s": (1, -1.0),
-        "e": (2, 1.0),
-        "d": (2, -1.0),
-        "r": (3, 1.0),
-        "f": (3, -1.0),
-        "t": (4, 1.0),
-        "g": (4, -1.0),
-        "y": (5, 1.0),
-        "h": (5, -1.0),
-    }
-
-    fig, ax = plt.subplots()
-    plt.ion()
-    img = None
-
-    def on_key(event):
-        k = event.key
-        if k in key_map:
-            idx, val = key_map[k]
-            if idx < action.shape[0]:
-                action[idx] = val
-
-    def on_key_release(event):
-        k = event.key
-        if k in key_map:
-            idx, val = key_map[k]
-            if idx < action.shape[0]:
-                action[idx] = 0.0
-
-    fig.canvas.mpl_connect("key_press_event", on_key)
-    fig.canvas.mpl_connect("key_release_event", on_key_release)
-
-    running = True
-    while plt.fignum_exists(fig.number):
-        obs, reward, term, trunc, info = env.step(action)
-        print(action)
-        if term:
-            break
-
-    env.close()
-    plt.close(fig)
-
-
 def test_policy(env, obs) -> np.ndarray:
     import utils
 
@@ -106,9 +44,9 @@ def test_policy(env, obs) -> np.ndarray:
 
     if env._automaton_state == "move_above":
         cup_pos = utils.get_object_pos(env, ("cup_freejoint1", "cup1"))
-        target_pos = cup_pos + np.array([0.0, 0.0, 0.2])
+        target_pos = cup_pos + np.array([0.0, 0.0, 0.3])
 
-        target_quat = [0.707, 0.0, 0.0, 0.707]
+        target_quat = [0.69636424, -0.12278780, 0.12278780, 0.69636424]
 
         # Solve IK for the target position
         delta_q = utils.ik_step(
@@ -120,23 +58,33 @@ def test_policy(env, obs) -> np.ndarray:
         )
 
         # Default to last valid qpos if IK fails
-        q_target = data.qpos[:7] + delta_q
+        q_target = data.qpos[:7] + 2 * delta_q
 
-        # add two values for gripper control (use -1)
         action = np.pad(q_target, (0, env.unwrapped.nu - 7))
+        action += utils.make_gripper_action(env, close=False, open_val=-1, close_val=1)
 
-        action += utils.make_gripper_action(env, close=True)
-        if np.linalg.norm(target_pos - utils.get_effector_pos(env)) < 0.04:
+        ee_pos = utils.get_effector_pos(env)
+
+        xy_dist = np.linalg.norm(target_pos[:2] - ee_pos[:2])
+
+        # Transition condition: good xy position and stable (slow movement)
+        if (
+            xy_dist < 0.005
+            and np.linalg.norm(
+                data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
+            )
+            < 0.000003
+        ):
             env._automaton_state = "move_down"
             print("Switching to move_down state")
         return action[:9]
     elif env._automaton_state == "move_down":
         cup_pos = utils.get_object_pos(env, ("cup_freejoint1", "cup1"))
-        target_pos = cup_pos + np.array([0.0, 0.0, -0.2])
+        target_pos = cup_pos
 
         # Solve IK for the target position
         delta_q = utils.ik_step(
-            model, data, site_name="grip_site", target_pos=target_pos
+            model, data, site_name="grip_site", target_pos=target_pos, reg_strength=1e-2
         )
 
         # Default to last valid qpos if IK fails
@@ -144,12 +92,24 @@ def test_policy(env, obs) -> np.ndarray:
 
         # add two values for gripper control
         action = np.pad(q_target, (0, env.unwrapped.nu - 7))
+        action += utils.make_gripper_action(env, close=False, open_val=-1, close_val=1)
         if np.linalg.norm(target_pos - utils.get_effector_pos(env)) < 0.01:
             env._automaton_state = "close_gripper"
             print("Switching to close_gripper state")
         return action[:9]
     elif env._automaton_state == "close_gripper":
+        # get gripper qpos
+        gripper_qpos = data.qpos[7:9]
         action = utils.make_gripper_action(env, close=True)
+        if gripper_qpos == env._gripper_pos:
+            env._automaton_state = "lift_up"
+            print("Switching to lift_up state")
+        else:
+            env._gripper_pos = gripper_qpos
+        return action[:9]
+    elif env._automaton_state == "lift_up":
+        # TODO
+        return
 
 
 def collect_policy_episode(save_path="tmp/policy.mp4", steps=800):
@@ -181,7 +141,7 @@ if __name__ == "__main__":
         "--mode", choices=["random", "policy", "manual"], default="random"
     )
     parser.add_argument("--out", default="tmp/kitchen_run.mp4")
-    parser.add_argument("--steps", type=int, default=1000)
+    parser.add_argument("--steps", type=int, default=1500)
     args = parser.parse_args()
 
     if args.mode == "random":

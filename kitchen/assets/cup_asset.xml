@@ -2,8 +2,8 @@
     <compiler inertiafromgeom="auto" inertiagrouprange="4 4" angle="radian"/>
 
     <asset>
-        <mesh file="../meshes/cup.stl" name="cup" scale="1.5 1.5 1.5"/>
-        <mesh file="../meshes/handle.stl" name="handle" scale="1.5 1.5 1.5"/>
+        <mesh file="../meshes/cup.stl" name="cup" scale="1 1 1"/>
+        <mesh file="../meshes/handle.stl" name="handle" scale="1 1 1"/>
 
         <material name="cmwhite" rgba=".9 .9 .9 1" reflectance="1" shininess="1" />
     </asset>

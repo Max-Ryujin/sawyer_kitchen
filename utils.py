@@ -46,7 +46,7 @@ def get_object_pos(env, name_candidates=("cup_freejoint1", "cup1")) -> np.ndarra
     raise ValueError(f"No object found with names {name_candidates}")
 
 
-def make_gripper_action(env, close=True, close_val=-1.0, open_val=0.015) -> np.ndarray:
+def make_gripper_action(env, close=True, close_val=0.0, open_val=0.015) -> np.ndarray:
     """Return array setting gripper actuator commands."""
     nu = int(env.unwrapped.nu)
     a = np.zeros(nu, dtype=np.float32)
@@ -163,9 +163,8 @@ def ik_step(
     site_name: str,
     target_pos: np.ndarray,
     target_quat: Optional[np.ndarray] = None,
-    step_size: float = 1.0,
     rot_weight: float = 1.0,
-    reg_strength: float = 3e-2,
+    reg_strength: float = 3e-3,
 ) -> np.ndarray:
     site_id = mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, site_name)
     if site_id == -1:
@@ -177,7 +176,7 @@ def ik_step(
     err = np.zeros(6 if target_quat is not None else 3)
 
     # Forward kinematics
-    mj.mj_fwdPosition(model, data)
+    # mj.mj_fwdPosition(model, data)
 
     # Compute current site position/orientation
     site_xpos = data.site_xpos[site_id].copy()
@@ -202,5 +201,4 @@ def ik_step(
     jac = np.vstack([jacp, jacr]) if target_quat is not None else jacp
 
     dq = nullspace_method(jac, err[: jac.shape[0]], reg_strength)
-    dq *= 2
     return dq[:7]

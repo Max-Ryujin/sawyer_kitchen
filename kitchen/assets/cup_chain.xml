@@ -12,10 +12,10 @@
         <geom class="cm_col" euler="1.57 0 0" pos="0.051 0 0.063" size="0.03 0.0075" type="cylinder" mass=".01"/> -->
 
         <!-- Collision walls -->
-        <geom type="box" name="right_wall_cup" group="1" class="cm_col" mass="0.01" size="0.002 0.038 0.055" rgba="0 1 0 0.4" pos="0.039 0 0.041"/>  <!-- right wall -->
-        <geom type="box" name="left_wall_cup" group="1" class="cm_col" mass="0.01" size="0.002 0.038 0.055" rgba="0 1 0 0.4" pos="-0.039 0 0.041"/> <!-- left wall -->
-        <geom type="box" name="front_wall_cup" group="1" class="cm_col" mass="0.01" size="0.038 0.002 0.055" rgba="0 1 0 0.4" pos="0 0.039 0.041"/>  <!-- front wall -->
-        <geom type="box" name="back_wall_cup" group="1" class="cm_col" mass="0.01" size="0.038 0.002 0.055" rgba="0 1 0 0.4" pos="0 -0.039 0.041"/> <!-- back wall -->
-        <geom type="box" name="bottom_cup" group="1" class="cm_col" mass="0.01" size="0.038 0.038 0.006" rgba="0 1 0 0.4" pos="0 0 0"/>     <!-- bottom -->
-    </body>34
+        <geom type="box" name="right_wall_cup" group="1" class="cm_col" mass="0.01" size="0.002 0.026 0.03" rgba="0 1 0 0.4" pos="0.0235 0 0.046"/>  <!-- right wall -->
+        <geom type="box" name="left_wall_cup" group="1" class="cm_col" mass="0.01" size="0.002 0.026 0.03" rgba="0 1 0 0.4" pos="-0.0235 0 0.046"/> <!-- left wall -->
+        <geom type="box" name="front_wall_cup" group="1" class="cm_col" mass="0.01" size="0.026 0.002 0.03" rgba="0 1 0 0.4" pos="0 0.0235 0.046"/>  <!-- front wall -->
+        <geom type="box" name="back_wall_cup" group="1" class="cm_col" mass="0.01" size="0.026 0.002 0.03" rgba="0 1 0 0.4" pos="0 -0.0235 0.046"/> <!-- back wall -->
+        <geom type="box" name="bottom_cup" group="1" class="cm_col" mass="0.01" size="0.024 0.024 0.003" rgba="0 1 0 0.4" pos="0 0 0.015"/>     <!-- bottom -->
+    </body>
 </mujocoinclude>
