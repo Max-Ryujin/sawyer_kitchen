@@ -105,7 +105,7 @@ MODEL_XML_PATH = os.path.join(os.path.dirname(__file__), "kitchen", "kitchen.xml
 
 DEFAULT_CAMERA_CONFIG = {
     "distance": 1.1,
-    "azimuth": 180.0,
+    "azimuth": 230.0,
     "elevation": -60.0,
     "lookat": np.array([-0.65, -0.65, 1.75]),
 }
