@@ -105,8 +105,8 @@ MODEL_XML_PATH = os.path.join(os.path.dirname(__file__), "kitchen", "kitchen.xml
 
 DEFAULT_CAMERA_CONFIG = {
     "distance": 1.1,
-    "azimuth": 230.0,
-    "elevation": -60.0,
+    "azimuth": 200.0,
+    "elevation": -35.0,
     "lookat": np.array([-0.65, -0.65, 1.75]),
 }
 
@@ -119,7 +119,7 @@ DEFAULT_CAMERA_CONFIG = {
 
 
 class KitchenMinimalEnv(MujocoEnv):
-    metadata = {"render_modes": ["rgb_array"], "render_fps": 12}
+    metadata = {"render_modes": ["rgb_array"], "render_fps": 25}
 
     def __init__(
         self,
@@ -162,7 +162,7 @@ class KitchenMinimalEnv(MujocoEnv):
 
         super().__init__(
             model_path=model_path,
-            frame_skip=40,
+            frame_skip=20,
             observation_space=self.observation_space,
             default_camera_config=DEFAULT_CAMERA_CONFIG,
             render_mode=render_mode,
