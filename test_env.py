@@ -157,7 +157,7 @@ def test_policy(env, obs) -> np.ndarray:
         return action[:9]
     elif env._automaton_state == "pour":
         cup_pos = utils.get_object_pos(env, ("cup_freejoint0", "cup0"))
-        target_pos = cup_pos + np.array([0.0, -0.05, 0.35])
+        target_pos = cup_pos + np.array([0.0, -0.05, 0.31])
         target_quat = [0.35355341, -0.61237242, 0.61237242, 0.35355341]
 
         # Solve IK for the target position
