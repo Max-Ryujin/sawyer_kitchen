@@ -3,7 +3,7 @@
 
         <!-- Cup mesh -->
         <geom name="cup" mesh="cup" pos="0 0 0.051" material="cmwhite"/>
-        <geom material="cmwhite" euler="1.571 0 0" mesh="handle" pos="0.0585 0 0.0705"/>
+        <!--<geom material="cmwhite" euler="1.571 0 0" mesh="handle" pos="0.0585 0 0.0705"/> -->
 
         <!-- Physical parameters -->
         <inertial pos="0 0 0.055" mass="0.1" diaginertia="1e-06 1e-06 1e-06"/>
