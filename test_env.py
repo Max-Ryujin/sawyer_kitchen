@@ -123,6 +123,34 @@ def pour_policy(env, obs) -> np.ndarray:
             print("Switching to lift_up state")
         return action[:9]
     elif env._automaton_state == "lift_up":
+        cup_pos = utils.get_object_pos(env, ("cup_freejoint1", "cup1"))
+        target_pos = cup_pos + np.array([0.0, 0, 0.35])
+
+        # Solve IK for the target position
+        delta_q = utils.ik_step(
+            model,
+            data,
+            site_name="grip_site",
+            target_pos=target_pos,
+            reg_strength=1e-4,
+        )
+
+        # Default to last valid qpos if IK fails
+        q_target = data.qpos[:7] + 0.5 * delta_q
+
+        # add two values for gripper control
+        action = np.pad(q_target, (0, env.unwrapped.nu - 7))
+        action += utils.make_gripper_action(env, close=True, open_val=-1, close_val=1)
+        ee_pos = utils.get_effector_pos(env)
+        if (
+            # height above 1.7 total
+            ee_pos[2]
+            > 1.7
+        ):
+            env._automaton_state = "lift_above"
+            print("Switching to lift_above state")
+        return action[:9]
+    elif env._automaton_state == "lift_above":
         cup_pos = utils.get_object_pos(env, ("cup_freejoint0", "cup0"))
         target_pos = cup_pos + np.array([0.0, -0.05, 0.35])
         target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
@@ -135,6 +163,7 @@ def pour_policy(env, obs) -> np.ndarray:
             target_pos=target_pos,
             reg_strength=1e-4,
             target_quat=target_quat,
+            rot_weight=0.5,
         )
 
         # Default to last valid qpos if IK fails
@@ -157,7 +186,7 @@ def pour_policy(env, obs) -> np.ndarray:
         return action[:9]
     elif env._automaton_state == "pour":
         cup_pos = utils.get_object_pos(env, ("cup_freejoint0", "cup0"))
-        target_pos = cup_pos + np.array([0.0, -0.045, 0.31])
+        target_pos = cup_pos + np.array([0.0, -0.04, 0.29])
         target_quat = [0.35355341, -0.61237242, 0.61237242, 0.35355341]
 
         # Solve IK for the target position
@@ -206,7 +235,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", choices=["random", "policy"], default="random")
     parser.add_argument("--out", default="tmp/kitchen_run.mp4")
-    parser.add_argument("--steps", type=int, default=2500)
+    parser.add_argument("--steps", type=int, default=2600)
     args = parser.parse_args()
 
     if args.mode == "random":

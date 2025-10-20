@@ -312,7 +312,7 @@ class KitchenMinimalEnv(MujocoEnv):
             qpos_addr = int(self.model.jnt_qposadr[jid])
             pos = np.copy(qpos[qpos_addr : qpos_addr + 3])
             pos[0] += self.np_random.uniform(-0.1, 0.1)
-            pos[1] += self.np_random.uniform(-0.1, 0.1)
+            pos[1] += self.np_random.uniform(-0.3, 0.0)
             qpos[qpos_addr : qpos_addr + 3] = pos
 
         # Apply full state so MuJoCo updates positions
@@ -332,7 +332,7 @@ class KitchenMinimalEnv(MujocoEnv):
             qpos_addr = int(self.model.jnt_qposadr[jid])
             x = cup_pos[0] + self.np_random.uniform(-0.01, 0.01)
             y = cup_pos[1] + self.np_random.uniform(-0.01, 0.01)
-            z = cup_pos[2] + i * 0.01 + self.np_random.uniform(0.01, 0.02)
+            z = cup_pos[2] + 0.02 + i * 0.02 + self.np_random.uniform(0.01, 0.015)
 
             qpos[qpos_addr : qpos_addr + 3] = np.array([x, y, z])
 
