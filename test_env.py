@@ -37,7 +37,7 @@ def random_action_test(save_path: str, steps: int = 250):
         print("No frames collected.")
 
 
-def test_policy(env, obs) -> np.ndarray:
+def pour_policy(env, obs) -> np.ndarray:
     import utils
 
     model, data = env.unwrapped.model, env.unwrapped.data
@@ -157,7 +157,7 @@ def test_policy(env, obs) -> np.ndarray:
         return action[:9]
     elif env._automaton_state == "pour":
         cup_pos = utils.get_object_pos(env, ("cup_freejoint0", "cup0"))
-        target_pos = cup_pos + np.array([0.0, -0.05, 0.31])
+        target_pos = cup_pos + np.array([0.0, -0.045, 0.31])
         target_quat = [0.35355341, -0.61237242, 0.61237242, 0.35355341]
 
         # Solve IK for the target position
@@ -184,11 +184,11 @@ def collect_policy_episode(save_path="tmp/policy.mp4", steps=800):
     env = gym.make(
         "KitchenMinimalEnv-v0", render_mode="rgb_array", width=1280, height=960
     )
-    obs, _ = env.reset()
+    obs, _ = env.reset(options={"randomise_cup_position": True})
     frames = []
     env._automaton_state = "move_above"
     for t in range(steps):
-        action = test_policy(env, obs)
+        action = pour_policy(env, obs)
         obs, _, term, trunc, _ = env.step(action)
         frames.append(env.render())
         if term or trunc:

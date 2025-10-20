@@ -210,8 +210,8 @@ class KitchenMinimalEnv(MujocoEnv):
         """Sample a random robot qpos within joint limits."""
         INIT_QPOS = np.array(
             [
-                1,  # np.random.uniform(0, 1.45),
-                -0.5,
+                np.random.uniform(0.9, 1.1),
+                np.random.uniform(-0.7, -0.3),
                 0,
                 0,
                 0,
@@ -332,7 +332,7 @@ class KitchenMinimalEnv(MujocoEnv):
             qpos_addr = int(self.model.jnt_qposadr[jid])
             x = cup_pos[0] + self.np_random.uniform(-0.01, 0.01)
             y = cup_pos[1] + self.np_random.uniform(-0.01, 0.01)
-            z = cup_pos[2] + i * 0.05 + self.np_random.uniform(0.01, 0.02)
+            z = cup_pos[2] + i * 0.01 + self.np_random.uniform(0.01, 0.02)
 
             qpos[qpos_addr : qpos_addr + 3] = np.array([x, y, z])
 
@@ -344,7 +344,7 @@ class KitchenMinimalEnv(MujocoEnv):
                 # freejoint has 6 dofs (3 lin, 3 ang)
                 qvel[vel_addr : vel_addr + 6] = 0.0
                 # give some initial downward velocity
-                qvel[vel_addr + 2] = self.np_random.uniform(-0.15, -0.2)
+                qvel[vel_addr + 2] = self.np_random.uniform(-0.2, -0.15)
 
         # Apply state and forward simulate so data.geom_xpos update
         self.set_state(qpos, qvel)
