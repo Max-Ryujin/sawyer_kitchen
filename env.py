@@ -360,77 +360,64 @@ class KitchenMinimalEnv(MujocoEnv):
 
         return obs
 
-    def goal_achieved(self) -> bool:
+    def get_particles_in_cups(self) -> Tuple[int, int]:
         """
-        Check if the goal is achieved (i.e., all water particles are in cup0).
+        Track how many water particles are in each cup, accounting for cup rotation.
+        
+        Returns:
+            Tuple[int, int]: Number of particles in both cups (cup0, cup1)
         """
-        geom_names = {
-            "right": "right_wall_cup0",
-            "left": "left_wall_cup0",
-            "front": "front_wall_cup0",
-            "back": "back_wall_cup0",
-            "bottom": "bottom_cup0",
-        }
+        cup_suffixes = ["0", "1"]
+        particles_in_cups = [0, 0]
+        particles = self.water_particle_positions[: self.num_water_particles]
+        
+        for cup_idx, suffix in enumerate(cup_suffixes):
+            geom_names = {
+                "right": f"right_wall_cup{suffix}",
+                "left": f"left_wall_cup{suffix}",
+                "front": f"front_wall_cup{suffix}",
+                "back": f"back_wall_cup{suffix}",
+                "bottom": f"bottom_cup{suffix}",
+            }
 
-        # Get geom ids
-        geom_ids = {}
-        for key, name in geom_names.items():
-            gid = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_GEOM, name)
-            if gid == -1:
-                # If any geom is missing, we cannot evaluate the goal reliably.
-                raise ValueError(f"Could not find geom '{name}' in the model.")
-            geom_ids[key] = int(gid)
+            geom_ids = {}
+            for key, name in geom_names.items():
+                gid = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_GEOM, name)
+                if gid == -1:
+                    print(f"Warning: Could not find geom '{name}' in the model.")
+                    continue
+                geom_ids[key] = int(gid)
+                
+            parent_id = self.model.geom_bodyid[geom_ids["bottom"]]
+            
+            body_xmat = self.data.xmat[parent_id].reshape(3, 3)
+            body_xpos = self.data.xpos[parent_id]
 
-        # Read world-space positions and model half-sizes
-        ngeom = int(self.model.ngeom)
-        geom_xpos = np.asarray(self.data.geom_xpos).reshape(ngeom, 3)
-        geom_size = np.asarray(self.model.geom_size).reshape(ngeom, 3)
+            particles_local = np.zeros_like(particles)
+            for i, p in enumerate(particles):
+                particles_local[i] = body_xmat.T @ (p - body_xpos)
+            
+            ngeom = int(self.model.ngeom)
+            geom_pos = np.asarray(self.model.geom_pos).reshape(ngeom, 3)
+            geom_size = np.asarray(self.model.geom_size).reshape(ngeom, 3)
 
-        # Compute inner faces and bounds for the cup interior.
-        # For axis-aligned box walls:
-        # - right wall inner x = center_x - half_size_x
-        # - left wall inner x  = center_x + half_size_x
-        # - front wall inner y = center_y - half_size_y
-        # - back wall inner y  = center_y + half_size_y
-        # - bottom top z       = center_z + half_size_z
-        rpos = geom_xpos[geom_ids["right"]]
-        rsize = geom_size[geom_ids["right"]]
-        lpos = geom_xpos[geom_ids["left"]]
-        lsize = geom_size[geom_ids["left"]]
-        fpos = geom_xpos[geom_ids["front"]]
-        fsize = geom_size[geom_ids["front"]]
-        bkpos = geom_xpos[geom_ids["back"]]
-        bksize = geom_size[geom_ids["back"]]
-        botpos = geom_xpos[geom_ids["bottom"]]
-        botsize = geom_size[geom_ids["bottom"]]
+            bottom_pos = geom_pos[geom_ids["bottom"]]
+            bottom_size = geom_size[geom_ids["bottom"]]
+            right_size = geom_size[geom_ids["right"]]
 
-        right_inner_x = float(rpos[0] - rsize[0])
-        left_inner_x = float(lpos[0] + lsize[0])
-        front_inner_y = float(fpos[1] - fsize[1])
-        back_inner_y = float(bkpos[1] + bksize[1])
-        bottom_top_z = float(botpos[2] + botsize[2])
+            x_bound = bottom_size[0]
+            y_bound = bottom_size[1]
+            z_min = bottom_pos[2] + bottom_size[2]
+            z_max = bottom_pos[2] + right_size[2] * 2
 
-        # wall top z (use one of the vertical walls)
-        wall_top_z = float(rpos[2] + rsize[2])
+            for p_local in particles_local:
+                x, y, z = p_local
+                if (-x_bound <= x <= x_bound and
+                    -y_bound <= y <= y_bound and
+                    z_min <= z <= z_max):
+                    particles_in_cups[cup_idx] += 1
 
-        # Ensure min/max ordering in case of sign conventions
-        x_min = min(left_inner_x, right_inner_x)
-        x_max = max(left_inner_x, right_inner_x)
-        y_min = min(back_inner_y, front_inner_y)
-        y_max = max(back_inner_y, front_inner_y)
-        z_min = bottom_top_z
-        z_max = wall_top_z
-
-        # Check every tracked water particle position
-        for p in self.water_particle_positions[: self.num_water_particles]:
-            x, y, z = float(p[0]), float(p[1]), float(p[2])
-            inside_x = x_min <= x <= x_max
-            inside_y = y_min <= y <= y_max
-            inside_z = z_min <= z <= z_max
-            if not (inside_x and inside_y and inside_z):
-                return False
-
-        return True
+        return tuple(particles_in_cups)
 
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, bool, Dict]:
         action = np.asarray(action, dtype=np.float32).reshape(self.nu)
@@ -447,8 +434,9 @@ class KitchenMinimalEnv(MujocoEnv):
         # Build observation
         obs = self._get_observation()
         reward = self._compute_reward(obs, action)
-        terminated = self._is_terminated(obs)
-        truncated = False
+        Goal, Start = self.get_particles_in_cups()
+        terminated = True if Goal == 10 else False
+        truncated = terminated
         info = {}
 
         return obs, float(reward), bool(terminated), bool(truncated), info
@@ -486,7 +474,7 @@ class KitchenMinimalEnv(MujocoEnv):
         return obs
 
     def _compute_reward(self, obs: np.ndarray, action: np.ndarray) -> float:
-        return 1.0 if self.goal_achieved() else 0.0
+        return 1.0 if self.get_particles_in_cups()[0] == 10 else 0.0
 
     def _is_terminated(self, obs: np.ndarray) -> bool:
         return self.goal_achieved()

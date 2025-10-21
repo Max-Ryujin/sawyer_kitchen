@@ -80,7 +80,7 @@ def pour_policy(env, obs) -> np.ndarray:
         return action[:9]
     elif env._automaton_state == "move_down":
         cup_pos = utils.get_object_pos(env, ("cup_freejoint1", "cup1"))
-        target_pos = cup_pos + np.array([0.0, 0.0, 0.04])
+        target_pos = cup_pos + np.array([-0.01, 0.0, 0.04])
 
         # Solve IK for the target position
         delta_q = utils.ik_step(
@@ -190,6 +190,7 @@ def collect_policy_episode(save_path="tmp/policy.mp4", steps=800):
         obs, _, term, trunc, _ = env.step(action)
         frames.append(env.render())
         if term or trunc:
+            print(f"Episode finished after {t+1} steps.")
             break
 
     env.close()
@@ -204,7 +205,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", choices=["random", "policy"], default="random")
     parser.add_argument("--out", default="tmp/kitchen_run.mp4")
-    parser.add_argument("--steps", type=int, default=2600)
+    parser.add_argument("--steps", type=int, default=2700)
     args = parser.parse_args()
 
     if args.mode == "random":
