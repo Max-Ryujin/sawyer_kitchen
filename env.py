@@ -47,7 +47,18 @@ joint leftdoorhinge        | HINGE     | qpos[20], qvel[20]
 joint rightdoorhinge       | HINGE     | qpos[21], qvel[21]
 joint microjoint           | HINGE     | qpos[22], qvel[22]
 joint kettle_freejoint     | FREE      | qpos[23:30] (x,y,z,quat wxyz), qvel[23:29] (lin+ang)
-joint cup_freejoint        | FREE      | qpos[30:37] (x,y,z,quat wxyz), qvel[29:35] (lin+ang)
+joint cup_freejoint0       | FREE      | qpos[30:37] (x,y,z,quat wxyz), qvel[29:35] (lin+ang)
+joint cup_freejoint1       | FREE      | qpos[37:44] (x,y,z,quat wxyz), qvel[35:41] (lin+ang)
+joint water_balls_freejoint00 | FREE      | qpos[44:51] (x,y,z,quat wxyz), qvel[41:47] (lin+ang)
+joint water_balls_freejoint01 | FREE      | qpos[51:58] (x,y,z,quat wxyz), qvel[47:53] (lin+ang)
+joint water_balls_freejoint02 | FREE      | qpos[58:65] (x,y,z,quat wxyz), qvel[53:59] (lin+ang)
+joint water_balls_freejoint03 | FREE      | qpos[65:72] (x,y,z,quat wxyz), qvel[59:65] (lin+ang)
+joint water_balls_freejoint04 | FREE      | qpos[72:79] (x,y,z,quat wxyz), qvel[65:71] (lin+ang)
+joint water_balls_freejoint05 | FREE      | qpos[79:86] (x,y,z,quat wxyz), qvel[71:77] (lin+ang)
+joint water_balls_freejoint06 | FREE      | qpos[86:93] (x,y,z,quat wxyz), qvel[77:83] (lin+ang)
+joint water_balls_freejoint07 | FREE      | qpos[93:100] (x,y,z,quat wxyz), qvel[83:89] (lin+ang)
+joint water_balls_freejoint08 | FREE      | qpos[100:107] (x,y,z,quat wxyz), qvel[89:95] (lin+ang)
+joint water_balls_freejoint09 | FREE      | qpos[107:114] (x,y,z,quat wxyz), qvel[95:101] (lin+ang)
 === END OVERVIEW ===
 """
 
@@ -104,7 +115,7 @@ INIT_QPOS = np.array(
 MODEL_XML_PATH = os.path.join(os.path.dirname(__file__), "kitchen", "kitchen.xml")
 
 DEFAULT_CAMERA_CONFIG = {
-    "distance": 1.1,
+    "distance": 2.1,
     "azimuth": 200.0,
     "elevation": -35.0,
     "lookat": np.array([-0.65, -0.65, 1.75]),
@@ -270,6 +281,8 @@ class KitchenMinimalEnv(MujocoEnv):
             options.get("randomise_cup_position", False) if options else False
         )
 
+        minimal = options.get("minimal", False) if options else False
+
         # Reset simulation state
         if self.model.nv:
             self.data.qvel[:] = np.zeros(self.nv)
@@ -293,7 +306,7 @@ class KitchenMinimalEnv(MujocoEnv):
             # update water particle world positions now that we ran forward
             self._update_water_particle_positions()
 
-        obs = self._get_observation()
+        obs = self._get_observation(minimal=minimal)
         info = {}
         return obs, info
 
@@ -363,14 +376,14 @@ class KitchenMinimalEnv(MujocoEnv):
     def get_particles_in_cups(self) -> Tuple[int, int]:
         """
         Track how many water particles are in each cup, accounting for cup rotation.
-        
+
         Returns:
             Tuple[int, int]: Number of particles in both cups (cup0, cup1)
         """
         cup_suffixes = ["0", "1"]
         particles_in_cups = [0, 0]
         particles = self.water_particle_positions[: self.num_water_particles]
-        
+
         for cup_idx, suffix in enumerate(cup_suffixes):
             geom_names = {
                 "right": f"right_wall_cup{suffix}",
@@ -387,16 +400,16 @@ class KitchenMinimalEnv(MujocoEnv):
                     print(f"Warning: Could not find geom '{name}' in the model.")
                     continue
                 geom_ids[key] = int(gid)
-                
+
             parent_id = self.model.geom_bodyid[geom_ids["bottom"]]
-            
+
             body_xmat = self.data.xmat[parent_id].reshape(3, 3)
             body_xpos = self.data.xpos[parent_id]
 
             particles_local = np.zeros_like(particles)
             for i, p in enumerate(particles):
                 particles_local[i] = body_xmat.T @ (p - body_xpos)
-            
+
             ngeom = int(self.model.ngeom)
             geom_pos = np.asarray(self.model.geom_pos).reshape(ngeom, 3)
             geom_size = np.asarray(self.model.geom_size).reshape(ngeom, 3)
@@ -412,14 +425,18 @@ class KitchenMinimalEnv(MujocoEnv):
 
             for p_local in particles_local:
                 x, y, z = p_local
-                if (-x_bound <= x <= x_bound and
-                    -y_bound <= y <= y_bound and
-                    z_min <= z <= z_max):
+                if (
+                    -x_bound <= x <= x_bound
+                    and -y_bound <= y <= y_bound
+                    and z_min <= z <= z_max
+                ):
                     particles_in_cups[cup_idx] += 1
 
         return tuple(particles_in_cups)
 
-    def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, bool, Dict]:
+    def step(
+        self, action: np.ndarray, minimal=False
+    ) -> Tuple[np.ndarray, float, bool, bool, Dict]:
         action = np.asarray(action, dtype=np.float32).reshape(self.nu)
 
         # set controls
@@ -432,19 +449,27 @@ class KitchenMinimalEnv(MujocoEnv):
         self._update_water_particle_positions()
 
         # Build observation
-        obs = self._get_observation()
+        obs = self._get_observation(minimal=minimal)
         reward = self._compute_reward(obs, action)
         Goal, Start = self.get_particles_in_cups()
-        terminated = True if Goal == 10 else False
+        terminated = True if Goal >= 7 else False
         truncated = terminated
         info = {}
 
         return obs, float(reward), bool(terminated), bool(truncated), info
 
-    def _get_observation(self) -> np.ndarray:
+    def _get_observation(self, minimal=False) -> np.ndarray:
         qpos = np.array(self.data.qpos).reshape(-1)
         qvel = np.array(self.data.qvel).reshape(-1)
         obs = np.concatenate([qpos, qvel]).astype(np.float32)
+
+        if minimal:
+            # Return only robot joint qpos and qvel (first 8 qpos/qvel),
+            # gripper state, water particle positions and velocities and cup positions and velocities
+            # qpos and qvel 0 to 8 and from qpos from 30 to end and qvel from 29 to end
+            obs = np.concatenate([qpos[:9], qvel[:9], qpos[30:], qvel[29:]]).astype(
+                np.float32
+            )
         return obs
 
     def _get_obs(self):
@@ -477,7 +502,7 @@ class KitchenMinimalEnv(MujocoEnv):
         return 1.0 if self.get_particles_in_cups()[0] == 10 else 0.0
 
     def _is_terminated(self, obs: np.ndarray) -> bool:
-        return self.goal_achieved()
+        return True if self.get_particles_in_cups()[0] >= 7 else False
 
     def close(self):
         self._render_context = None
@@ -489,3 +514,66 @@ class KitchenMinimalEnv(MujocoEnv):
         geom_xpos = np.asarray(self.data.geom_xpos).reshape(ngeom, 3)
         for i, gid in enumerate(self._water_geom_ids):
             self.water_particle_positions[i, :] = geom_xpos[int(gid)]
+
+    def create_goal_state(self, minimal=True, current_state=None) -> np.ndarray:
+        """Takes the current state and moves the water particles into the target cup by getting their relative positions to the original cup and change it to the target cup.
+
+        Args:
+            minimal: If True, returns the minimal state representation like _get_observation
+            current_state: Optional current state to base goal on. If None, uses current env state
+
+        Returns:
+            np.ndarray: Goal state observation (minimal)
+        """
+        # Accept either a full state (qpos+qvel) or a minimal observation
+        if current_state is None:
+            # use current full simulator state
+            qpos_local = np.array(self.data.qpos).reshape(-1)
+            qvel_local = np.array(self.data.qvel).reshape(-1)
+            qpos_full = qpos_local.copy()
+            qvel_full = qvel_local.copy()
+        else:
+            state = np.asarray(current_state).astype(np.float64).copy()
+            full_len = int(self.nq + self.nv)
+            minimal_len = full_len - 41
+
+            if state.size == full_len:
+                qpos_full = state[: self.nq].copy()
+                qvel_full = state[self.nq : self.nq + self.nv].copy()
+            elif state.size == minimal_len:
+                robot_qpos9 = state[0:9].copy()
+                robot_qvel9 = state[9:18].copy()
+                qpos_tail_len = self.nq - 30
+                qvel_tail_len = self.nv - 29
+                qpos_tail = state[18 : 18 + qpos_tail_len].copy()
+                qvel_tail = state[
+                    18 + qpos_tail_len : 18 + qpos_tail_len + qvel_tail_len
+                ].copy()
+
+                qpos_full = np.zeros(self.nq, dtype=np.float64)
+                qvel_full = np.zeros(self.nv, dtype=np.float64)
+
+                qpos_full[:9] = robot_qpos9
+                qvel_full[:9] = robot_qvel9
+                qpos_full[30:] = qpos_tail
+                qvel_full[29:] = qvel_tail
+
+        state_full = np.concatenate([qpos_full, qvel_full])
+
+        source_cup_pos = state_full[37:40]
+        target_cup_pos = state_full[30:33]
+        cup_offset = target_cup_pos - source_cup_pos
+
+        num_particles = 10
+        for i in range(num_particles):
+            particle_pos_start = 44 + (i * 7)
+            state_full[particle_pos_start : particle_pos_start + 3] += cup_offset
+
+        if minimal:
+            qpos_out = state_full[: self.nq]
+            qvel_out = state_full[self.nq : self.nq + self.nv]
+            return np.concatenate(
+                [qpos_out[:9], qvel_out[:9], qpos_out[30:], qvel_out[29:]]
+            ).astype(np.float32)
+
+        return state_full.astype(np.float32)

@@ -12,9 +12,9 @@
         <position joint="right_j1" ctrlrange="-3.80 3.80" forcerange="-100 100" kp="500" class='sawyer'/>
         <position joint="right_j2" ctrlrange="-3.04 3.04" forcerange="-75 75" kp="200" class='sawyer'/>
         <position joint="right_j3" ctrlrange="-3.04 3.04" forcerange="-75 75" kp="200" class='sawyer'/>
-        <position joint="right_j4" ctrlrange="-2.98 2.98" forcerange="-50 50" kp="50" class='sawyer'/>
-        <position joint="right_j5" ctrlrange="-2.98 2.98" forcerange="-50 50" kp="50" class='sawyer'/>
-        <position joint="right_j6" ctrlrange="-4.71 4.71" forcerange="-50 50" kp="50" class='sawyer'/>
+        <position joint="right_j4" ctrlrange="-2.98 2.98" forcerange="-50 50" kp="60" class='sawyer'/>
+        <position joint="right_j5" ctrlrange="-2.98 2.98" forcerange="-50 50" kp="60" class='sawyer'/>
+        <position joint="right_j6" ctrlrange="-4.71 4.71" forcerange="-50 50" kp="60" class='sawyer'/>
     </actuator>
 
 </mujocoinclude>

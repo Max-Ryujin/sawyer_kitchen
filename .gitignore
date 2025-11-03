@@ -1,6 +1,7 @@
 .history_max
 __pycache__/
-
-tmp/kitchen_run.mp4/*
-
 output/*
+wandb/
+slurm
+tmp/*/
+newrandomtestGoal7

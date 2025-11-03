@@ -20,7 +20,7 @@
     <worldbody>
 
             <!-- Sawyer Robot -->
-        <body pos='-0.066 -1.15 0.7' euler='0 0 1.6'>
+        <body pos='-0.069 -1.25 0.7' euler='0 0 1.6'>
             <geom type='cylinder' size='.120 .90' pos='-.04 0 -0.90'/>
             <include file="assets/sawyer_assets/sawyer_chain.xml"/>
         </body>
