@@ -7,3 +7,5 @@ tmp/*/
 newrandomtestGoal7
 .history_max
 *.png
+*.npz
+*.mp4
