@@ -5,3 +5,5 @@ wandb/
 slurm
 tmp/*/
 newrandomtestGoal7
+.history_max
+*.png

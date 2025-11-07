@@ -3,6 +3,7 @@ import sys
 import json
 import imageio
 import pickle
+from tqdm import trange
 import numpy as np
 import gymnasium as gym
 import jax
@@ -586,18 +587,22 @@ def collect_policy_dataset(
     env = gym.make(
         "KitchenMinimalEnv-v0", render_mode="rgb_array", width=width, height=height
     )
-
+    dataset = defaultdict(list)
     os.makedirs(save_root, exist_ok=True)
-    attempts = episodes
 
     success_count = 0
     failure_counts = defaultdict(int)
+    total_steps = 0
+    total_train_steps = 0
+    num_train_episodes = episodes
+    num_val_episodes = episodes // 10
 
-    for ep in range(attempts):
+    debug_data = defaultdict(list)
+    for ep_idx in trange(num_train_episodes + num_val_episodes):
         obs, _ = env.reset(options={"randomise_cup_position": True})
         env._automaton_state = "move_left"
 
-        ep_dir = os.path.join(save_root, f"episode_{ep:03d}")
+        ep_dir = os.path.join(save_root, f"episode_{ep_idx:03d}")
         images_dir = os.path.join(ep_dir, "images")
         os.makedirs(images_dir, exist_ok=True)
 
@@ -605,62 +610,32 @@ def collect_policy_dataset(
         episode_terminated = False
         for t in range(max_steps):
             action = pour_policy(env, obs)
+            obs_to_store = env.unwrapped._get_observation(minimal=True)
             obs_next, reward, terminated, truncated, info = env.step(action)
+            done = terminated or truncated
 
             if minimal_observations:
-                obs_to_store = env.unwrapped._get_observation(minimal=True)
-                entry = {
-                    "obs": _serialize_obs(obs_to_store),
-                    "action": np.asarray(action).tolist(),
-                    "terminated": bool(terminated),
-                    "qpos": env.unwrapped.data.qpos.copy().tolist(),
-                    "qvel": env.unwrapped.data.qvel.copy().tolist(),
-                }
+                dataset["observations"].append(obs_to_store)
             else:
-                entry = {
-                    "obs": _serialize_obs(obs),
-                    "action": np.asarray(action).tolist(),
-                    "terminated": bool(terminated),
-                    "qpos": env.unwrapped.data.qpos.copy().tolist(),
-                    "qvel": env.unwrapped.data.qvel.copy().tolist(),
-                }
-            traj.append(entry)
+                dataset["observations"].append(obs)
+            dataset["actions"].append(action)
+            dataset["terminals"].append(done)
+            dataset["qpos"].append(env.unwrapped.data.qpos.copy())
+            dataset["qvel"].append(env.unwrapped.data.qvel.copy())
 
             obs = obs_next
 
-            if terminated:
+            if done:
                 episode_terminated = True
-                json_path = os.path.join(ep_dir, "trajectory.json")
-                meta = {
-                    "episode_index": ep,
-                    "length": len(traj),
-                    "terminated": True,
-                    "final_state": env._automaton_state,
-                    "trajectory": traj,
-                }
-                with open(json_path, "w") as fh:
-                    json.dump(meta, fh, indent=2)
-                print(f"Saved successful episode {ep} to {json_path}")
+                total_steps += t
+                if ep_idx < num_train_episodes:
+                    total_train_steps += t
+                # save last correct dataset entries for check
+                for k in dataset.keys():
+                    debug_data[k].append(dataset[k][-1])
                 break
 
-            if t == max_steps - 1:
-
-                if env._automaton_state == "move_above":
-                    # print the gripper position
-                    grip_pos = utils.get_effector_pos(env)
-                    print(f"Gripper position at max_steps: {grip_pos}")
-                    # print gripper speed
-                    grip_speed = env.unwrapped.data.qvel[
-                        mj.mj_name2id(
-                            env.unwrapped.model, mj.mjtObj.mjOBJ_SITE, "grip_site"
-                        )
-                    ]
-                    print(f"Gripper speed at max_steps: {grip_speed}")
-                    # render final frame
-                    final_frame = env.render()
-                    final_image_path = os.path.join(images_dir, f"step_{t:03d}.png")
-                    imageio.imwrite(final_image_path, final_frame)
-                    print(f"Saved final frame to {final_image_path}")
+            elif t == max_steps - 1:
                 if env._automaton_state == "pour":
                     # print where water is
                     Goal, Start = env.unwrapped.get_particles_in_cups()
@@ -673,8 +648,15 @@ def collect_policy_dataset(
                     print(f"Saved final frame to {final_image_path}")
                 # episode reached time limit without termination; not saved
                 print(
-                    f"Episode {ep} reached max_steps ({max_steps}) without termination; not saved."
+                    f"Episode {ep_idx} reached max_steps ({max_steps}) without termination; not saved."
                 )
+                for k in dataset.keys():
+                    dataset[k] = dataset[k][:-max_steps]  # remove this episode's data
+
+                    assert np.array_equal(
+                        debug_data[k][-1], dataset[k][-1]
+                    ), f"Data mismatch in key {k} at episode {ep_idx}, step {t}"
+                break
 
         # record stats for this episode
         if episode_terminated:
@@ -686,21 +668,34 @@ def collect_policy_dataset(
 
     env.close()
 
+    # Split the dataset into training and validation sets.
+    train_dataset = {}
+    val_dataset = {}
+    train_path = os.path.join(save_root, "train_dataset.npz")
+    val_path = os.path.join(save_root, "val_dataset.npz")
+    for k, v in dataset.items():
+        if "observations" in k and v[0].dtype == np.uint8:
+            dtype = np.uint8
+        elif k == "terminals":
+            dtype = bool
+        elif k == "button_states":
+            dtype = np.int64
+        else:
+            dtype = np.float32
+        train_dataset[k] = np.array(v[:total_train_steps], dtype=dtype)
+        val_dataset[k] = np.array(v[total_train_steps:], dtype=dtype)
+
+    for path, dataset in [(train_path, train_dataset), (val_path, val_dataset)]:
+        np.savez_compressed(path, **dataset)
+
     # write stats summary
     stats = {
-        "total_episodes": attempts,
+        "total_episodes": episodes,
         "successful_episodes": success_count,
-        "success_rate": float(success_count) / float(attempts) if attempts > 0 else 0.0,
+        "success_rate": float(success_count) / float(episodes) if episodes > 0 else 0.0,
         "failure_counts": dict(failure_counts),
     }
     stats_path = os.path.join(save_root, "stats.json")
-
-    with open(stats_path, "w") as fh:
-        json.dump(stats, fh, indent=2)
-    print(f"Wrote stats to {stats_path}: {stats}")
-
-    # combine per-episode JSONs into one file for convenience
-    combine_episode_jsons(save_root)
 
 
 if __name__ == "__main__":

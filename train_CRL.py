@@ -13,12 +13,15 @@ import imageio
 
 THIS_DIR = os.path.dirname(__file__)
 OG_IMPLS = os.path.abspath(os.path.join(THIS_DIR, "..", "ogbench", "ogbench", "impls"))
+OG_IMPLS_BASE = os.path.abspath(os.path.join(THIS_DIR, "..", "ogbench", "ogbench"))
 print("Adding OGBench impls to sys.path:", OG_IMPLS)
 sys.path.insert(0, OG_IMPLS)
+sys.path.insert(0, OG_IMPLS_BASE)
 
 from agents.crl import CRLAgent, get_config
 from utils.flax_utils import save_agent
-from crl_dataset import CRLDataset
+from utils.datasets import GCDataset, Dataset
+from ogbench import load_dataset
 import wandb
 
 
@@ -63,25 +66,29 @@ def evaluate_agent(agent, num_episodes=10, steps=4000, video=False, save_file=No
 
 
 def main(args):
-    ds = CRLDataset(args.dataset_dir)
-    ex_obs, ex_act = ds.example()
 
     cfg = get_config()
     # convert to plain dict
     cfg = dict(cfg)
     cfg["alpha"] = 0.03
+    cfg["batch_size"] = 128
+    train_path = os.path.join(args.dataset_dir, "train_dataset.npz")
+    val_path = os.path.join(args.dataset_dir, "val_dataset.npz")
+    train_dataset = load_dataset(train_path, compact_dataset=True)
+    val_dataset = load_dataset(val_path, compact_dataset=True)
 
-    print(
-        "Creating CRL agent with config:",
-        {
-            k: cfg[k]
-            for k in ["lr", "batch_size", "latent_dim", "actor_loss"]
-            if k in cfg
-        },
-    )
+    base_train = Dataset.create(**train_dataset)
+    train_dataset = GCDataset(base_train, cfg)
 
+    base_val = Dataset.create(**val_dataset)
+    val_dataset = GCDataset(base_val, cfg)
+
+    example_batch = train_dataset.sample(1)
     agent = CRLAgent.create(
-        seed=0, ex_observations=ex_obs, ex_actions=ex_act, config=cfg
+        seed=0,
+        ex_observations=example_batch["observations"],
+        ex_actions=example_batch["actions"],
+        config=cfg,
     )
 
     _wandb_run = None
@@ -90,8 +97,8 @@ def main(args):
     wandb_cfg.update(
         {
             "dataset_dir": args.dataset_dir,
-            "example_obs_shape": getattr(ex_obs, "shape", None),
-            "example_act_shape": getattr(ex_act, "shape", None),
+            "example_obs_shape": getattr(example_batch["observations"], "shape", None),
+            "example_act_shape": getattr(example_batch["actions"], "shape", None),
         }
     )
     _wandb_run = wandb.init(
@@ -99,9 +106,6 @@ def main(args):
         name=args.wandb_name or None,
         config=wandb_cfg,
         reinit=True,
-    )
-    print(
-        f"wandb run initialized: project={args.wandb_project}, name={args.wandb_name}"
     )
     save_dir = os.path.join(
         os.path.dirname(args.dataset_dir), "checkpoints", args.wandb_name
@@ -119,10 +123,10 @@ def main(args):
             return None
 
     for step in range(1, steps + 1):
-        batch = ds.sample_batch(batch_size=cfg["batch_size"])
+        batch = train_dataset.sample(cfg["batch_size"])
 
-        if ds.has_validation() and step % 10 == 0:
-            val_batch = ds.sample_val_batch(batch_size=cfg["batch_size"])
+        if step % 10 == 0:
+            val_batch = val_dataset.sample(cfg["batch_size"])
         else:
             val_batch = None
 
