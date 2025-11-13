@@ -115,7 +115,7 @@ INIT_QPOS = np.array(
 MODEL_XML_PATH = os.path.join(os.path.dirname(__file__), "kitchen", "kitchen.xml")
 
 DEFAULT_CAMERA_CONFIG = {
-    "distance": 2.1,
+    "distance": 2,
     "azimuth": 200.0,
     "elevation": -35.0,
     "lookat": np.array([-0.65, -0.65, 1.75]),
@@ -130,13 +130,16 @@ DEFAULT_CAMERA_CONFIG = {
 
 
 class KitchenMinimalEnv(MujocoEnv):
-    metadata = {"render_modes": ["rgb_array"], "render_fps": 25}
+    metadata = {"render_modes": ["rgb_array"], "render_fps": 8}
 
     def __init__(
         self,
         model_path: str = MODEL_XML_PATH,
         render_mode: str = "rgb_array",
         randomise_cup_position: bool = False,
+        minimal: bool = True,
+        physics_timestep: float = 0.001,
+        control_timestep: float = 0.004,
         **kwargs,
     ):
 
@@ -148,6 +151,11 @@ class KitchenMinimalEnv(MujocoEnv):
         self.nq = self.model.nq  # number of generalized coordinates
         self.nv = self.model.nv  # number of generalized velocities
         self.nu = self.model.nu  # number of actuators (action dim)
+
+        self.set_timesteps(
+            physics_timestep=float(physics_timestep),
+            control_timestep=float(control_timestep),
+        )
 
         # Get actuator control ranges for proper scaling
         if (
@@ -173,7 +181,7 @@ class KitchenMinimalEnv(MujocoEnv):
 
         super().__init__(
             model_path=model_path,
-            frame_skip=20,
+            frame_skip=60,
             observation_space=self.observation_space,
             default_camera_config=DEFAULT_CAMERA_CONFIG,
             render_mode=render_mode,
@@ -215,7 +223,13 @@ class KitchenMinimalEnv(MujocoEnv):
         self._height = 2560
 
         # Reset to initial state
-        self.reset(seed=None)
+        self.reset(
+            seed=None,
+            options={
+                "randomise_cup_position": randomise_cup_position,
+                "minimal": minimal,
+            },
+        )
 
     def get_random_robot_qpos(self):
         """Sample a random robot qpos within joint limits."""
@@ -223,7 +237,7 @@ class KitchenMinimalEnv(MujocoEnv):
             [
                 np.random.uniform(0.9, 1.1),
                 np.random.uniform(-0.7, -0.3),
-                0,
+                np.random.uniform(-0.1, 0.1),
                 0,
                 0,
                 0,
@@ -251,15 +265,15 @@ class KitchenMinimalEnv(MujocoEnv):
                 4.06395120e-03,
                 -6.62095997e-03,
                 0,
-                -0.55,
-                -0.55,
+                -0.6,
+                -0.8,
                 1.6,
                 1.0,
                 0.0,
                 0.0,
                 0.0,
-                -0.9,
-                -0.9,
+                -0.8,
+                -1.1,
                 1.6,
                 1.0,
                 0.0,
@@ -280,8 +294,7 @@ class KitchenMinimalEnv(MujocoEnv):
         randomise_cup_position = (
             options.get("randomise_cup_position", False) if options else False
         )
-
-        minimal = options.get("minimal", False) if options else False
+        minimal = options.get("minimal", False)
 
         # Reset simulation state
         if self.model.nv:
@@ -290,7 +303,7 @@ class KitchenMinimalEnv(MujocoEnv):
         self.data.qpos[: INIT_QPOS.shape[0]] = self.get_random_robot_qpos()
         self.set_state(self.data.qpos, self.data.qvel)
 
-        # mj.mj_forward(self.model, self.data)
+        mj.mj_forward(self.model, self.data)
 
         #  give water particles some initial random velocity
         for j in range(self.model.njnt):
@@ -325,7 +338,7 @@ class KitchenMinimalEnv(MujocoEnv):
             qpos_addr = int(self.model.jnt_qposadr[jid])
             pos = np.copy(qpos[qpos_addr : qpos_addr + 3])
             pos[0] += self.np_random.uniform(-0.1, 0.1)
-            pos[1] += self.np_random.uniform(-0.3, 0.0)
+            pos[1] += self.np_random.uniform(-0.4, 0.2)
             qpos[qpos_addr : qpos_addr + 3] = pos
 
         # Apply full state so MuJoCo updates positions
@@ -372,6 +385,26 @@ class KitchenMinimalEnv(MujocoEnv):
         obs = self._get_obs()
 
         return obs
+
+    def set_timesteps(self, physics_timestep: float, control_timestep: float) -> None:
+        """Set the physics and control timesteps for the environment.
+
+        The physics timestep will be assigned to the MjModel during compilation. The control timestep is used to
+        determine the number of physics steps to take per control step.
+        """
+        # Check timesteps divisible.
+        n_steps = control_timestep / physics_timestep
+        rounded_n_steps = int(round(n_steps))
+        if abs(n_steps - rounded_n_steps) > 1e-6:
+            raise ValueError(
+                f"Control timestep {control_timestep} should be an integer multiple of "
+                f"physics timestep {physics_timestep}."
+            )
+
+        self._physics_timestep = physics_timestep
+        self._control_timestep = control_timestep
+        self._n_steps = rounded_n_steps
+        self.model.opt.timestep = self._physics_timestep
 
     def get_particles_in_cups(self) -> Tuple[int, int]:
         """
@@ -443,7 +476,7 @@ class KitchenMinimalEnv(MujocoEnv):
         self.data.ctrl[: self.nu] = action
 
         # Step the physics forward.
-        mj.mj_step(self.model, self.data)
+        mj.mj_step(self.model, self.data, nstep=self._n_steps)
 
         # update water particle world positions after stepping
         self._update_water_particle_positions()

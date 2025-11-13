@@ -202,3 +202,107 @@ def ik_step(
 
     dq = nullspace_method(jac, err[: jac.shape[0]], reg_strength)
     return dq[:7]
+
+
+import numpy as np
+import mujoco as mj
+import copy
+
+
+def ik_solve_dm(
+    model: mj.MjModel,
+    data: mj.MjData,
+    site_name: str,
+    target_pos: np.ndarray = None,
+    target_quat: np.ndarray = None,
+    joint_indices: np.ndarray = None,
+    tol: float = 1e-5,
+    rot_weight: float = 1.0,
+    regularization_threshold: float = 1e-2,
+    regularization_strength: float = 3e-2,
+    max_update_norm: float = 1.0,
+    progress_thresh: float = 20.0,
+    max_steps: int = 100,
+    inplace: bool = True,
+) -> tuple[np.ndarray, float, int, bool]:
+    """Iteratively solve IK for a target site pose. Returns (qpos, err_norm, steps, success)."""
+    assert (
+        target_pos is not None or target_quat is not None
+    ), "Must provide at least target_pos or target_quat."
+
+    if not inplace:
+        data_copy = copy.copy(data)
+        data = data_copy
+
+    site_id = mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, site_name)
+    if site_id == -1:
+        raise ValueError(f"Site {site_name} not found in model")
+
+    nv = model.nv
+    qpos = data.qpos.copy()
+    update = np.zeros(nv)
+    jacp = np.zeros((3, nv))
+    jacr = np.zeros((3, nv))
+    err = np.zeros(6 if target_quat is not None else 3)
+    site_quat = np.empty(4)
+    neg_quat = np.empty(4)
+    err_quat = np.empty(4)
+
+    if joint_indices is None:
+        joint_indices = slice(None)
+
+    success = False
+    err_norm = np.inf
+
+    for step in range(max_steps):
+        data.qpos[:] = qpos
+        mj.mj_forward(model, data)
+
+        site_xpos = data.site_xpos[site_id].copy()
+        site_xmat = data.site_xmat[site_id].reshape(3, 3)
+
+        # --- compute error ---
+        err[:3] = target_pos - site_xpos if target_pos is not None else 0.0
+        err_norm = np.linalg.norm(err[:3])
+
+        if target_quat is not None:
+            mj.mju_mat2Quat(site_quat, site_xmat.reshape(9))
+            mj.mju_negQuat(neg_quat, site_quat)
+            mj.mju_mulQuat(err_quat, target_quat, neg_quat)
+            mj.mju_quat2Vel(err[3:], err_quat, 1)
+            err[3:] *= rot_weight
+            err_norm += np.linalg.norm(err[3:]) * rot_weight
+
+        if err_norm < tol:
+            success = True
+            break
+
+        # --- compute Jacobian ---
+        mj.mj_jacSite(model, data, jacp, jacr, site_id)
+        jac = np.vstack([jacp, jacr]) if target_quat is not None else jacp
+        jac = jac[:, joint_indices]
+
+        # --- damping / regularization ---
+        reg = regularization_strength if err_norm > regularization_threshold else 0.0
+        hess = jac.T @ jac
+        rhs = jac.T @ err[: jac.shape[0]]
+        if reg > 0:
+            hess += np.eye(hess.shape[0]) * reg
+            dq = np.linalg.solve(hess, rhs)
+        else:
+            dq = np.linalg.lstsq(hess, rhs, rcond=None)[0]
+
+        update_norm = np.linalg.norm(dq)
+        if update_norm > max_update_norm:
+            dq *= max_update_norm / update_norm
+
+        if update_norm > 1e-12:
+            progress_criterion = err_norm / update_norm
+            if progress_criterion > progress_thresh:
+                break
+
+        update[:] = 0.0
+        update[joint_indices] = dq
+        mj.mj_integratePos(model, qpos, update, 1)
+
+    return qpos

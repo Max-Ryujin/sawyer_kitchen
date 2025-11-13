@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+from xml.parsers.expat import model
 import imageio
 import pickle
 from tqdm import trange
@@ -466,16 +467,333 @@ def pour_policy(env, obs) -> np.ndarray:
         return action[:9]
 
 
-def collect_policy_episode(save_path="tmp/policy.mp4", steps=800):
+def pour_policy_v2(env, obs) -> np.ndarray:
+
+    model, data = env.unwrapped.model, env.unwrapped.data
+
+    def at_target(target_pos: np.ndarray, tol=0.04) -> bool:
+        ee_pos = utils.get_effector_pos(env)
+        return np.linalg.norm(target_pos - ee_pos) < tol
+
+    def make_action(q_target: np.ndarray, close: bool) -> np.ndarray:
+        action = np.pad(q_target[:7], (0, env.unwrapped.nu - 7))
+        action += utils.make_gripper_action(env, close=close, open_val=-1, close_val=1)
+        return action[:9]
+
+    state = env._automaton_state
+
+    # ───────────────────────────
+    # Move above cup
+    # ───────────────────────────
+    if state == "move_above":
+        cup_pos = utils.get_object_pos(env, ("cup_freejoint1", "cup1"))
+        target_pos = cup_pos + np.array([-0.015, 0.0, 0.3])
+        target_quat = [0.69636424, -0.12278780, 0.12278780, 0.69636424]
+
+        q_target = utils.ik_solve_dm(
+            model,
+            data,
+            "grip_site",
+            max_steps=10,
+            target_pos=target_pos,
+            target_quat=target_quat,
+            inplace=False,
+        )
+        if (
+            at_target(target_pos, tol=0.08)
+            and np.linalg.norm(
+                data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
+            )
+            < 0.001
+        ):
+            env._automaton_state = "move_towards"
+            env._above_position = target_pos
+            print("→ move_towards")
+
+        return make_action(q_target, close=False)
+
+    # ───────────────────────────
+    # Move towards cup
+    # ───────────────────────────
+    if state == "move_towards":
+        cup_pos = utils.get_object_pos(env, ("cup_freejoint1", "cup1"))
+        target_pos = cup_pos + np.array([-0.015, 0.0, 0.15])
+        target_quat = [0.69636424, -0.12278780, 0.12278780, 0.69636424]
+
+        q_target = utils.ik_solve_dm(
+            model,
+            data,
+            "grip_site",
+            max_steps=10,
+            target_pos=target_pos,
+            target_quat=target_quat,
+            inplace=False,
+        )
+        if at_target(target_pos, tol=0.07):
+            env._automaton_state = "move_down"
+            print("→ move_down")
+
+        alpha = 0.1
+        q_current = data.qpos[:7].copy()
+        q_smooth = q_current + alpha * (q_target[:7] - q_current)
+        return make_action(q_smooth, close=False)
+
+    # ───────────────────────────
+    # Move down to grasp
+    # ───────────────────────────
+    elif state == "move_down":
+        cup_pos = utils.get_object_pos(env, ("cup_freejoint1", "cup1"))
+        target_pos = cup_pos + np.array([-0.015, 0.0, 0.09])
+        target_quat = [0.69636424, -0.12278780, 0.12278780, 0.69636424]
+
+        q_target = utils.ik_solve_dm(
+            model,
+            data,
+            "grip_site",
+            max_steps=10,
+            target_pos=target_pos,
+            target_quat=target_quat,
+            inplace=False,
+        )
+        if (
+            at_target(target_pos, tol=0.029)
+            and np.linalg.norm(
+                data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
+            )
+            < 0.00001
+        ):
+            env._automaton_state = "close_gripper"
+            print("→ close_gripper")
+
+        return make_action(q_target, close=False)
+
+    # ───────────────────────────
+    # Close gripper
+    # ───────────────────────────
+    elif state == "close_gripper":
+        cup_pos = utils.get_object_pos(env, ("cup_freejoint1", "cup1"))
+        target_pos = cup_pos + np.array([-0.01, 0.0, 0.09])
+        target_quat = [0.69636424, -0.12278780, 0.12278780, 0.69636424]
+
+        q_target = utils.ik_solve_dm(
+            model,
+            data,
+            "grip_site",
+            target_pos=target_pos,
+            target_quat=target_quat,
+            inplace=False,
+        )
+
+        action = make_action(q_target, close=True)
+
+        # detect grip by constraint forces
+        gripper_joint_ids = [
+            mj.mj_name2id(model, mj.mjtObj.mjOBJ_JOINT, "rc_close"),
+            mj.mj_name2id(model, mj.mjtObj.mjOBJ_JOINT, "lc_close"),
+        ]
+        forces = np.array([data.qfrc_constraint[i] for i in gripper_joint_ids])
+        if (
+            np.linalg.norm(forces) > 10.0
+            and forces.all() > 0
+            and at_target(target_pos, tol=0.05)
+            and np.linalg.norm(
+                data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
+            )
+            < 0.02
+        ):
+            env._automaton_state = "go_up"
+            print("→ go up")
+        else:
+            # what is not fullfilled
+            if np.linalg.norm(forces) <= 10.0:
+                print("Gripper force too low:", np.linalg.norm(forces))
+            if not forces.all() > 0:
+                print("Gripper forces not all positive:", forces)
+            if not at_target(target_pos, tol=0.05):
+                print(
+                    "Position not at target:",
+                    np.linalg.norm(target_pos - utils.get_effector_pos(env)),
+                )
+
+        return action
+
+    # ───────────────────────────
+    # Move up above cup
+    # ───────────────────────────
+    elif state == "go_up":
+        target_quat = [
+            0.54167523,
+            -0.45451947,
+            0.45451947,
+            0.54167523,
+        ]  # top-down orientation
+
+        q_target = utils.ik_solve_dm(
+            model,
+            data,
+            "grip_site",
+            target_pos=env._above_position,
+            target_quat=target_quat,
+            inplace=False,
+        )
+        if (
+            at_target(env._above_position, tol=0.1)
+            and np.linalg.norm(
+                data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
+            )
+            < 0.02
+        ):
+            env._automaton_state = "lift_above"
+            print("→ lift above")
+
+        return make_action(q_target, close=True)
+    # ───────────────────────────
+    # Lift the cup up
+    # ───────────────────────────
+    elif state == "lift_above":
+        cup_pos = utils.get_object_pos(env, ("cup_freejoint0", "cup0"))
+        target_pos = cup_pos + np.array([0.0, 0.0, 0.45])
+        target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
+
+        q_target = utils.ik_solve_dm(
+            model,
+            data,
+            "grip_site",
+            target_pos=target_pos,
+            target_quat=target_quat,
+            inplace=False,
+        )
+
+        # check distance between grip site and gripped cup
+        if (
+            np.linalg.norm(
+                utils.get_object_pos(env, ("cup_freejoint1", "cup1"))
+                - utils.get_effector_pos(env)
+            )
+            > 0.05
+        ):
+            print("Lost grip on cup, moving back to move_above")
+            env._automaton_state = "move_above"
+            return make_action(q_target, close=False)
+
+        if (
+            # check xy positions only
+            np.linalg.norm(target_pos[:2] - utils.get_effector_pos(env)[:2]) < 0.05
+            and np.linalg.norm(
+                data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
+            )
+            < 0.02
+        ):
+            env._automaton_state = "lift_lower"
+            print("→ lift_lower")
+
+        return make_action(q_target, close=True)
+
+    # ───────────────────────────
+    # Lower cup slightly
+    # ───────────────────────────
+    elif state == "lift_lower":
+        cup_pos = utils.get_object_pos(env, ("cup_freejoint0", "cup0"))
+        target_pos = cup_pos + np.array([0.0, 0.0, 0.29])
+        target_quat = [
+            0.54167523,
+            -0.45451947,
+            0.45451947,
+            0.54167523,
+        ]  # top-down orientation
+
+        q_target = utils.ik_solve_dm(
+            model,
+            data,
+            "grip_site",
+            target_pos=target_pos,
+            target_quat=target_quat,
+            inplace=False,
+        )
+
+        # check distance between grip site and gripped cup
+        if (
+            np.linalg.norm(
+                utils.get_object_pos(env, ("cup_freejoint1", "cup1"))
+                - utils.get_effector_pos(env)
+            )
+            > 0.05
+        ):
+            print("Lost grip on cup, moving back to move_above")
+            env._automaton_state = "move_above"
+            return make_action(q_target, close=False)
+
+        if at_target(target_pos, tol=0.08):
+            env._automaton_state = "tilt_halfway"
+            print("→ tilt_halfway")
+
+        alpha = 0.5
+        q_current = data.qpos[:7].copy()
+        q_smooth = q_current + alpha * (q_target[:7] - q_current)
+        if np.linalg.norm(q_smooth - q_current) < 0.1:
+            q_smooth = q_target[:7]
+
+        return make_action(q_smooth, close=True)
+
+    # ───────────────────────────
+    # Tilt halfway
+    # ───────────────────────────
+    elif state == "tilt_halfway":
+        cup_pos = utils.get_object_pos(env, ("cup_freejoint0", "cup0"))
+        target_pos = cup_pos + np.array([-0.005, -0.01, 0.285])
+        target_quat = [0.45451949, -0.54167521, 0.54167521, 0.45451949]
+
+        q_target = utils.ik_solve_dm(
+            model,
+            data,
+            "grip_site",
+            target_pos=target_pos,
+            target_quat=target_quat,
+            inplace=False,
+        )
+
+        if at_target(target_pos):
+            env._automaton_state = "pour"
+            print("→ pour")
+
+        return make_action(q_target, close=True)
+
+    # ───────────────────────────
+    # Final pour
+    # ───────────────────────────
+    elif state == "pour":
+        cup_pos = utils.get_object_pos(env, ("cup_freejoint0", "cup0"))
+        target_pos = cup_pos + np.array([-0.005, -0.02, 0.285])
+        target_quat = [0.12278783, -0.69636423, 0.69636423, 0.12278783]
+
+        q_target = utils.ik_solve_dm(
+            model,
+            data,
+            "grip_site",
+            target_pos=target_pos,
+            target_quat=target_quat,
+            inplace=False,
+        )
+
+        alpha = 0.5
+        q_current = data.qpos[:7].copy()
+        q_smooth = q_current + alpha * (q_target[:7] - q_current)
+        if np.linalg.norm(q_smooth - q_current) < 0.1:
+            q_smooth = q_target[:7]
+        return make_action(q_smooth, close=True)
+
+
+def collect_policy_episode(save_path="tmp/policy.mp4", steps=1000):
     gym.register(id="KitchenMinimalEnv-v0", entry_point="env:KitchenMinimalEnv")
     env = gym.make(
         "KitchenMinimalEnv-v0", render_mode="rgb_array", width=1280, height=960
     )
     obs, _ = env.reset(options={"randomise_cup_position": True})
     frames = []
-    env._automaton_state = "move_left"
+    # env._automaton_state = "move_left"
+    env._automaton_state = "move_above"
     for t in range(steps):
-        action = pour_policy(env, obs)
+        action = pour_policy_v2(env, obs)
         obs, _, term, trunc, _ = env.step(action)
         frames.append(env.render())
         if term or trunc:
@@ -487,25 +805,6 @@ def collect_policy_episode(save_path="tmp/policy.mp4", steps=800):
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     imageio.mimwrite(save_path, frames, fps=env.metadata.get("render_fps", 24))
     print(f"Saved test-policy video to {save_path}")
-
-
-def _serialize_obs(obs):
-    """Convert observations to JSON-serializable structures.
-
-    Supports numpy arrays and dicts of arrays. Falls back to string repr.
-    """
-    if isinstance(obs, dict):
-        out = {}
-        for k, v in obs.items():
-            try:
-                out[k] = np.asarray(v).tolist()
-            except Exception:
-                out[k] = str(v)
-        return out
-    try:
-        return np.asarray(obs).tolist()
-    except Exception:
-        return str(obs)
 
 
 def collect_crl_episode(
@@ -696,6 +995,9 @@ def collect_policy_dataset(
         "failure_counts": dict(failure_counts),
     }
     stats_path = os.path.join(save_root, "stats.json")
+    with open(stats_path, "w") as fh:
+        json.dump(stats, fh, indent=2)
+    print(f"Saved dataset to {save_root}")
 
 
 if __name__ == "__main__":
@@ -706,7 +1008,7 @@ if __name__ == "__main__":
         "--mode", choices=["random", "policy", "dataset", "crl"], default="random"
     )
     parser.add_argument("--out", default="tmp/kitchen_run.mp4")
-    parser.add_argument("--steps", type=int, default=4000)
+    parser.add_argument("--steps", type=int, default=1300)
     parser.add_argument(
         "--minimal", action="store_true", help="Use minimal observations"
     )

@@ -25,7 +25,7 @@ from ogbench import load_dataset
 import wandb
 
 
-def evaluate_agent(agent, num_episodes=10, steps=4000, video=False, save_file=None):
+def evaluate_agent(agent, num_episodes=10, steps=1500, video=False, save_file=None):
 
     gym.register(id="KitchenMinimalEnv-v0", entry_point="env:KitchenMinimalEnv")
     env = gym.make(
@@ -45,7 +45,7 @@ def evaluate_agent(agent, num_episodes=10, steps=4000, video=False, save_file=No
             action = agent.sample_actions(
                 observations=obs_arr,
                 goals=goal_arr,
-                temperature=0.0,
+                temperature=0.5,
                 seed=jax.random.PRNGKey(0),
             )
 
@@ -71,7 +71,7 @@ def main(args):
     # convert to plain dict
     cfg = dict(cfg)
     cfg["alpha"] = 0.03
-    cfg["batch_size"] = 128
+    cfg["batch_size"] = args.batch_size
     train_path = os.path.join(args.dataset_dir, "train_dataset.npz")
     val_path = os.path.join(args.dataset_dir, "val_dataset.npz")
     train_dataset = load_dataset(train_path, compact_dataset=True)
@@ -187,7 +187,7 @@ if __name__ == "__main__":
         "--dataset-dir",
         type=str,
     )
-    p.add_argument("--steps", type=int, default=4000)
+    p.add_argument("--steps", type=int, default=10000)
     p.add_argument(
         "--wandb",
         action="store_true",
@@ -196,6 +196,7 @@ if __name__ == "__main__":
     p.add_argument(
         "--wandb-project", type=str, default="kitchen", help="wandb project name"
     )
+    p.add_argument("--batch-size", type=int, default=256, help="training batch size")
     p.add_argument("--wandb-name", type=str, default=None, help="wandb run name")
     args = p.parse_args()
     print("Args:", args)
