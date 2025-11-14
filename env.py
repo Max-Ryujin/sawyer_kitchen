@@ -115,7 +115,7 @@ INIT_QPOS = np.array(
 MODEL_XML_PATH = os.path.join(os.path.dirname(__file__), "kitchen", "kitchen.xml")
 
 DEFAULT_CAMERA_CONFIG = {
-    "distance": 0.5,
+    "distance": 2.2,
     "azimuth": 200.0,
     "elevation": -35.0,
     "lookat": np.array([-0.65, -0.65, 1.75]),
