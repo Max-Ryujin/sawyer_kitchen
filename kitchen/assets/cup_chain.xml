@@ -12,10 +12,17 @@
         <geom class="cm_col" euler="1.57 0 0" pos="0.051 0 0.063" size="0.03 0.0075" type="cylinder" mass=".01"/> -->
 
         <!-- Collision walls -->
-        <geom type="box" name="right_wall_cup" group="4" class="cm_col" mass="0.01" size="0.002 0.026 0.03" rgba="0 1 0 0.4" pos="0.0233 0 0.046"/>  <!-- right wall -->
-        <geom type="box" name="left_wall_cup" group="4" class="cm_col" mass="0.01" size="0.002 0.026 0.03" rgba="0 1 0 0.4" pos="-0.0233 0 0.046"/> <!-- left wall -->
-        <geom type="box" name="front_wall_cup" group="4" class="cm_col" mass="0.01" size="0.026 0.002 0.03" rgba="0 1 0 0.4" pos="0 0.0233 0.046"/>  <!-- front wall -->
-        <geom type="box" name="back_wall_cup" group="4" class="cm_col" mass="0.01" size="0.026 0.002 0.03" rgba="0 1 0 0.4" pos="0 -0.0233 0.046"/> <!-- back wall -->
-        <geom type="box" name="bottom_cup" group="4" class="cm_col" mass="0.01" size="0.024 0.024 0.003" rgba="0 1 0 0.4" pos="0 0 0.015"/>     <!-- bottom -->
+        <geom type="box" name="right_wall_cup" group="1" class="cm_col" mass="0.01" size="0.002 0.026 0.03" rgba="0 1 0 0.4" pos="0.0233 0 0.046"/>  <!-- right wall -->
+        <geom type="box" name="left_wall_cup" group="1" class="cm_col" mass="0.01" size="0.002 0.026 0.03" rgba="0 1 0 0.4" pos="-0.0233 0 0.046"/> <!-- left wall -->
+        <geom type="box" name="front_wall_cup" group="1" class="cm_col" mass="0.01" size="0.026 0.002 0.03" rgba="0 1 0 0.4" pos="0 0.0233 0.046"/>  <!-- front wall -->
+        <geom type="box" name="back_wall_cup" group="1" class="cm_col" mass="0.01" size="0.026 0.002 0.03" rgba="0 1 0 0.4" pos="0 -0.0233 0.046"/> <!-- back wall -->
+        <geom type="box" name="bottom_cup" group="1" class="cm_col" mass="0.01" size="0.024 0.024 0.003" rgba="0 1 0 0.4" pos="0 0 0.015"/>     <!-- bottom -->
+
+
+        <!-- Corner rounders (small diagonal walls) -->
+        <geom type="box" name="corner_fr" group="1" class="cm_col" mass="0.001" size="0.002 0.006 0.03" rgba="1 0 0 0.4" pos="0.02 0.02 0.046" euler="0 0 0.785"/>  <!-- front-right corner -->
+        <geom type="box" name="corner_fl" group="1" class="cm_col" mass="0.001" size="0.002 0.006 0.03" rgba="1 0 0 0.4" pos="-0.02 0.02 0.046" euler="0 0 -0.785"/> <!-- front-left corner -->
+        <geom type="box" name="corner_br" group="1" class="cm_col" mass="0.001" size="0.002 0.006 0.03" rgba="1 0 0 0.4" pos="0.02 -0.02 0.046" euler="0 0 -0.785"/> <!-- back-right corner -->
+        <geom type="box" name="corner_bl" group="1" class="cm_col" mass="0.001" size="0.002 0.006 0.03" rgba="1 0 0 0.4" pos="-0.02 -0.02 0.046" euler="0 0 0.785"/> <!-- back-left corner -->
     </body>
 </mujocoinclude>

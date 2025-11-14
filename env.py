@@ -115,7 +115,7 @@ INIT_QPOS = np.array(
 MODEL_XML_PATH = os.path.join(os.path.dirname(__file__), "kitchen", "kitchen.xml")
 
 DEFAULT_CAMERA_CONFIG = {
-    "distance": 1.5,
+    "distance": 0.5,
     "azimuth": 200.0,
     "elevation": -35.0,
     "lookat": np.array([-0.65, -0.65, 1.75]),
@@ -165,16 +165,21 @@ class KitchenMinimalEnv(MujocoEnv):
             self.ctrl_range = np.array(self.model.actuator_ctrlrange).reshape(
                 self.nu, 2
             )
+            print("control range set")
         else:
             self.ctrl_range = np.tile(np.array([-1.0, 1.0]), (self.nu, 1))
 
         # By default, we use continuous actions in [-1, 1] mapped to ctrl ranges
-        self.action_space = gym.spaces.Box(
-            low=-1.0, high=1.0, shape=(self.nu,), dtype=np.float32
+        self.action_space = spaces.Box(
+            low=self.ctrl_range[:, 0].astype(np.float32),
+            high=self.ctrl_range[:, 1].astype(np.float32),
+            shape=(self.nu,),
+            dtype=np.float32,
         )
 
-        # Minimal observation: concatenation of qpos and qvel
-        obs_dim = self.nq + self.nv
+        dummy_obs = self._get_observation(minimal=True)
+        obs_dim = dummy_obs.shape[0]
+
         self.observation_space = gym.spaces.Box(
             low=-np.inf, high=np.inf, shape=(obs_dim,), dtype=np.float32
         )
@@ -382,7 +387,7 @@ class KitchenMinimalEnv(MujocoEnv):
         qpos = self.init_qpos
         qvel = self.init_qvel
         self.set_state(qpos, qvel)
-        obs = self._get_obs()
+        obs = self._get_observation(minimal=True)
 
         return obs
 
@@ -468,7 +473,7 @@ class KitchenMinimalEnv(MujocoEnv):
         return tuple(particles_in_cups)
 
     def step(
-        self, action: np.ndarray, minimal=False
+        self, action: np.ndarray, minimal=True
     ) -> Tuple[np.ndarray, float, bool, bool, Dict]:
         action = np.asarray(action, dtype=np.float32).reshape(self.nu)
 

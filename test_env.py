@@ -239,7 +239,7 @@ def random_action_test(save_path: str, steps: int = 250):
     env = gym.make(
         "KitchenMinimalEnv-v0", render_mode="rgb_array", width=2560, height=1920
     )
-    obs, info = env.reset(options={"randomise_cup_position": True})
+    obs, info = env.reset(options={"randomise_cup_position": True, "minimal": True})
 
     frames = []
     for t in range(steps):
@@ -260,44 +260,6 @@ def random_action_test(save_path: str, steps: int = 250):
         print(f"Saved video to: {save_path}")
     else:
         print("No frames collected.")
-
-
-def combine_episode_jsons(save_root: str):
-    """Combine per-episode trajectory.json files under save_root into
-    a single `all_episodes.json`. Image paths are rewritten to be
-    relative to save_root (e.g. `episode_000/images/step_000.png`).
-    """
-    combined = {
-        "num_episodes": 0,
-        "episodes": [],
-    }
-
-    if not os.path.isdir(save_root):
-        print(f"No dataset directory found at {save_root}; skipping combine.")
-        return
-
-    for name in sorted(os.listdir(save_root)):
-        ep_dir = os.path.join(save_root, name)
-        traj_path = os.path.join(ep_dir, "trajectory.json")
-        if os.path.isdir(ep_dir) and os.path.exists(traj_path):
-            with open(traj_path, "r") as fh:
-                data = json.load(fh)
-
-            for entry in data.get("trajectory", []):
-                img_rel = entry.get("image_path")
-                if img_rel:
-                    entry["image_path"] = os.path.normpath(os.path.join(name, img_rel))
-
-            combined["episodes"].append(data)
-
-    combined["num_episodes"] = len(combined["episodes"])
-    all_path = os.path.join(save_root, "all_episodes.json")
-
-    with open(all_path, "w") as fh:
-        json.dump(combined, fh, indent=2)
-    print(
-        f"Wrote combined dataset with {combined['num_episodes']} episodes to {all_path}"
-    )
 
 
 def pour_policy(env, obs) -> np.ndarray:
@@ -844,18 +806,25 @@ def pour_policy_v2(env, obs) -> np.ndarray:
         return make_action(q_target, close=True)
 
 
-def collect_policy_episode(save_path="tmp/policy.mp4", steps=1000):
+def collect_policy_episode(
+    save_path="tmp/policy.mp4", steps=1000, noise=False, random_action=False
+):
     gym.register(id="KitchenMinimalEnv-v0", entry_point="env:KitchenMinimalEnv")
     env = gym.make(
         "KitchenMinimalEnv-v0", render_mode="rgb_array", width=1280, height=960
     )
-    obs, _ = env.reset(options={"randomise_cup_position": True})
+    obs, _ = env.reset(options={"randomise_cup_position": True, "minimal": True})
     frames = []
     # env._automaton_state = "move_left"
     env._automaton_state = "move_above"
     env._state_counter = 0
     for t in range(steps):
         action = pour_policy_v2(env, obs)
+        if random_action:
+            if np.random.rand() < 0.02:
+                action = env.action_space.sample()
+        if noise:
+            action = action + np.random.normal(0, 0.01, action.shape)
         obs, _, term, trunc, _ = env.step(action)
         frames.append(env.render())
         if term or trunc:
@@ -960,7 +929,7 @@ def collect_policy_dataset(
 
     debug_data = defaultdict(list)
     for ep_idx in trange(num_train_episodes + num_val_episodes):
-        obs, _ = env.reset(options={"randomise_cup_position": True})
+        obs, _ = env.reset(options={"randomise_cup_position": True, "minimal": True})
         env._automaton_state = "move_above"
         env._state_counter = 0
         ep_dir = os.path.join(save_root, f"episode_{ep_idx:03d}")
