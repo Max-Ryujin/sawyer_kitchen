@@ -824,7 +824,7 @@ def collect_policy_episode(
             if np.random.rand() < 0.02:
                 action = env.action_space.sample()
         if noise:
-            action = action + np.random.normal(0, 0.01, action.shape)
+            action = action + np.random.normal(0, 0.05, action.shape)
         obs, _, term, trunc, _ = env.step(action)
         frames.append(env.render())
         if term or trunc:
@@ -902,10 +902,12 @@ def collect_crl_episode(
 def collect_policy_dataset(
     save_root: str = "tmp/policy_dataset",
     episodes: int = 100,
-    max_steps: int = 3600,
+    max_steps: int = 1600,
     width: int = 1280,
     height: int = 960,
-    minimal_observations: bool = False,
+    noise: bool = True,
+    random_action: bool = False,
+    minimal_observations: bool = True,
 ):
     """Run the policy multiple times and save successful (terminated==True)
     trajectories to per-episode JSON files. Each step stores obs, action,
@@ -940,6 +942,11 @@ def collect_policy_dataset(
         episode_terminated = False
         for t in range(max_steps):
             action = pour_policy_v2(env, obs)
+            if noise:
+                action = action + np.random.normal(0, 0.05, action.shape)
+            if random_action:
+                if np.random.rand() < 0.01:
+                    action = env.action_space.sample()
             obs_to_store = env.unwrapped._get_observation(minimal=True)
             obs_next, reward, terminated, truncated, info = env.step(action)
             done = terminated or truncated

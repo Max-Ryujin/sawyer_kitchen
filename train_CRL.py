@@ -122,6 +122,8 @@ def main(args):
         except Exception:
             return None
 
+    os.makedirs(save_dir, exist_ok=True)
+
     for step in range(1, steps + 1):
         batch = train_dataset.sample(cfg["batch_size"])
 
@@ -167,10 +169,6 @@ def main(args):
                 wandb.log(log_dict, step=step)
 
     print("Training finished, saving checkpoint...")
-
-    os.makedirs(save_dir, exist_ok=True)
-    # save_path = os.path.join(save_dir, "agent.pkl")
-    # change to use the wandb name as file name
 
     save_agent(agent, save_dir, step)
     print(f"Saved CRL agent checkpoint to {save_dir}")
