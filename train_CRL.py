@@ -25,31 +25,41 @@ from ogbench import load_dataset
 import wandb
 
 
-def evaluate_agent(agent, num_episodes=10, steps=1500, video=False, save_file=None):
+def normalize(x, mean, std, eps=1e-5):
+    return (x - mean) / (std + eps)
+
+
+def evaluate_agent(
+    agent, obs_mean, obs_std, num_episodes=10, steps=1500, video=False, save_file=None
+):
 
     gym.register(id="KitchenMinimalEnv-v0", entry_point="env:KitchenMinimalEnv")
     env = gym.make(
         "KitchenMinimalEnv-v0", render_mode="rgb_array", width=1280, height=960
     )
-    obs, _ = env.reset(options={"randomise_cup_position": True, "minimal": True})
+    obs, _ = env.reset(options={"randomise_cup_position": False, "minimal": True})
 
     success_count = 0
     frames = []
     for i in range(num_episodes):
-        obs, _ = env.reset(options={"randomise_cup_position": True, "minimal": True})
-
+        obs, _ = env.reset(options={"randomise_cup_position": False, "minimal": True})
+        raw_obs = np.asarray(obs)
+        goal_arr = env.unwrapped.create_goal_state(
+            current_state=obs_arr, minimal=True, fixed_goal=True
+        )
+        normalized_goal = normalize(goal_arr, obs_mean, obs_std)
         for t in range(steps):
-            obs_arr = np.asarray(obs)
-            goal_arr = env.unwrapped.create_goal_state(current_state=obs_arr)
-
+            raw_obs = np.asarray(obs)
+            normalized_obs = normalize(raw_obs, obs_mean, obs_std)
             action = agent.sample_actions(
-                observations=obs_arr,
-                goals=goal_arr,
-                temperature=0.5,
+                observations=normalized_obs,
+                goals=normalized_goal,
+                temperature=0.0,
                 seed=jax.random.PRNGKey(0),
             )
-
+            action = np.clip(action, -1, 1)
             obs, _, term, trunc, _ = env.unwrapped.step(action, minimal=True)
+            obs_arr = np.asarray(obs)
             if i == 0 and video:
                 frames.append(env.render())
             if term or trunc:
@@ -70,20 +80,42 @@ def main(args):
     cfg = get_config()
     # convert to plain dict
     cfg = dict(cfg)
-    cfg["alpha"] = 0.03
     cfg["batch_size"] = args.batch_size
     train_path = os.path.join(args.dataset_dir, "train_dataset.npz")
     val_path = os.path.join(args.dataset_dir, "val_dataset.npz")
-    train_dataset = load_dataset(train_path, compact_dataset=True)
-    val_dataset = load_dataset(val_path, compact_dataset=True)
 
-    base_train = Dataset.create(**train_dataset)
+    train_dataset_raw = load_dataset(train_path, compact_dataset=True)
+
+    obs_data = train_dataset_raw["observations"]
+    obs_mean = np.mean(obs_data, axis=0)
+    obs_std = np.std(obs_data, axis=0)
+
+    obs_std[obs_std < 1e-6] = 1.0
+
+    train_dataset_norm = dict(train_dataset_raw)
+    train_dataset_norm["observations"] = normalize(
+        train_dataset_raw["observations"], obs_mean, obs_std
+    )
+
+    if "next_observations" in train_dataset_norm:
+        train_dataset_norm["next_observations"] = normalize(
+            train_dataset_raw["next_observations"], obs_mean, obs_std
+        )
+
+    val_dataset_raw = load_dataset(val_path, compact_dataset=True)
+    val_dataset_norm = dict(val_dataset_raw)
+    val_dataset_norm["observations"] = normalize(
+        val_dataset_raw["observations"], obs_mean, obs_std
+    )
+
+    base_train = Dataset.create(**train_dataset_norm)
     train_dataset = GCDataset(base_train, cfg)
 
-    base_val = Dataset.create(**val_dataset)
+    base_val = Dataset.create(**val_dataset_norm)
     val_dataset = GCDataset(base_val, cfg)
 
     example_batch = train_dataset.sample(1)
+
     agent = CRLAgent.create(
         seed=0,
         ex_observations=example_batch["observations"],
@@ -155,7 +187,12 @@ def main(args):
                 info.update({"val_" + k: v for k, v in val_info.items()})
             save_file = os.path.join(save_dir, f"eval.{step}.mp4")
             success_rate = evaluate_agent(
-                agent, num_episodes=10, video=True, save_file=save_file
+                agent,
+                obs_mean,
+                obs_std,
+                num_episodes=5,
+                video=True,
+                save_file=save_file,
             )
             info["eval/success_rate"] = success_rate
 
@@ -194,7 +231,7 @@ if __name__ == "__main__":
     p.add_argument(
         "--wandb-project", type=str, default="kitchen", help="wandb project name"
     )
-    p.add_argument("--batch-size", type=int, default=256, help="training batch size")
+    p.add_argument("--batch-size", type=int, default=1024, help="training batch size")
     p.add_argument("--wandb-name", type=str, default=None, help="wandb run name")
     args = p.parse_args()
     print("Args:", args)
