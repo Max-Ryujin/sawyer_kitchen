@@ -828,12 +828,30 @@ def collect_crl_episode(
     from agents.crl import CRLAgent, get_config
     from utils.flax_utils import restore_agent
 
+    OG_IMPLS_BASE = os.path.abspath(os.path.join(THIS_DIR, "..", "ogbench", "ogbench"))
+    sys.path.insert(0, OG_IMPLS_BASE)
+    from ogbench import load_dataset
+
+    def normalize(x, mean, std, eps=1e-5):
+        return (x - mean) / (std + eps)
+
     gym.register(id="KitchenMinimalEnv-v0", entry_point="env:KitchenMinimalEnv")
     env = gym.make(
         "KitchenMinimalEnv-v0", render_mode="rgb_array", width=1280, height=960
     )
     obs, _ = env.reset(options={"randomise_cup_position": False, "minimal": True})
     frames = []
+
+    train_path = os.path.join(
+        "/u/maximilian.kannen/work/new_kitchen/tmp/normalised_noise",
+        "train_dataset.npz",
+    )
+
+    train_dataset_raw = load_dataset(train_path, compact_dataset=True)
+
+    obs_data = train_dataset_raw["observations"]
+    obs_mean = np.mean(obs_data, axis=0)
+    obs_std = np.std(obs_data, axis=0)
 
     cfg = get_config()
     # convert to plain dict
@@ -850,16 +868,17 @@ def collect_crl_episode(
     goal_arr = env.unwrapped.create_goal_state(
         current_state=obs_arr, minimal=True, fixed_goal=True
     )
-
+    normalized_goal = normalize(goal_arr, obs_mean, obs_std)
     for t in range(steps):
+        normalized_obs = normalize(obs_arr, obs_mean, obs_std)
 
         action = agent.sample_actions(
-            observations=obs_arr,
-            goals=goal_arr,
+            observations=normalized_obs,
+            goals=normalized_goal,
             temperature=0.0,
             seed=jax.random.PRNGKey(0),
         )
-
+        action = np.clip(action, -1.0, 1.0)
         obs, _, term, trunc, _ = env.unwrapped.step(action, minimal=True)
         obs_arr = np.asarray(obs)
         frames.append(env.render())

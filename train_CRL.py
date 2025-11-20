@@ -45,11 +45,11 @@ def evaluate_agent(
         obs, _ = env.reset(options={"randomise_cup_position": False, "minimal": True})
         raw_obs = np.asarray(obs)
         goal_arr = env.unwrapped.create_goal_state(
-            current_state=obs_arr, minimal=True, fixed_goal=True
+            current_state=raw_obs, minimal=True, fixed_goal=True
         )
+
         normalized_goal = normalize(goal_arr, obs_mean, obs_std)
         for t in range(steps):
-            raw_obs = np.asarray(obs)
             normalized_obs = normalize(raw_obs, obs_mean, obs_std)
             action = agent.sample_actions(
                 observations=normalized_obs,
@@ -59,7 +59,7 @@ def evaluate_agent(
             )
             action = np.clip(action, -1, 1)
             obs, _, term, trunc, _ = env.unwrapped.step(action, minimal=True)
-            obs_arr = np.asarray(obs)
+            raw_obs = np.asarray(obs)
             if i == 0 and video:
                 frames.append(env.render())
             if term or trunc:
@@ -90,7 +90,7 @@ def main(args):
     obs_mean = np.mean(obs_data, axis=0)
     obs_std = np.std(obs_data, axis=0)
 
-    obs_std[obs_std < 1e-6] = 1.0
+    obs_std[obs_std < 1e-2] = 1.0
 
     train_dataset_norm = dict(train_dataset_raw)
     train_dataset_norm["observations"] = normalize(
