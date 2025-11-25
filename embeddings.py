@@ -74,10 +74,13 @@ def main(args):
 
     print("Loading agent checkpoint...")
     agent_tmp = CRLAgent.create(
-        seed=0, ex_observations=example_batch["observations"], ex_actions=example_batch["actions"], config=cfg
+        seed=0,
+        ex_observations=example_batch["observations"],
+        ex_actions=example_batch["actions"],
+        config=cfg,
     )
 
-    agent = restore_agent(agent_tmp, args.agent_checkpoint , 20000)
+    agent = restore_agent(agent_tmp, args.agent_checkpoint, 60000)
 
     print("Computing critic embeddings...")
     phi, psi = get_embeddings(agent, batch)
@@ -108,33 +111,30 @@ def main(args):
     #  Plot helpers
     # ---------------------------------------------------------
     def plot_embed(x, y, title, path):
-        plt.figure(figsize=(8,8))
-        plt.scatter(x[:,0], x[:,1], s=8, alpha=0.6, label="phi")
-        plt.scatter(y[:,0], y[:,1], s=8, alpha=0.6, label="psi")
+        plt.figure(figsize=(8, 8))
+        plt.scatter(x[:, 0], x[:, 1], s=8, alpha=0.6, label="phi")
+        plt.scatter(y[:, 0], y[:, 1], s=8, alpha=0.6, label="psi")
         plt.title(title)
         plt.legend()
         plt.savefig(path, dpi=150)
         plt.close()
 
-
     print("Creating plots...")
 
-    plot_embed(phi_pca, psi_pca,
-               "Critic Embeddings — PCA",
-               f"{args.out_dir}/pca.png")
+    plot_embed(phi_pca, psi_pca, "Critic Embeddings — PCA", f"{args.out_dir}/pca.png")
 
-    plot_embed(phi_tsne, psi_tsne,
-               "Critic Embeddings — t-SNE",
-               f"{args.out_dir}/tsne.png")
+    plot_embed(
+        phi_tsne, psi_tsne, "Critic Embeddings — t-SNE", f"{args.out_dir}/tsne.png"
+    )
 
-    plot_embed(phi_umap, psi_umap,
-               "Critic Embeddings — UMAP",
-               f"{args.out_dir}/umap.png")
+    plot_embed(
+        phi_umap, psi_umap, "Critic Embeddings — UMAP", f"{args.out_dir}/umap.png"
+    )
 
     # ---------------------------------------------------------
     # Similarity heatmap
     # ---------------------------------------------------------
-    plt.figure(figsize=(10,8))
+    plt.figure(figsize=(10, 8))
     sns.heatmap(similarity, cmap="viridis")
     plt.title("φ·ψᵀ Similarity Matrix")
     plt.savefig(f"{args.out_dir}/similarity_matrix.png", dpi=150)
@@ -149,10 +149,13 @@ if __name__ == "__main__":
     parser.add_argument("--dataset-path", type=str, required=True)
     parser.add_argument("--agent-checkpoint", type=str, required=True)
     parser.add_argument("--out-dir", type=str, default="critic_embeddings")
-    parser.add_argument("--num-samples", type=int, default=2000)
-    parser.add_argument("--config", type=dict, required=False,
-                        help="The CRL config dict used when training")
+    parser.add_argument("--num-samples", type=int, default=3000)
+    parser.add_argument(
+        "--config",
+        type=dict,
+        required=False,
+        help="The CRL config dict used when training",
+    )
     args = parser.parse_args()
-
 
     main(args)

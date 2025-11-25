@@ -783,7 +783,7 @@ def pour_policy_v2(env, obs) -> np.ndarray:
 
 
 def collect_policy_episode(
-    save_path="tmp/policy.mp4", steps=1000, noise=False, random_action=False
+    save_path="tmp/policy.mp4", steps=1000, noise=True, random_action=False
 ):
     gym.register(id="KitchenMinimalEnv-v0", entry_point="env:KitchenMinimalEnv")
     env = gym.make(
@@ -800,7 +800,7 @@ def collect_policy_episode(
             if np.random.rand() < 0.02:
                 action = env.action_space.sample()
         if noise:
-            action = action + np.random.normal(0, 0.01, action.shape)
+            action = action + np.random.normal(0, 0.02, action.shape)
         obs, _, term, trunc, _ = env.unwrapped.step(action, minimal=True)
         frames.append(env.render())
         if term or trunc:
@@ -904,19 +904,30 @@ def collect_policy_dataset(
     width: int = 1280,
     height: int = 960,
     noise: bool = True,
+    pixel_observations: bool = False,
     random_action: bool = False,
     minimal_observations: bool = True,
+    save_failed_episodes: bool = False,
 ):
-    """Run the policy multiple times and save successful (terminated==True)
-    trajectories to per-episode JSON files. Each step stores obs, action,
-    terminated boolean and a relative path to the rendered image for that step.
+    """Run the policy multiple times and save trajectories.
 
-    Images for each episode are saved in an `images/` folder next to the JSON.
+    Args:
+        save_failed_episodes: If True, saves all episodes. If False, only saves
+                              successful (terminated==True) episodes.
     """
     gym.register(id="KitchenMinimalEnv-v0", entry_point="env:KitchenMinimalEnv")
-    env = gym.make(
-        "KitchenMinimalEnv-v0", render_mode="rgb_array", width=width, height=height
-    )
+    if pixel_observations:
+        env = gym.make(
+            "KitchenMinimalEnv-v0",
+            render_mode="rgb_array",
+            width=width,
+            height=height,
+            ob_type="pixels",
+        )
+    else:
+        env = gym.make(
+            "KitchenMinimalEnv-v0", render_mode="rgb_array", width=width, height=height
+        )
     dataset = defaultdict(list)
     os.makedirs(save_root, exist_ok=True)
 
@@ -930,18 +941,21 @@ def collect_policy_dataset(
     debug_data = defaultdict(list)
     for ep_idx in trange(num_train_episodes + num_val_episodes):
         obs, _ = env.reset(options={"randomise_cup_position": True, "minimal": True})
+        print(obs.shape)
         env._automaton_state = "move_above"
         env._state_counter = 0
         ep_dir = os.path.join(save_root, f"episode_{ep_idx:03d}")
         images_dir = os.path.join(ep_dir, "images")
         os.makedirs(images_dir, exist_ok=True)
 
-        traj = []
         episode_terminated = False
+
+        steps_in_current_episode = 0
+
         for t in range(max_steps):
             action = pour_policy_v2(env, obs)
             if noise:
-                action = action + np.random.normal(0, 0.01, action.shape)
+                action = action + np.random.normal(0, 0.02, action.shape)
             if random_action:
                 if np.random.rand() < 0.01:
                     action = env.action_space.sample()
@@ -961,45 +975,56 @@ def collect_policy_dataset(
             dataset["qvel"].append(env.unwrapped.data.qvel.copy())
 
             obs = obs_next
+            steps_in_current_episode += 1
 
             if done:
                 episode_terminated = True
-                total_steps += t
+                total_steps += steps_in_current_episode
                 if ep_idx < num_train_episodes:
-                    total_train_steps += t
-                # save last correct dataset entries for check
+                    total_train_steps += steps_in_current_episode
+
+                # Save last correct dataset entries for debugging consistency
                 for k in dataset.keys():
                     debug_data[k].append(dataset[k][-1])
                 break
 
             elif t == max_steps - 1:
                 if env._automaton_state == "pour":
-                    # print where water is
                     Goal, Start = env.unwrapped.get_particles_in_cups()
                     print(f"Goal position at max_steps: {Goal}")
                     print(f"Start position at max_steps: {Start}")
-                    # render final frame
                     final_frame = env.render()
                     final_image_path = os.path.join(images_dir, f"step_{t:03d}.png")
                     imageio.imwrite(final_image_path, final_frame)
                     print(f"Saved final frame to {final_image_path}")
-                # episode reached time limit without termination; not saved
-                print(
-                    f"Episode {ep_idx} reached max_steps ({max_steps}) without termination; not saved."
-                )
-                for k in dataset.keys():
-                    dataset[k] = dataset[k][:-max_steps]  # remove this episode's data
 
-                    assert np.array_equal(
-                        debug_data[k][-1], dataset[k][-1]
-                    ), f"Data mismatch in key {k} at episode {ep_idx}, step {t}"
+                if save_failed_episodes:
+                    print(
+                        f"Episode {ep_idx} failed but saved due to save_failed_episodes=True."
+                    )
+
+                    total_steps += steps_in_current_episode
+                    if ep_idx < num_train_episodes:
+                        total_train_steps += steps_in_current_episode
+
+                    for k in dataset.keys():
+                        debug_data[k].append(dataset[k][-1])
+                else:
+                    print(
+                        f"Episode {ep_idx} reached max_steps ({max_steps}) without termination; not saved."
+                    )
+                    for k in dataset.keys():
+                        dataset[k] = dataset[k][:-max_steps]
+
+                        if len(dataset[k]) > 0:
+                            assert np.array_equal(
+                                debug_data[k][-1], dataset[k][-1]
+                            ), f"Data mismatch in key {k} at episode {ep_idx}, step {t}"
                 break
 
-        # record stats for this episode
         if episode_terminated:
             success_count += 1
         else:
-            # record the automaton state reached at the end of the episode
             final_state = getattr(env, "_automaton_state", None)
             failure_counts[str(final_state)] += 1
 
@@ -1010,6 +1035,10 @@ def collect_policy_dataset(
     val_dataset = {}
     train_path = os.path.join(save_root, "train_dataset.npz")
     val_path = os.path.join(save_root, "val_dataset.npz")
+
+    actual_total_len = len(dataset["actions"])
+    split_idx = min(total_train_steps, actual_total_len)
+
     for k, v in dataset.items():
         if "observations" in k and v[0].dtype == np.uint8:
             dtype = np.uint8
@@ -1019,18 +1048,23 @@ def collect_policy_dataset(
             dtype = np.int64
         else:
             dtype = np.float32
-        train_dataset[k] = np.array(v[:total_train_steps], dtype=dtype)
-        val_dataset[k] = np.array(v[total_train_steps:], dtype=dtype)
 
-    for path, dataset in [(train_path, train_dataset), (val_path, val_dataset)]:
-        np.savez_compressed(path, **dataset)
+        train_dataset[k] = np.array(v[:split_idx], dtype=dtype)
+        val_dataset[k] = np.array(v[split_idx:], dtype=dtype)
 
-    # write stats summary
+    for path, dset in [(train_path, train_dataset), (val_path, val_dataset)]:
+        np.savez_compressed(path, **dset)
+
     stats = {
-        "total_episodes": episodes,
+        "total_episodes_attempted": episodes + (episodes // 10),
         "successful_episodes": success_count,
-        "success_rate": float(success_count) / float(episodes) if episodes > 0 else 0.0,
+        "success_rate": (
+            float(success_count) / float(episodes + (episodes // 10))
+            if episodes > 0
+            else 0.0
+        ),
         "failure_counts": dict(failure_counts),
+        "saved_failed_episodes": save_failed_episodes,
     }
     stats_path = os.path.join(save_root, "stats.json")
     with open(stats_path, "w") as fh:
@@ -1048,6 +1082,11 @@ if __name__ == "__main__":
     parser.add_argument("--out", default="tmp/kitchen_run.mp4")
     parser.add_argument("--steps", type=int, default=1300)
     parser.add_argument(
+        "--save_failed_episodes",
+        action="store_true",
+        help="When collecting dataset, save all episodes including failed ones",
+    )
+    parser.add_argument(
         "--minimal", action="store_true", help="Use minimal observations"
     )
     parser.add_argument(
@@ -1061,6 +1100,11 @@ if __name__ == "__main__":
         type=str,
         help="Path to CRL agent checkpoint file for crl mode",
     )
+    parser.add_argument(
+        "--pixel_observations",
+        action="store_true",
+        help="Use pixel observations when collecting dataset",
+    )
     args = parser.parse_args()
 
     if args.mode == "random":
@@ -1070,12 +1114,24 @@ if __name__ == "__main__":
     elif args.mode == "dataset":
         # Use --out as a directory for the dataset
         save_root = args.out
-        collect_policy_dataset(
-            save_root=save_root,
-            episodes=args.episodes,
-            max_steps=args.steps,
-            minimal_observations=args.minimal,
-        )
+        if args.pixel_observations:
+
+            collect_policy_dataset(
+                save_root=save_root,
+                episodes=args.episodes,
+                max_steps=args.steps,
+                minimal_observations=args.minimal,
+                save_failed_episodes=args.save_failed_episodes,
+                pixel_observations=True,
+            )
+        else:
+            collect_policy_dataset(
+                save_root=save_root,
+                episodes=args.episodes,
+                max_steps=args.steps,
+                minimal_observations=args.minimal,
+                save_failed_episodes=args.save_failed_episodes,
+            )
     elif args.mode == "crl":
         if args.checkpoint is None:
             parser.error("--checkpoint is required when using --mode=crl")

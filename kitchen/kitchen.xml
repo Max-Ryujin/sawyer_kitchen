@@ -32,9 +32,9 @@
             <body name="oven" pos="0 0 0">
                 <include file="../kitchen/assets/oven_chain.xml"/>
             </body>
-            <body name="backwall" pos="0 0 0">
+           <!-- <body name="backwall" pos="0 0 0">
                 <include file="../kitchen/assets/backwall_chain.xml"/>
-            </body>
+            </body>  -->
             <body name="slidecabinet" pos="0.4 0.3 2.6" >
                 <include file="../kitchen/assets/slidecabinet_chain.xml"/>
             </body>

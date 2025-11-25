@@ -1,16 +1,3 @@
-"""
-Minimal gymnasium environment template for modern mujoco + gymnasium.
-
-Install:
-    pip install gymnasium mujoco
-(or your chosen mujoco build; adapt imports if you use a different package)
-
-Notes:
-- Put your kitchen model and assets in a folder (e.g., models/kitchen/).
-- Update MODEL_XML_PATH to point to the kitchen xml.
-- Customize _get_observation() and _compute_reward() for your task.
-"""
-
 import os
 from typing import Optional, Tuple, Dict
 
@@ -304,11 +291,18 @@ GOAL_STATE = [
 
 MODEL_XML_PATH = os.path.join(os.path.dirname(__file__), "kitchen", "kitchen.xml")
 
+# DEFAULT_CAMERA_CONFIG = {
+#    "distance": 2.2,
+#    "azimuth": 200.0,
+#    "elevation": -35.0,
+#    "lookat": np.array([-0.65, -0.65, 1.75]),
+# }
+
 DEFAULT_CAMERA_CONFIG = {
-    "distance": 2.2,
-    "azimuth": 200.0,
+    "distance": 1.9,
+    "azimuth": 350.0,
     "elevation": -35.0,
-    "lookat": np.array([-0.65, -0.65, 1.75]),
+    "lookat": np.array([-0.65, -0.75, 1.75]),
 }
 
 # DEFAULT_CAMERA_CONFIG = {
@@ -326,6 +320,7 @@ class KitchenMinimalEnv(MujocoEnv):
         self,
         model_path: str = MODEL_XML_PATH,
         render_mode: str = "rgb_array",
+        ob_type: str = "states",
         randomise_cup_position: bool = False,
         minimal: bool = True,
         physics_timestep: float = 0.001,
@@ -347,6 +342,17 @@ class KitchenMinimalEnv(MujocoEnv):
             control_timestep=float(control_timestep),
         )
 
+        # Set observation mode (either 'states' or 'pixels') and default render size
+        assert ob_type in ("states", "pixels"), "ob_type must be 'states' or 'pixels'"
+        self._ob_type = ob_type
+
+        if self._ob_type == "pixels":
+            self._width = 256
+            self._height = 256
+        else:
+            self._width = 1920
+            self._height = 2560
+
         # Get actuator control ranges for proper scaling
         if (
             hasattr(self.model, "actuator_ctrlrange")
@@ -367,12 +373,19 @@ class KitchenMinimalEnv(MujocoEnv):
             dtype=np.float32,
         )
 
-        dummy_obs = self._get_observation(minimal=True)
+        dummy_obs = self.compute_observation(minimal=minimal)
         obs_dim = dummy_obs.shape[0]
-
-        self.observation_space = gym.spaces.Box(
-            low=-np.inf, high=np.inf, shape=(obs_dim,), dtype=np.float32
-        )
+        if self._ob_type == "pixels":
+            self.observation_space = gym.spaces.Box(
+                low=0,
+                high=255,
+                shape=obs_dim,
+                dtype=np.uint8,
+            )
+        else:
+            self.observation_space = gym.spaces.Box(
+                low=-np.inf, high=np.inf, shape=(obs_dim,), dtype=np.float32
+            )
 
         super().__init__(
             model_path=model_path,
@@ -414,8 +427,6 @@ class KitchenMinimalEnv(MujocoEnv):
             self._update_water_particle_positions()
 
         self._render_context = None
-        self._width = 1920
-        self._height = 2560
 
         # Reset to initial state
         self.reset(
@@ -550,7 +561,7 @@ class KitchenMinimalEnv(MujocoEnv):
             mj.mj_forward(self.model, self.data)
             self._update_water_particle_positions()
 
-        obs = self._get_observation(minimal=minimal)
+        obs = self.compute_observation(minimal=minimal)
         info = {}
         return obs, info
 
@@ -613,7 +624,7 @@ class KitchenMinimalEnv(MujocoEnv):
         qpos = self.init_qpos
         qvel = self.init_qvel
         self.set_state(qpos, qvel)
-        obs = self._get_observation(minimal=True)
+        obs = self.compute_observation(minimal=True)
 
         return obs
 
@@ -723,7 +734,7 @@ class KitchenMinimalEnv(MujocoEnv):
         self._update_water_particle_positions()
 
         # Build observation
-        obs = self._get_observation(minimal=minimal)
+        obs = self.compute_observation(minimal=minimal)
         reward = self._compute_reward(obs, action)
         Goal, Start = self.get_particles_in_cups()
         terminated = True if Goal >= 7 else False
@@ -731,6 +742,12 @@ class KitchenMinimalEnv(MujocoEnv):
         info = {}
 
         return obs, float(reward), bool(terminated), bool(truncated), info
+
+    def compute_observation(self, minimal=False):
+        if self._ob_type == "pixels":
+            return self.get_pixel_observation()
+
+        return self._get_observation(minimal=minimal)
 
     def _get_observation(self, minimal=False) -> np.ndarray:
         qpos = np.array(self.data.qpos).reshape(-1)
@@ -746,27 +763,7 @@ class KitchenMinimalEnv(MujocoEnv):
             )
         return obs
 
-    def _get_obs(self):
-        # Gather simulated observation
-        # TODO
-        #  robot_qpos, robot_qvel = robot_get_obs(
-        #     self.model, self.data, self.model_names.joint_names
-        # )
-        # Simulate observation noise
-        # robot_qpos += (
-        # self.robot_noise_ratio
-        # * self.robot_pos_noise_amp[:9]
-        # * self.np_random.uniform(low=-1.0, high=1.0, size=robot_qpos.shape)
-        # )
-        # robot_qvel += (
-        # self.robot_noise_ratio
-        # * self.robot_vel_noise_amp[:9]
-        # * self.np_random.uniform(low=-1.0, high=1.0, size=robot_qvel.shape)
-        # )
-
-        # self._last_robot_qpos = robot_qpos
-
-        # return np.concatenate((robot_qpos.copy(), robot_qvel.copy()))
+    def _get_obs(self):  # not used I think
         qpos = np.array(self.data.qpos).reshape(-1)
         qvel = np.array(self.data.qvel).reshape(-1)
         obs = np.concatenate([qpos, qvel]).astype(np.float32)
@@ -780,6 +777,13 @@ class KitchenMinimalEnv(MujocoEnv):
 
     def close(self):
         self._render_context = None
+
+    def get_pixel_observation(self):
+        frame = self.render()
+
+        if isinstance(frame, np.ndarray):
+            return frame.astype(np.uint8)
+        return np.asarray(frame, dtype=np.uint8)
 
     def _update_water_particle_positions(self) -> None:
         """Read current world-space positions for detected water particle geoms into
