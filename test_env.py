@@ -6,6 +6,7 @@ import imageio
 import pickle
 from tqdm import trange
 import numpy as np
+from collections import defaultdict
 import gymnasium as gym
 import jax
 import mujoco as mj
@@ -221,172 +222,259 @@ def random_action_test(save_path: str, steps: int = 250):
         print("No frames collected.")
 
 
-def pour_policy(env, obs) -> np.ndarray:
 
+
+def moving_policy(env, obs, cup_number) -> np.ndarray:
     model, data = env.unwrapped.model, env.unwrapped.data
-    if env._automaton_state == "move_left":
 
-        target_pos = np.array([-0.6, -1.0, 2.2])
+    def at_target(target_pos: np.ndarray, tol=0.04) -> bool:
+        ee_pos = utils.get_effector_pos(env)
+        return np.linalg.norm(target_pos - ee_pos) < tol
 
-        # Solve IK for the target position
-        delta_q = utils.ik_step(
-            model,
-            data,
-            site_name="grip_site",
-            target_pos=target_pos,
-        )
+    def make_action(q_target: np.ndarray, close: bool) -> np.ndarray:
+        model = env.unwrapped.model
+        nu = env.unwrapped.nu
+        ctrl_range = model.actuator_ctrlrange[:nu]
 
-        # Default to last valid qpos if IK fails
-        delta_q_scaled = 2.7 * delta_q
-        if np.linalg.norm(delta_q_scaled) > 4:
-            delta_q_scaled = delta_q
-        q_target = data.qpos[:7] + delta_q_scaled
+        low = ctrl_range[:, 0]
+        high = ctrl_range[:, 1]
 
-        action = np.pad(q_target, (0, env.unwrapped.nu - 7))
-        action += utils.make_gripper_action(env, close=False, open_val=-1, close_val=1)
-        if np.linalg.norm(target_pos - utils.get_effector_pos(env)) < 0.02:
-            env._automaton_state = "move_above"
-            print("Switching to move_above state")
+        arm = q_target[:7]
+
+        arm_norm = 2.0 * (arm - low[:7]) / (high[:7] - low[:7]) - 1.0
+
+        grip = utils.make_gripper_action(env, close=close, open_val=-1.0, close_val=1.0)
+        grip_norm = grip[:nu]
+
+        action = np.zeros(nu, dtype=np.float32)
+        action[:7] = arm_norm
+        action += grip_norm
+
         return action[:9]
-    elif env._automaton_state == "move_above":
-        cup_pos = utils.get_object_pos(env, ("cup_freejoint1", "cup1"))
-        target_pos = cup_pos + np.array([-0.01, 0.0, 0.27])
 
+    state = env._automaton_state
+
+    if state == "move_above":
+        cup_pos = utils.get_object_pos(env, (f"cup_freejoint{cup_number}", f"cup{cup_number}"))
+        target_pos = cup_pos + np.array([-0.015, 0.0, 0.3])
         target_quat = [0.69636424, -0.12278780, 0.12278780, 0.69636424]
+        env._state_counter += 1
 
-        # Solve IK for the target position
-        delta_q = utils.ik_step(
+        q_target = utils.ik_solve_dm(
             model,
             data,
-            site_name="grip_site",
+            "grip_site",
             target_pos=target_pos,
             target_quat=target_quat,
-            reg_strength=3e-2,
+            inplace=False,
         )
-
-        # Default to last valid qpos if IK fails
-        delta_q_scaled = 2.7 * delta_q
-        if np.linalg.norm(delta_q_scaled) > 2:
-            delta_q_scaled = delta_q
-        if np.linalg.norm(delta_q_scaled) < 0.08:
-            delta_q_scaled = 10 * delta_q
-        q_target = data.qpos[:7] + delta_q_scaled
-
-        action = np.pad(q_target, (0, env.unwrapped.nu - 7))
-        action += utils.make_gripper_action(env, close=False, open_val=-1, close_val=1)
-
-        ee_pos = utils.get_effector_pos(env)
-
-        xy_dist = np.linalg.norm(target_pos[:2] - ee_pos[:2])
-
-        # Transition condition: good xy position and stable (slow movement)
         if (
-            xy_dist < 0.0075
+            at_target(target_pos, tol=0.08)
             and np.linalg.norm(
                 data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
             )
-            < 0.00001
-        ):
+            < 0.001
+        ) or env._state_counter > 200:
+            env._automaton_state = "move_towards"
+            env._state_counter = 0
+            env._above_position = target_pos
+            print("→ move_towards")
+
+        return make_action(q_target, close=False)
+
+    if state == "move_towards":
+        env._state_counter += 1
+        cup_pos = utils.get_object_pos(env, (f"cup_freejoint{cup_number}", f"cup{cup_number}"))
+        target_pos = cup_pos + np.array([-0.015, 0.0, 0.15])
+        target_quat = [0.64085639, -0.29883623, 0.29883623, 0.64085639]
+
+        q_target = utils.ik_solve_dm(
+            model,
+            data,
+            "grip_site",
+            target_pos=target_pos,
+            target_quat=target_quat,
+            inplace=False,
+        )
+        if at_target(target_pos, tol=0.07) or env._state_counter > 200:
             env._automaton_state = "move_down"
-            print("Switching to move_down state")
-        return action[:9]
-    elif env._automaton_state == "move_down":
-        cup_pos = utils.get_object_pos(env, ("cup_freejoint1", "cup1"))
-        target_pos = cup_pos + np.array([-0.01, 0.0, 0.04])
+            env._state_counter = 0
+            print("→ move_down")
 
-        # Solve IK for the target position
-        delta_q = utils.ik_step(
-            model, data, site_name="grip_site", target_pos=target_pos, reg_strength=1e-4
+        alpha = 0.1
+        q_current = data.qpos[:7].copy()
+        q_smooth = q_current + alpha * (q_target[:7] - q_current)
+        return make_action(q_smooth, close=False)
+
+    elif state == "move_down":
+        env._state_counter += 1
+        cup_pos = utils.get_object_pos(env, (f"cup_freejoint{cup_number}", f"cup{cup_number}"))
+        target_pos = cup_pos + np.array([-0.01, 0.0, 0.075])
+        target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
+
+        q_target = utils.ik_solve_dm(
+            model,
+            data,
+            "grip_site",
+            target_pos=target_pos,
+            target_quat=target_quat,
+            inplace=False,
         )
-
-        # Default to last valid qpos if IK fails
-        q_target = data.qpos[:7] + 0.75 * delta_q
-
-        # add two values for gripper control
-        action = np.pad(q_target, (0, env.unwrapped.nu - 7))
-        action += utils.make_gripper_action(env, close=False, open_val=-1, close_val=1)
-        if np.linalg.norm(target_pos - utils.get_effector_pos(env)) < 0.015:
+        if (
+            np.abs(target_pos[2] - utils.get_effector_pos(env)[2]) < 0.006
+            and np.abs(target_pos[1] - utils.get_effector_pos(env)[1]) < 0.005
+            and np.linalg.norm(
+                data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
+            )
+            < 0.001
+        ) or env._state_counter > 160:
             env._automaton_state = "close_gripper"
-            print("Switching to close_gripper state")
-        return action[:9]
-    elif env._automaton_state == "close_gripper":
-        cup_pos = utils.get_object_pos(env, ("cup_freejoint1", "cup1"))
-        target_pos = cup_pos + np.array([0.0, 0.0, 0.04])
+            env._state_counter = 0
+            print("→ close_gripper")
+        return make_action(q_target, close=False)
 
-        # Solve IK for the target position
-        delta_q = utils.ik_step(
-            model, data, site_name="grip_site", target_pos=target_pos, reg_strength=1e-4
+    elif state == "close_gripper":
+        env._state_counter += 1
+        cup_pos = utils.get_object_pos(env, (f"cup_freejoint{cup_number}", f"cup{cup_number}"))
+        target_pos = cup_pos + np.array([-0.01, 0.0, 0.075])
+        target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
+
+        q_target = utils.ik_solve_dm(
+            model,
+            data,
+            "grip_site",
+            target_pos=target_pos,
+            target_quat=target_quat,
+            inplace=False,
         )
 
-        # Default to last valid qpos if IK fails
-        q_target = data.qpos[:7] + 0.5 * delta_q
+        action = make_action(q_target, close=True)
 
-        # add two values for gripper control
-        action = np.pad(q_target, (0, env.unwrapped.nu - 7))
-        action += utils.make_gripper_action(env, close=True, open_val=-1, close_val=1)
+        if env._state_counter > 100:
+            env._state_counter = 0
+            env._automaton_state = "move_towards"
+
         gripper_joint_ids = [
             mj.mj_name2id(model, mj.mjtObj.mjOBJ_JOINT, "rc_close"),
             mj.mj_name2id(model, mj.mjtObj.mjOBJ_JOINT, "lc_close"),
         ]
-
         forces = np.array([data.qfrc_constraint[i] for i in gripper_joint_ids])
-        if np.linalg.norm(forces) > 15.0:
-            env._automaton_state = "lift_above"
-            print("Switching to lift_above state")
-        return action[:9]
-    elif env._automaton_state == "lift_above":
-        cup_pos = utils.get_object_pos(env, ("cup_freejoint0", "cup0"))
-        target_pos = cup_pos + np.array([0.0, -0.05, 0.34])
+        if (
+            np.linalg.norm(forces) > 5.0
+            and forces.all() > 0
+            and at_target(target_pos, tol=0.05)
+        ):
+            env._automaton_state = "go_up"
+            env._state_counter = 0
+            print("→ go up")
 
-        # Solve IK for the target position
-        delta_q = utils.ik_step(
+        return action
+
+    elif state == "go_up":
+        target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
+
+        q_target = utils.ik_solve_dm(
             model,
             data,
-            site_name="grip_site",
-            target_pos=target_pos,
-            reg_strength=1e-4,
+            "grip_site",
+            target_pos=env._above_position,
+            target_quat=target_quat,
+            inplace=False,
         )
-        q_target = data.qpos[:7] + 0.5 * delta_q
-
-        # add two values for gripper control
-        action = np.pad(q_target, (0, env.unwrapped.nu - 7))
-        action += utils.make_gripper_action(env, close=True, open_val=-1, close_val=1)
-        ee_pos = utils.get_effector_pos(env)
-        xy_dist = np.linalg.norm(target_pos[:2] - ee_pos[:2])
         if (
-            xy_dist < 0.03
+            at_target(env._above_position, tol=0.1)
             and np.linalg.norm(
                 data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
             )
-            < 0.00004
+            < 0.02
         ):
-            env._automaton_state = "pour"
-            print("Switching to pour state")
-        return action[:9]
-    elif env._automaton_state == "pour":
-        cup_pos = utils.get_object_pos(env, ("cup_freejoint0", "cup0"))
-        target_pos = cup_pos + np.array([-0.005, -0.0145, 0.285])
-        target_quat = [0.29883626, -0.64085637, 0.64085637, 0.29883626]
+            env._automaton_state = "move_cup"
+            other_cup_id = 1 - cup_number
+            other_cup_pos = utils.get_object_pos(env, (f"cup_freejoint{other_cup_id}", f"cup{other_cup_id}"))
+            while True:
+                env._cup_destination = np.array([-0.8, -1.1, 1.6]) + np.random.uniform(-0.1, 0.1, 3)
+                if np.linalg.norm(env._cup_destination - other_cup_pos) > 0.2:
+                    break
+            print("→ move_cup")
 
-        # Solve IK for the target position
-        delta_q = utils.ik_step(
+        return make_action(q_target, close=True)
+
+    elif state == "move_cup":
+        target_pos = env._cup_destination
+        target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
+
+        q_target = utils.ik_solve_dm(
             model,
             data,
-            site_name="grip_site",
+            "grip_site",
             target_pos=target_pos,
             target_quat=target_quat,
-            rot_weight=0.8,
-            # reg_strength=1e-4,
+            inplace=False,
         )
 
-        # Default to last valid qpos if IK fails
-        q_target = data.qpos[:7] + 0.5 * delta_q
+        if at_target(target_pos, tol=0.05):
+            env._automaton_state = "place_cup"
+            print("→ place_cup")
 
-        # add two values for gripper control
-        action = np.pad(q_target, (0, env.unwrapped.nu - 7))
-        action += utils.make_gripper_action(env, close=True, open_val=-1, close_val=1)
-        return action[:9]
+        return make_action(q_target, close=True)
 
+    elif state == "place_cup":
+        target_pos = env._cup_destination.copy()
+        target_pos[2] -= 0.15 # move down
+        target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
+
+        q_target = utils.ik_solve_dm(
+            model,
+            data,
+            "grip_site",
+            target_pos=target_pos,
+            target_quat=target_quat,
+            inplace=False,
+        )
+        if at_target(target_pos, tol=0.05):
+            env._automaton_state = "open_gripper"
+            print("→ open_gripper")
+
+        return make_action(q_target, close=True)
+
+    elif state == "open_gripper":
+        target_pos = env._cup_destination.copy()
+        target_pos[2] -= 0.15 # keep it down
+        target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
+
+        q_target = utils.ik_solve_dm(
+            model,
+            data,
+            "grip_site",
+            target_pos=target_pos,
+            target_quat=target_quat,
+            inplace=False,
+        )
+
+        action = make_action(q_target, close=False)
+        env._state_counter +=1
+        if env._state_counter > 50:
+            env._automaton_state = "move_up_after_release"
+        return action
+
+    elif state == "move_up_after_release":
+        target_pos = env._cup_destination.copy()
+        target_pos[2] += 0.15 # move up
+        target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
+
+        q_target = utils.ik_solve_dm(
+            model,
+            data,
+            "grip_site",
+            target_pos=target_pos,
+            target_quat=target_quat,
+            inplace=False,
+        )
+
+        action = make_action(q_target, close=False)
+        if at_target(target_pos, tol=0.05):
+            env._automaton_state = "done"
+        return action
 
 def pour_policy_v2(env, obs) -> np.ndarray:
 
@@ -953,6 +1041,194 @@ def collect_policy_dataset(
 
         for t in range(max_steps):
             action = pour_policy_v2(env, obs)
+            if noise:
+                action = action + np.random.normal(0, 0.02, action.shape)
+            if random_action:
+                if np.random.rand() < 0.01:
+                    action = env.action_space.sample()
+            obs_to_store = env.unwrapped._get_observation(minimal=True)
+            obs_next, reward, terminated, truncated, info = env.unwrapped.step(
+                action, minimal=True
+            )
+            done = terminated or truncated
+
+            if minimal_observations:
+                dataset["observations"].append(obs_to_store)
+            else:
+                dataset["observations"].append(obs)
+            dataset["actions"].append(action)
+            dataset["terminals"].append(done)
+            dataset["qpos"].append(env.unwrapped.data.qpos.copy())
+            dataset["qvel"].append(env.unwrapped.data.qvel.copy())
+
+            obs = obs_next
+            steps_in_current_episode += 1
+
+            if done:
+                episode_terminated = True
+                total_steps += steps_in_current_episode
+                if ep_idx < num_train_episodes:
+                    total_train_steps += steps_in_current_episode
+
+                # Save last correct dataset entries for debugging consistency
+                for k in dataset.keys():
+                    debug_data[k].append(dataset[k][-1])
+                break
+
+            elif t == max_steps - 1:
+                if env._automaton_state == "pour":
+                    Goal, Start = env.unwrapped.get_particles_in_cups()
+                    print(f"Goal position at max_steps: {Goal}")
+                    print(f"Start position at max_steps: {Start}")
+                    final_frame = env.render()
+                    final_image_path = os.path.join(images_dir, f"step_{t:03d}.png")
+                    imageio.imwrite(final_image_path, final_frame)
+                    print(f"Saved final frame to {final_image_path}")
+
+                if save_failed_episodes:
+                    print(
+                        f"Episode {ep_idx} failed but saved due to save_failed_episodes=True."
+                    )
+
+                    total_steps += steps_in_current_episode
+                    if ep_idx < num_train_episodes:
+                        total_train_steps += steps_in_current_episode
+
+                    for k in dataset.keys():
+                        debug_data[k].append(dataset[k][-1])
+                else:
+                    print(
+                        f"Episode {ep_idx} reached max_steps ({max_steps}) without termination; not saved."
+                    )
+                    for k in dataset.keys():
+                        dataset[k] = dataset[k][:-max_steps]
+
+                        if len(dataset[k]) > 0:
+                            assert np.array_equal(
+                                debug_data[k][-1], dataset[k][-1]
+                            ), f"Data mismatch in key {k} at episode {ep_idx}, step {t}"
+                break
+
+        if episode_terminated:
+            success_count += 1
+        else:
+            final_state = getattr(env, "_automaton_state", None)
+            failure_counts[str(final_state)] += 1
+
+    env.close()
+
+    # Split the dataset into training and validation sets.
+    train_dataset = {}
+    val_dataset = {}
+    train_path = os.path.join(save_root, "train_dataset.npz")
+    val_path = os.path.join(save_root, "val_dataset.npz")
+
+    actual_total_len = len(dataset["actions"])
+    split_idx = min(total_train_steps, actual_total_len)
+
+    for k, v in dataset.items():
+        if "observations" in k and v[0].dtype == np.uint8:
+            dtype = np.uint8
+        elif k == "terminals":
+            dtype = bool
+        elif k == "button_states":
+            dtype = np.int64
+        else:
+            dtype = np.float32
+
+        train_dataset[k] = np.array(v[:split_idx], dtype=dtype)
+        val_dataset[k] = np.array(v[split_idx:], dtype=dtype)
+
+    for path, dset in [(train_path, train_dataset), (val_path, val_dataset)]:
+        np.savez_compressed(path, **dset)
+
+    stats = {
+        "total_episodes_attempted": episodes + (episodes // 10),
+        "successful_episodes": success_count,
+        "success_rate": (
+            float(success_count) / float(episodes + (episodes // 10))
+            if episodes > 0
+            else 0.0
+        ),
+        "failure_counts": dict(failure_counts),
+        "saved_failed_episodes": save_failed_episodes,
+    }
+    stats_path = os.path.join(save_root, "stats.json")
+    with open(stats_path, "w") as fh:
+        json.dump(stats, fh, indent=2)
+    print(f"Saved dataset to {save_root}")
+
+
+def collect_moving_policy_dataset(
+    save_root: str = "tmp/policy_dataset",
+    episodes: int = 100,
+    max_steps: int = 1600,
+    width: int = 320,
+    height: int = 240,
+    noise: bool = True,
+    pixel_observations: bool = False,
+    random_action: bool = False,
+    minimal_observations: bool = True,
+    save_failed_episodes: bool = False,
+):
+    """Run the policy multiple times and save trajectories.
+
+    Args:
+        save_failed_episodes: If True, saves all episodes. If False, only saves
+                              successful (terminated==True) episodes.
+    """
+    gym.register(id="KitchenMinimalEnv-v0", entry_point="env:KitchenMinimalEnv")
+    if pixel_observations:
+        env = gym.make(
+            "KitchenMinimalEnv-v0",
+            render_mode="rgb_array",
+            width=width,
+            height=height,
+            ob_type="pixels",
+        )
+    else:
+        env = gym.make(
+            "KitchenMinimalEnv-v0", render_mode="rgb_array", width=width, height=height
+        )
+    dataset = defaultdict(list)
+    os.makedirs(save_root, exist_ok=True)
+
+    success_count = 0
+    failure_counts = defaultdict(int)
+    total_steps = 0
+    total_train_steps = 0
+    num_train_episodes = episodes
+    num_val_episodes = episodes // 10
+
+    debug_data = defaultdict(list)
+    for ep_idx in trange(num_train_episodes + num_val_episodes):
+        obs, _ = env.reset(options={"randomise_cup_position": True, "minimal": True})
+        env._automaton_state = "move_above"
+        env._state_counter = 0
+        ep_dir = os.path.join(save_root, f"episode_{ep_idx:03d}")
+        images_dir = os.path.join(ep_dir, "images")
+        os.makedirs(images_dir, exist_ok=True)
+
+        episode_terminated = False
+
+        steps_in_current_episode = 0
+
+        move_operations = np.random.randint(0, 3)
+        moves_completed = 0
+        policy_mode = "moving" if move_operations > 0 else "pouring"
+
+        for t in range(max_steps):
+            action = None
+            if policy_mode == "moving":
+                action = moving_policy(env, obs, 1)
+                if env._automaton_state == "done":
+                    moves_completed += 1
+                    if moves_completed == move_operations:
+                        policy_mode = "pouring"
+                    env._automaton_state = "move_above"
+            elif policy_mode == "pouring":
+                action = pour_policy_v2(env, obs)
+
             if noise:
                 action = action + np.random.normal(0, 0.02, action.shape)
             if random_action:
