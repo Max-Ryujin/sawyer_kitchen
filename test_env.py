@@ -454,6 +454,25 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         action = make_action(q_target, close=False)
         env._state_counter +=1
         if env._state_counter > 50:
+            env._automaton_state = "move_up_after_release"
+        return action
+
+    elif state == "move_up_after_release":
+        target_pos = env._cup_destination.copy()
+        target_pos[2] += 0.15 # move up
+        target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
+
+        q_target = utils.ik_solve_dm(
+            model,
+            data,
+            "grip_site",
+            target_pos=target_pos,
+            target_quat=target_quat,
+            inplace=False,
+        )
+
+        action = make_action(q_target, close=False)
+        if at_target(target_pos, tol=0.05):
             env._automaton_state = "done"
         return action
 
