@@ -80,7 +80,7 @@ def main(args):
         config=cfg,
     )
 
-    agent = restore_agent(agent_tmp, args.agent_checkpoint, 60000)
+    agent = restore_agent(agent_tmp, args.agent_checkpoint, 50000)
 
     print("Computing critic embeddings...")
     phi, psi = get_embeddings(agent, batch)

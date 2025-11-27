@@ -98,7 +98,6 @@ INIT_QPOS = np.array(
     ]
 )
 
-
 GOAL_JOINTS = [
     1.0328614711761475,
     -0.30165818333625793,
@@ -110,7 +109,6 @@ GOAL_JOINTS = [
     0.01867654360830784,
     0.018937133252620697,
 ]
-
 
 GOAL_STATE = [
     1.07545805e00,
@@ -299,10 +297,10 @@ MODEL_XML_PATH = os.path.join(os.path.dirname(__file__), "kitchen", "kitchen.xml
 # }
 
 DEFAULT_CAMERA_CONFIG = {
-    "distance": 1.9,
+    "distance": 1.8,
     "azimuth": 350.0,
     "elevation": -35.0,
-    "lookat": np.array([-0.65, -0.75, 1.75]),
+    "lookat": np.array([-0.65, -0.8, 1.75]),
 }
 
 # DEFAULT_CAMERA_CONFIG = {
@@ -346,12 +344,8 @@ class KitchenMinimalEnv(MujocoEnv):
         assert ob_type in ("states", "pixels"), "ob_type must be 'states' or 'pixels'"
         self._ob_type = ob_type
 
-        if self._ob_type == "pixels":
-            self._width = 256
-            self._height = 256
-        else:
-            self._width = 1920
-            self._height = 2560
+        self._width = 320
+        self._height = 240
 
         # Get actuator control ranges for proper scaling
         if (
@@ -373,9 +367,9 @@ class KitchenMinimalEnv(MujocoEnv):
             dtype=np.float32,
         )
 
-        dummy_obs = self.compute_observation(minimal=minimal)
-        obs_dim = dummy_obs.shape[0]
         if self._ob_type == "pixels":
+
+            obs_dim = (self._height, self._width, 3)
             self.observation_space = gym.spaces.Box(
                 low=0,
                 high=255,
@@ -383,6 +377,8 @@ class KitchenMinimalEnv(MujocoEnv):
                 dtype=np.uint8,
             )
         else:
+            dummy_obs = self._get_observation(minimal=minimal)
+            obs_dim = dummy_obs.shape[0]
             self.observation_space = gym.spaces.Box(
                 low=-np.inf, high=np.inf, shape=(obs_dim,), dtype=np.float32
             )

@@ -787,7 +787,7 @@ def collect_policy_episode(
 ):
     gym.register(id="KitchenMinimalEnv-v0", entry_point="env:KitchenMinimalEnv")
     env = gym.make(
-        "KitchenMinimalEnv-v0", render_mode="rgb_array", width=1280, height=960
+        "KitchenMinimalEnv-v0", render_mode="rgb_array", width=320, height=240
     )
     obs, _ = env.reset(options={"randomise_cup_position": False, "minimal": True})
     frames = []
@@ -901,8 +901,8 @@ def collect_policy_dataset(
     save_root: str = "tmp/policy_dataset",
     episodes: int = 100,
     max_steps: int = 1600,
-    width: int = 1280,
-    height: int = 960,
+    width: int = 320,
+    height: int = 240,
     noise: bool = True,
     pixel_observations: bool = False,
     random_action: bool = False,
@@ -941,7 +941,6 @@ def collect_policy_dataset(
     debug_data = defaultdict(list)
     for ep_idx in trange(num_train_episodes + num_val_episodes):
         obs, _ = env.reset(options={"randomise_cup_position": True, "minimal": True})
-        print(obs.shape)
         env._automaton_state = "move_above"
         env._state_counter = 0
         ep_dir = os.path.join(save_root, f"episode_{ep_idx:03d}")
