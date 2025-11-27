@@ -13,221 +13,180 @@ import kitchen_utils as utils
 from collections import defaultdict
 
 EXAMPLE_GOAL_OBS = [
-    9.73506629e-01,
-    -2.93381691e-01,
-    1.76090479e00,
-    -1.10562456e00,
-    1.11492622e00,
-    -2.39137149e00,
-    -1.46721113e00,
-    1.34919360e-02,
-    1.36773931e-02,
-    2.45778156e-05,
-    2.95590127e-07,
-    2.45777410e-05,
-    2.95589217e-07,
-    2.45777410e-05,
-    2.95589217e-07,
-    2.45777410e-05,
-    2.95589217e-07,
-    2.16196258e-05,
-    5.08073663e-06,
-    7.20666153e-17,
-    -6.44129189e-03,
-    8.16410258e-17,
-    -9.65133494e-17,
-    -1.69006109e-01,
-    -8.86719226e-06,
-    1.61922598e00,
-    1.00000000e00,
-    -2.75028993e-11,
-    -1.67092130e-05,
-    -1.64597213e-06,
-    -4.53902006e-01,
-    -8.44409347e-01,
-    1.58895946e00,
-    9.99999940e-01,
-    -8.86493581e-05,
-    7.74951332e-05,
-    -2.13907711e-04,
-    -4.59555119e-01,
-    -9.47338104e-01,
-    1.78176177e00,
-    5.88065982e-01,
-    -8.08163822e-01,
-    -1.02991927e-02,
-    -3.07170041e-02,
-    -4.39218938e-01,
-    -8.57732475e-01,
-    1.61266494e00,
-    8.25388312e-01,
-    -2.58950561e-01,
-    1.80888623e-01,
-    4.67929512e-01,
-    -4.54208374e-01,
-    -8.31465244e-01,
-    1.61260152e00,
-    1.71368793e-01,
-    -6.88356459e-01,
-    1.82999000e-01,
-    6.80668414e-01,
-    -4.42167342e-01,
-    -8.45450461e-01,
-    1.61271513e00,
-    7.79130816e-01,
-    -1.07870616e-01,
-    6.16813004e-01,
-    2.93402858e-02,
-    -4.68076557e-01,
-    -8.46153975e-01,
-    1.65958333e00,
-    -3.89271319e-01,
-    -4.51916039e-01,
-    -7.81671286e-01,
-    1.82290137e-01,
-    -4.60491419e-01,
-    -8.36491287e-01,
-    1.61673999e00,
-    -3.07923466e-01,
-    3.79064977e-01,
-    7.41564155e-01,
-    4.59973335e-01,
-    -4.64173794e-01,
-    -8.47201169e-01,
-    1.61207044e00,
-    -5.17658710e-01,
-    -1.00626186e-01,
-    -7.97066987e-01,
-    2.94258505e-01,
-    -4.69314069e-01,
-    -8.36662710e-01,
-    1.61271691e00,
-    -7.01713979e-01,
-    -5.89282930e-01,
-    4.00073618e-01,
-    1.68592017e-02,
-    -5.13630807e-01,
-    -5.65243602e-01,
-    1.60586631e00,
-    -6.16780341e-01,
-    5.90872824e-01,
-    3.58913004e-01,
-    -3.76341254e-01,
-    -5.03991961e-01,
-    -5.99111199e-01,
-    1.60586631e00,
-    2.33071029e-01,
-    8.39006007e-01,
-    8.11235905e-02,
-    -4.84938920e-01,
-    -4.38755840e-01,
-    -8.35725009e-01,
-    1.61270916e00,
-    5.05710006e-01,
-    -5.46767488e-02,
-    -4.45556760e-01,
-    7.36713648e-01,
-    -3.80809139e-03,
-    5.25044417e-03,
-    -1.10222045e-02,
-    4.57993709e-03,
-    2.53680218e-02,
-    -4.82810140e-02,
-    -4.65425104e-02,
-    1.49135594e-04,
-    -2.51445977e-04,
-    -2.73009386e-16,
-    1.51177424e-14,
-    4.45399074e-17,
-    -2.46834125e-15,
-    -7.95988889e-17,
-    2.94382574e-15,
-    -2.95917019e-18,
-    1.58764669e-15,
-    -1.41808569e-17,
-    2.46714837e-16,
-    3.45010780e-17,
-    0.00000000e00,
-    4.12477285e-17,
-    -4.80008740e-17,
-    -1.88886015e-17,
-    1.54123404e-18,
-    -3.20179064e-14,
-    2.10496919e-17,
-    -9.18727764e-15,
-    -2.41072144e-20,
-    5.68723539e-04,
-    -6.45796390e-05,
-    1.20262953e-03,
-    -1.83793548e-02,
-    -2.09042653e-02,
-    -3.30917374e-03,
-    1.20622790e-04,
-    -2.73444643e-03,
-    6.32358016e-03,
-    -3.89508456e-02,
-    -4.35665883e-02,
-    5.02851233e-02,
-    -4.25276794e-02,
-    5.69648873e-05,
-    4.02764790e-03,
-    -5.38549137e00,
-    -3.42795324e00,
-    -4.74702454e00,
-    3.15522403e-01,
-    2.65099108e-01,
-    -5.53156026e-02,
-    -1.27784693e00,
-    -2.57492046e01,
-    6.66805878e01,
-    3.05667538e-02,
-    -2.27050837e-02,
-    1.35716854e-03,
-    5.22538841e-01,
-    4.74977684e00,
-    5.22130299e00,
-    1.77464727e-02,
-    2.63910741e-01,
-    -1.26469529e00,
-    2.06071205e01,
-    -4.49254684e01,
-    -2.31568222e01,
-    -8.47106725e-02,
-    2.60553956e-01,
-    -2.24403724e-01,
-    5.88417892e01,
-    1.69806728e01,
-    9.09137192e01,
-    -6.94471821e-02,
-    -2.93772578e-01,
-    -2.71356367e-02,
-    -2.28012161e01,
-    1.53139343e01,
-    5.01560326e01,
-    2.34853849e-03,
-    1.66286505e-03,
-    -1.00350611e-04,
-    -1.71747237e-01,
-    2.13417798e-01,
-    -5.93292825e-02,
-    -6.98776692e-02,
-    3.54777217e-01,
-    3.07554580e-14,
-    -4.14107323e01,
-    -8.81085575e-01,
-    5.21953125e01,
-    -7.29810447e-02,
-    3.12638819e-01,
-    3.07601235e-14,
-    -3.06552238e01,
-    -8.25846100e00,
-    4.98997536e01,
-    -4.10050480e-03,
-    1.08119726e-04,
-    1.52804307e-03,
-    -6.43244505e-01,
-    6.28983676e-02,
-    4.69095320e-01,
+    1.0328614711761475,
+    -0.30165818333625793,
+    2.068722724914551,
+    -1.1879557371139526,
+    1.174445629119873,
+    -2.5215463638305664,
+    -1.2182813882827759,
+    0.01867654360830784,
+    0.018937133252620697,
+    -0.032288286834955215,
+    0.0011035713832825422,
+    0.08603318780660629,
+    0.007812343537807465,
+    0.003646769095212221,
+    -0.17719876766204834,
+    0.048163507133722305,
+    0.00011716206063283607,
+    -0.00012100646563339978,
+    -0.5274343490600586,
+    -0.7672080993652344,
+    1.5888869762420654,
+    0.9999953508377075,
+    -0.00210916087962687,
+    -0.00039728923002257943,
+    -0.0021729320287704468,
+    -0.5275718569755554,
+    -0.878852128982544,
+    1.7291043996810913,
+    0.5998542308807373,
+    -0.797810971736908,
+    -0.018524667248129845,
+    -0.05770083889365196,
+    -0.5224093794822693,
+    -0.751502275466919,
+    1.6127880811691284,
+    0.3430387079715729,
+    0.36703041195869446,
+    0.845798909664154,
+    -0.17954768240451813,
+    -0.5118367671966553,
+    -0.7653200030326843,
+    1.6126577854156494,
+    0.5904989242553711,
+    0.1474355161190033,
+    0.043138161301612854,
+    -0.7922833561897278,
+    -0.5415235161781311,
+    -0.770224392414093,
+    1.6487640142440796,
+    -0.35912182927131653,
+    -0.007813514210283756,
+    0.9263462424278259,
+    -0.11337151378393173,
+    -0.5367369651794434,
+    -0.8497213125228882,
+    1.7034391164779663,
+    -0.41515588760375977,
+    -0.5325943827629089,
+    0.07069452852010727,
+    0.7341601252555847,
+    -0.542583703994751,
+    -0.7583289742469788,
+    1.612152099609375,
+    -0.2574683725833893,
+    -0.3054730296134949,
+    -0.7503960132598877,
+    0.5265948176383972,
+    -0.5267834663391113,
+    -0.7943599820137024,
+    1.6693847179412842,
+    -0.8120731115341187,
+    -0.2888404130935669,
+    -0.038021281361579895,
+    -0.505631148815155,
+    -0.5166738629341125,
+    -0.7741424441337585,
+    1.6629692316055298,
+    0.44979962706565857,
+    -0.32265597581863403,
+    -0.5842329263687134,
+    0.5935025811195374,
+    -0.5313515663146973,
+    -0.7558802366256714,
+    1.6114898920059204,
+    -0.7609355449676514,
+    -0.042618799954652786,
+    -0.6440088748931885,
+    0.0664323940873146,
+    -0.5260841846466064,
+    -0.7984523773193359,
+    1.6823945045471191,
+    -0.6458081603050232,
+    0.0942404717206955,
+    -0.5352796912193298,
+    0.5362147092819214,
+    -0.5410668849945068,
+    -0.7524141669273376,
+    1.62000572681427,
+    0.5761745572090149,
+    -0.6101201772689819,
+    0.33950120210647583,
+    -0.4248708188533783,
+    5.899002189835301e-06,
+    0.00033008470200002193,
+    0.004041054751724005,
+    0.03244360163807869,
+    -9.257549208996352e-06,
+    0.005597819108515978,
+    -0.009618513286113739,
+    -0.02250034362077713,
+    0.039265070110559464,
+    -0.24392347037792206,
+    -0.017604783177375793,
+    -0.020544299855828285,
+    0.008919095620512962,
+    -0.008270672522485256,
+    -0.002901132218539715,
+    -1.1456631422042847,
+    1.5197761058807373,
+    -0.5358951091766357,
+    0.013860710896551609,
+    -0.0078430762514472,
+    0.0052484869956970215,
+    -3.0350613594055176,
+    0.39663293957710266,
+    -0.6428488492965698,
+    -0.12563277781009674,
+    0.2601436674594879,
+    -0.626965343952179,
+    44.535118103027344,
+    -18.44878578186035,
+    31.34378433227539,
+    -0.004172059241682291,
+    0.05475807562470436,
+    0.007099295500665903,
+    2.093017578125,
+    -9.692337036132812,
+    12.771499633789062,
+    0.04179612919688225,
+    -0.041525475680828094,
+    -0.029600298032164574,
+    -1.9690190553665161,
+    7.921738147735596,
+    -6.925976753234863,
+    -0.03854032978415489,
+    -0.061898790299892426,
+    0.013281450606882572,
+    -2.2246103286743164,
+    -11.242135047912598,
+    3.7153263092041016,
+    0.18993382155895233,
+    0.38652703166007996,
+    -0.33690378069877625,
+    62.28213119506836,
+    24.436439514160156,
+    49.95360565185547,
+    -0.08947636932134628,
+    0.13717946410179138,
+    0.07206504791975021,
+    -4.010060787200928,
+    -23.729175567626953,
+    -26.242204666137695,
+    0.033539023250341415,
+    0.25332507491111755,
+    -0.41937538981437683,
+    8.287856101989746,
+    -25.798303604125977,
+    -50.894325256347656,
+    0.1195303425192833,
+    0.476348876953125,
+    -0.2660529315471649,
+    -83.33857727050781,
+    -56.04866409301758,
+    31.012163162231445,
 ]
 
 
@@ -239,7 +198,7 @@ def random_action_test(save_path: str, steps: int = 250):
     env = gym.make(
         "KitchenMinimalEnv-v0", render_mode="rgb_array", width=2560, height=1920
     )
-    obs, info = env.reset(options={"randomise_cup_position": True})
+    obs, info = env.reset(options={"randomise_cup_position": True, "minimal": True})
 
     frames = []
     for t in range(steps):
@@ -260,44 +219,6 @@ def random_action_test(save_path: str, steps: int = 250):
         print(f"Saved video to: {save_path}")
     else:
         print("No frames collected.")
-
-
-def combine_episode_jsons(save_root: str):
-    """Combine per-episode trajectory.json files under save_root into
-    a single `all_episodes.json`. Image paths are rewritten to be
-    relative to save_root (e.g. `episode_000/images/step_000.png`).
-    """
-    combined = {
-        "num_episodes": 0,
-        "episodes": [],
-    }
-
-    if not os.path.isdir(save_root):
-        print(f"No dataset directory found at {save_root}; skipping combine.")
-        return
-
-    for name in sorted(os.listdir(save_root)):
-        ep_dir = os.path.join(save_root, name)
-        traj_path = os.path.join(ep_dir, "trajectory.json")
-        if os.path.isdir(ep_dir) and os.path.exists(traj_path):
-            with open(traj_path, "r") as fh:
-                data = json.load(fh)
-
-            for entry in data.get("trajectory", []):
-                img_rel = entry.get("image_path")
-                if img_rel:
-                    entry["image_path"] = os.path.normpath(os.path.join(name, img_rel))
-
-            combined["episodes"].append(data)
-
-    combined["num_episodes"] = len(combined["episodes"])
-    all_path = os.path.join(save_root, "all_episodes.json")
-
-    with open(all_path, "w") as fh:
-        json.dump(combined, fh, indent=2)
-    print(
-        f"Wrote combined dataset with {combined['num_episodes']} episodes to {all_path}"
-    )
 
 
 def pour_policy(env, obs) -> np.ndarray:
@@ -476,8 +397,25 @@ def pour_policy_v2(env, obs) -> np.ndarray:
         return np.linalg.norm(target_pos - ee_pos) < tol
 
     def make_action(q_target: np.ndarray, close: bool) -> np.ndarray:
-        action = np.pad(q_target[:7], (0, env.unwrapped.nu - 7))
-        action += utils.make_gripper_action(env, close=close, open_val=-1, close_val=1)
+
+        model = env.unwrapped.model
+        nu = env.unwrapped.nu
+        ctrl_range = model.actuator_ctrlrange[:nu]
+
+        low = ctrl_range[:, 0]
+        high = ctrl_range[:, 1]
+
+        arm = q_target[:7]
+
+        arm_norm = 2.0 * (arm - low[:7]) / (high[:7] - low[:7]) - 1.0
+
+        grip = utils.make_gripper_action(env, close=close, open_val=-1.0, close_val=1.0)
+        grip_norm = grip[:nu]
+
+        action = np.zeros(nu, dtype=np.float32)
+        action[:7] = arm_norm
+        action += grip_norm
+
         return action[:9]
 
     state = env._automaton_state
@@ -489,12 +427,12 @@ def pour_policy_v2(env, obs) -> np.ndarray:
         cup_pos = utils.get_object_pos(env, ("cup_freejoint1", "cup1"))
         target_pos = cup_pos + np.array([-0.015, 0.0, 0.3])
         target_quat = [0.69636424, -0.12278780, 0.12278780, 0.69636424]
+        env._state_counter += 1
 
         q_target = utils.ik_solve_dm(
             model,
             data,
             "grip_site",
-            max_steps=10,
             target_pos=target_pos,
             target_quat=target_quat,
             inplace=False,
@@ -505,8 +443,9 @@ def pour_policy_v2(env, obs) -> np.ndarray:
                 data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
             )
             < 0.001
-        ):
+        ) or env._state_counter > 200:
             env._automaton_state = "move_towards"
+            env._state_counter = 0
             env._above_position = target_pos
             print("→ move_towards")
 
@@ -516,21 +455,22 @@ def pour_policy_v2(env, obs) -> np.ndarray:
     # Move towards cup
     # ───────────────────────────
     if state == "move_towards":
+        env._state_counter += 1
         cup_pos = utils.get_object_pos(env, ("cup_freejoint1", "cup1"))
         target_pos = cup_pos + np.array([-0.015, 0.0, 0.15])
-        target_quat = [0.69636424, -0.12278780, 0.12278780, 0.69636424]
+        target_quat = [0.64085639, -0.29883623, 0.29883623, 0.64085639]
 
         q_target = utils.ik_solve_dm(
             model,
             data,
             "grip_site",
-            max_steps=10,
             target_pos=target_pos,
             target_quat=target_quat,
             inplace=False,
         )
-        if at_target(target_pos, tol=0.07):
+        if at_target(target_pos, tol=0.07) or env._state_counter > 200:
             env._automaton_state = "move_down"
+            env._state_counter = 0
             print("→ move_down")
 
         alpha = 0.1
@@ -542,38 +482,41 @@ def pour_policy_v2(env, obs) -> np.ndarray:
     # Move down to grasp
     # ───────────────────────────
     elif state == "move_down":
+        env._state_counter += 1
         cup_pos = utils.get_object_pos(env, ("cup_freejoint1", "cup1"))
-        target_pos = cup_pos + np.array([-0.015, 0.0, 0.09])
-        target_quat = [0.69636424, -0.12278780, 0.12278780, 0.69636424]
+        target_pos = cup_pos + np.array([-0.01, 0.0, 0.075])
+        target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
 
         q_target = utils.ik_solve_dm(
             model,
             data,
             "grip_site",
-            max_steps=10,
             target_pos=target_pos,
             target_quat=target_quat,
             inplace=False,
         )
         if (
-            at_target(target_pos, tol=0.029)
+            np.abs(target_pos[2] - utils.get_effector_pos(env)[2]) < 0.006
+            and np.abs(target_pos[1] - utils.get_effector_pos(env)[1]) < 0.005
             and np.linalg.norm(
                 data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
             )
-            < 0.00001
-        ):
+            < 0.001
+        ) or env._state_counter > 160:
             env._automaton_state = "close_gripper"
+            env._state_counter = 0
             print("→ close_gripper")
-
         return make_action(q_target, close=False)
 
     # ───────────────────────────
     # Close gripper
     # ───────────────────────────
     elif state == "close_gripper":
+
+        env._state_counter += 1
         cup_pos = utils.get_object_pos(env, ("cup_freejoint1", "cup1"))
-        target_pos = cup_pos + np.array([-0.01, 0.0, 0.09])
-        target_quat = [0.69636424, -0.12278780, 0.12278780, 0.69636424]
+        target_pos = cup_pos + np.array([-0.01, 0.0, 0.075])
+        target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
 
         q_target = utils.ik_solve_dm(
             model,
@@ -586,6 +529,10 @@ def pour_policy_v2(env, obs) -> np.ndarray:
 
         action = make_action(q_target, close=True)
 
+        if env._state_counter > 100:
+            env._state_counter = 0
+            env._automaton_state = "move_towards"
+
         # detect grip by constraint forces
         gripper_joint_ids = [
             mj.mj_name2id(model, mj.mjtObj.mjOBJ_JOINT, "rc_close"),
@@ -593,27 +540,13 @@ def pour_policy_v2(env, obs) -> np.ndarray:
         ]
         forces = np.array([data.qfrc_constraint[i] for i in gripper_joint_ids])
         if (
-            np.linalg.norm(forces) > 10.0
+            np.linalg.norm(forces) > 5.0
             and forces.all() > 0
             and at_target(target_pos, tol=0.05)
-            and np.linalg.norm(
-                data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
-            )
-            < 0.02
         ):
             env._automaton_state = "go_up"
+            env._state_counter = 0
             print("→ go up")
-        else:
-            # what is not fullfilled
-            if np.linalg.norm(forces) <= 10.0:
-                print("Gripper force too low:", np.linalg.norm(forces))
-            if not forces.all() > 0:
-                print("Gripper forces not all positive:", forces)
-            if not at_target(target_pos, tol=0.05):
-                print(
-                    "Position not at target:",
-                    np.linalg.norm(target_pos - utils.get_effector_pos(env)),
-                )
 
         return action
 
@@ -621,12 +554,7 @@ def pour_policy_v2(env, obs) -> np.ndarray:
     # Move up above cup
     # ───────────────────────────
     elif state == "go_up":
-        target_quat = [
-            0.54167523,
-            -0.45451947,
-            0.45451947,
-            0.54167523,
-        ]  # top-down orientation
+        target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
 
         q_target = utils.ik_solve_dm(
             model,
@@ -652,7 +580,7 @@ def pour_policy_v2(env, obs) -> np.ndarray:
     # ───────────────────────────
     elif state == "lift_above":
         cup_pos = utils.get_object_pos(env, ("cup_freejoint0", "cup0"))
-        target_pos = cup_pos + np.array([0.0, 0.0, 0.45])
+        target_pos = cup_pos + np.array([0.0, 0.0, 0.4])
         target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
 
         q_target = utils.ik_solve_dm(
@@ -670,11 +598,12 @@ def pour_policy_v2(env, obs) -> np.ndarray:
                 utils.get_object_pos(env, ("cup_freejoint1", "cup1"))
                 - utils.get_effector_pos(env)
             )
-            > 0.05
+            > 0.9
         ):
             print("Lost grip on cup, moving back to move_above")
             env._automaton_state = "move_above"
-            return make_action(q_target, close=False)
+            env._state_counter = 0
+            return make_action(q_target, close=True)
 
         if (
             # check xy positions only
@@ -693,14 +622,10 @@ def pour_policy_v2(env, obs) -> np.ndarray:
     # Lower cup slightly
     # ───────────────────────────
     elif state == "lift_lower":
+        env._state_counter += 1
         cup_pos = utils.get_object_pos(env, ("cup_freejoint0", "cup0"))
         target_pos = cup_pos + np.array([0.0, 0.0, 0.29])
-        target_quat = [
-            0.54167523,
-            -0.45451947,
-            0.45451947,
-            0.54167523,
-        ]  # top-down orientation
+        target_quat = [0.57922797, -0.40557978, 0.40557978, 0.57922797]
 
         q_target = utils.ik_solve_dm(
             model,
@@ -717,20 +642,28 @@ def pour_policy_v2(env, obs) -> np.ndarray:
                 utils.get_object_pos(env, ("cup_freejoint1", "cup1"))
                 - utils.get_effector_pos(env)
             )
-            > 0.05
+            > 0.9
         ):
             print("Lost grip on cup, moving back to move_above")
             env._automaton_state = "move_above"
+            env._state_counter = 0
             return make_action(q_target, close=False)
 
-        if at_target(target_pos, tol=0.08):
+        if (
+            at_target(target_pos, tol=0.03)
+            and np.linalg.norm(
+                data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
+            )
+            < 0.01
+        ) or env._state_counter > 180:
             env._automaton_state = "tilt_halfway"
+            env._state_counter = 0
             print("→ tilt_halfway")
 
         alpha = 0.5
         q_current = data.qpos[:7].copy()
         q_smooth = q_current + alpha * (q_target[:7] - q_current)
-        if np.linalg.norm(q_smooth - q_current) < 0.1:
+        if np.linalg.norm(q_smooth - q_current) < 0.05:
             q_smooth = q_target[:7]
 
         return make_action(q_smooth, close=True)
@@ -739,9 +672,15 @@ def pour_policy_v2(env, obs) -> np.ndarray:
     # Tilt halfway
     # ───────────────────────────
     elif state == "tilt_halfway":
+        env._state_counter += 1
         cup_pos = utils.get_object_pos(env, ("cup_freejoint0", "cup0"))
-        target_pos = cup_pos + np.array([-0.005, -0.01, 0.285])
+        target_pos = cup_pos + np.array([-0.005, -0.02, 0.28])
         target_quat = [0.45451949, -0.54167521, 0.54167521, 0.45451949]
+
+        cup1_pos = utils.get_object_pos(env, ("cup_freejoint1", "cup1"))
+        ee_pos = utils.get_effector_pos(env)
+        offset = ee_pos - cup1_pos
+        target_pos[0] -= offset[0]
 
         q_target = utils.ik_solve_dm(
             model,
@@ -752,49 +691,117 @@ def pour_policy_v2(env, obs) -> np.ndarray:
             inplace=False,
         )
 
-        if at_target(target_pos):
+        if (
+            at_target(target_pos, tol=0.02)
+            and np.linalg.norm(
+                data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
+            )
+            < 0.02
+            and np.abs(target_pos[0] - ee_pos[0]) < 0.002
+        ) or env._state_counter > 180:
+            env._automaton_state = "start_pouring"
+            env._state_counter = 0
+            print("→ start pouring")
+
+        alpha = 0.5
+        q_current = data.qpos[:7].copy()
+        q_smooth = q_current + alpha * (q_target[:7] - q_current)
+        if np.linalg.norm(q_smooth - q_current) < 0.05:
+            q_smooth = q_target[:7]
+
+        return make_action(q_smooth, close=True)
+
+    elif state == "start_pouring":
+        env._state_counter += 1
+        cup_pos = utils.get_object_pos(env, ("cup_freejoint0", "cup0"))
+        target_pos = cup_pos + np.array([-0.01, -0.026, 0.22])
+        target_quat = [0.40557981, -0.57922795, 0.57922795, 0.40557981]
+
+        cup1_pos = utils.get_object_pos(env, ("cup_freejoint1", "cup1"))
+        ee_pos = utils.get_effector_pos(env)
+        offset = ee_pos - cup1_pos
+        target_pos[0] -= offset[0]
+
+        q_target = utils.ik_solve_dm(
+            model,
+            data,
+            "grip_site",
+            target_pos=target_pos,
+            target_quat=target_quat,
+            inplace=False,
+        )
+
+        if (
+            at_target(target_pos, tol=0.02)
+            and np.linalg.norm(
+                data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
+            )
+            < 0.02
+            and np.abs(target_pos[0] - ee_pos[0]) < 0.002
+        ) or env._state_counter > 80:
             env._automaton_state = "pour"
+            env._state_counter = 0
             print("→ pour")
 
-        return make_action(q_target, close=True)
+        alpha = 0.5
+        q_current = data.qpos[:7].copy()
+        q_smooth = q_current + alpha * (q_target[:7] - q_current)
+        if np.linalg.norm(q_smooth - q_current) < 0.01:
+            q_smooth = q_target[:7]
+
+        return make_action(q_smooth, close=True)
 
     # ───────────────────────────
     # Final pour
     # ───────────────────────────
     elif state == "pour":
         cup_pos = utils.get_object_pos(env, ("cup_freejoint0", "cup0"))
-        target_pos = cup_pos + np.array([-0.005, -0.02, 0.285])
+        target_pos = cup_pos + np.array([-0.02, -0.028, 0.24])
         target_quat = [0.12278783, -0.69636423, 0.69636423, 0.12278783]
 
-        q_target = utils.ik_solve_dm(
+        cup1_pos = utils.get_object_pos(env, ("cup_freejoint1", "cup1"))
+        ee_pos = utils.get_effector_pos(env)
+        offset = ee_pos - cup1_pos
+
+        target_pos[0] -= offset[0]
+
+        # Solve IK for the target position
+        delta_q = utils.ik_step(
             model,
             data,
-            "grip_site",
+            site_name="grip_site",
             target_pos=target_pos,
             target_quat=target_quat,
-            inplace=False,
+            rot_weight=0.8,
+            # reg_strength=1e-4,
         )
 
-        alpha = 0.5
-        q_current = data.qpos[:7].copy()
-        q_smooth = q_current + alpha * (q_target[:7] - q_current)
-        if np.linalg.norm(q_smooth - q_current) < 0.1:
-            q_smooth = q_target[:7]
-        return make_action(q_smooth, close=True)
+        # Default to last valid qpos if IK fails
+        q_target = data.qpos[:7] + 0.5 * delta_q
+
+        return make_action(q_target, close=True)
 
 
-def collect_policy_episode(save_path="tmp/policy.mp4", steps=1000):
+def collect_policy_episode(
+    save_path="tmp/policy.mp4", steps=1000, noise=True, random_action=False
+):
     gym.register(id="KitchenMinimalEnv-v0", entry_point="env:KitchenMinimalEnv")
     env = gym.make(
-        "KitchenMinimalEnv-v0", render_mode="rgb_array", width=1280, height=960
+        "KitchenMinimalEnv-v0", render_mode="rgb_array", width=320, height=240
     )
-    obs, _ = env.reset(options={"randomise_cup_position": True})
+    obs, _ = env.reset(options={"randomise_cup_position": False, "minimal": True})
     frames = []
     # env._automaton_state = "move_left"
     env._automaton_state = "move_above"
+    env._state_counter = 0
     for t in range(steps):
         action = pour_policy_v2(env, obs)
-        obs, _, term, trunc, _ = env.step(action)
+        if random_action:
+            if np.random.rand() < 0.02:
+                action = env.action_space.sample()
+        if noise:
+            action = action + np.random.normal(0, 0.02, action.shape)
+        obs, _, term, trunc, _ = env.unwrapped.step(action, minimal=True)
         frames.append(env.render())
         if term or trunc:
             print(f"Episode finished after {t+1} steps.")
@@ -821,12 +828,30 @@ def collect_crl_episode(
     from agents.crl import CRLAgent, get_config
     from utils.flax_utils import restore_agent
 
+    OG_IMPLS_BASE = os.path.abspath(os.path.join(THIS_DIR, "..", "ogbench", "ogbench"))
+    sys.path.insert(0, OG_IMPLS_BASE)
+    from ogbench import load_dataset
+
+    def normalize(x, mean, std, eps=1e-5):
+        return (x - mean) / (std + eps)
+
     gym.register(id="KitchenMinimalEnv-v0", entry_point="env:KitchenMinimalEnv")
     env = gym.make(
         "KitchenMinimalEnv-v0", render_mode="rgb_array", width=1280, height=960
     )
-    obs, _ = env.reset(options={"randomise_cup_position": True, "minimal": True})
+    obs, _ = env.reset(options={"randomise_cup_position": False, "minimal": True})
     frames = []
+
+    train_path = os.path.join(
+        "/u/maximilian.kannen/work/new_kitchen/tmp/normalised_noise",
+        "train_dataset.npz",
+    )
+
+    train_dataset_raw = load_dataset(train_path, compact_dataset=True)
+
+    obs_data = train_dataset_raw["observations"]
+    obs_mean = np.mean(obs_data, axis=0)
+    obs_std = np.std(obs_data, axis=0)
 
     cfg = get_config()
     # convert to plain dict
@@ -837,21 +862,25 @@ def collect_crl_episode(
         seed=0, ex_observations=obs, ex_actions=env.action_space.sample(), config=cfg
     )
 
-    agent = restore_agent(agent_tmp, checkpoint_path, 4000)
+    agent = restore_agent(agent_tmp, checkpoint_path, 60000)
     print(f"Loaded checkpoint from {checkpoint_path}")
-
+    obs_arr = np.asarray(obs)
+    goal_arr = env.unwrapped.create_goal_state(
+        current_state=obs_arr, minimal=True, fixed_goal=True
+    )
+    normalized_goal = normalize(goal_arr, obs_mean, obs_std)
     for t in range(steps):
-        obs_arr = np.asarray(obs)
-        goal_arr = env.unwrapped.create_goal_state(current_state=obs_arr)
+        normalized_obs = normalize(obs_arr, obs_mean, obs_std)
 
         action = agent.sample_actions(
-            observations=obs_arr,
-            goals=goal_arr,
+            observations=normalized_obs,
+            goals=normalized_goal,
             temperature=0.0,
             seed=jax.random.PRNGKey(0),
         )
-
+        action = np.clip(action, -1.0, 1.0)
         obs, _, term, trunc, _ = env.unwrapped.step(action, minimal=True)
+        obs_arr = np.asarray(obs)
         frames.append(env.render())
         if term or trunc:
             print(f"Episode finished after {t+1} steps.")
@@ -871,21 +900,34 @@ def collect_crl_episode(
 def collect_policy_dataset(
     save_root: str = "tmp/policy_dataset",
     episodes: int = 100,
-    max_steps: int = 3600,
-    width: int = 1280,
-    height: int = 960,
-    minimal_observations: bool = False,
+    max_steps: int = 1600,
+    width: int = 320,
+    height: int = 240,
+    noise: bool = True,
+    pixel_observations: bool = False,
+    random_action: bool = False,
+    minimal_observations: bool = True,
+    save_failed_episodes: bool = False,
 ):
-    """Run the policy multiple times and save successful (terminated==True)
-    trajectories to per-episode JSON files. Each step stores obs, action,
-    terminated boolean and a relative path to the rendered image for that step.
+    """Run the policy multiple times and save trajectories.
 
-    Images for each episode are saved in an `images/` folder next to the JSON.
+    Args:
+        save_failed_episodes: If True, saves all episodes. If False, only saves
+                              successful (terminated==True) episodes.
     """
     gym.register(id="KitchenMinimalEnv-v0", entry_point="env:KitchenMinimalEnv")
-    env = gym.make(
-        "KitchenMinimalEnv-v0", render_mode="rgb_array", width=width, height=height
-    )
+    if pixel_observations:
+        env = gym.make(
+            "KitchenMinimalEnv-v0",
+            render_mode="rgb_array",
+            width=width,
+            height=height,
+            ob_type="pixels",
+        )
+    else:
+        env = gym.make(
+            "KitchenMinimalEnv-v0", render_mode="rgb_array", width=width, height=height
+        )
     dataset = defaultdict(list)
     os.makedirs(save_root, exist_ok=True)
 
@@ -898,19 +940,28 @@ def collect_policy_dataset(
 
     debug_data = defaultdict(list)
     for ep_idx in trange(num_train_episodes + num_val_episodes):
-        obs, _ = env.reset(options={"randomise_cup_position": True})
-        env._automaton_state = "move_left"
-
+        obs, _ = env.reset(options={"randomise_cup_position": True, "minimal": True})
+        env._automaton_state = "move_above"
+        env._state_counter = 0
         ep_dir = os.path.join(save_root, f"episode_{ep_idx:03d}")
         images_dir = os.path.join(ep_dir, "images")
         os.makedirs(images_dir, exist_ok=True)
 
-        traj = []
         episode_terminated = False
+
+        steps_in_current_episode = 0
+
         for t in range(max_steps):
-            action = pour_policy(env, obs)
+            action = pour_policy_v2(env, obs)
+            if noise:
+                action = action + np.random.normal(0, 0.02, action.shape)
+            if random_action:
+                if np.random.rand() < 0.01:
+                    action = env.action_space.sample()
             obs_to_store = env.unwrapped._get_observation(minimal=True)
-            obs_next, reward, terminated, truncated, info = env.step(action)
+            obs_next, reward, terminated, truncated, info = env.unwrapped.step(
+                action, minimal=True
+            )
             done = terminated or truncated
 
             if minimal_observations:
@@ -923,45 +974,56 @@ def collect_policy_dataset(
             dataset["qvel"].append(env.unwrapped.data.qvel.copy())
 
             obs = obs_next
+            steps_in_current_episode += 1
 
             if done:
                 episode_terminated = True
-                total_steps += t
+                total_steps += steps_in_current_episode
                 if ep_idx < num_train_episodes:
-                    total_train_steps += t
-                # save last correct dataset entries for check
+                    total_train_steps += steps_in_current_episode
+
+                # Save last correct dataset entries for debugging consistency
                 for k in dataset.keys():
                     debug_data[k].append(dataset[k][-1])
                 break
 
             elif t == max_steps - 1:
                 if env._automaton_state == "pour":
-                    # print where water is
                     Goal, Start = env.unwrapped.get_particles_in_cups()
                     print(f"Goal position at max_steps: {Goal}")
                     print(f"Start position at max_steps: {Start}")
-                    # render final frame
                     final_frame = env.render()
                     final_image_path = os.path.join(images_dir, f"step_{t:03d}.png")
                     imageio.imwrite(final_image_path, final_frame)
                     print(f"Saved final frame to {final_image_path}")
-                # episode reached time limit without termination; not saved
-                print(
-                    f"Episode {ep_idx} reached max_steps ({max_steps}) without termination; not saved."
-                )
-                for k in dataset.keys():
-                    dataset[k] = dataset[k][:-max_steps]  # remove this episode's data
 
-                    assert np.array_equal(
-                        debug_data[k][-1], dataset[k][-1]
-                    ), f"Data mismatch in key {k} at episode {ep_idx}, step {t}"
+                if save_failed_episodes:
+                    print(
+                        f"Episode {ep_idx} failed but saved due to save_failed_episodes=True."
+                    )
+
+                    total_steps += steps_in_current_episode
+                    if ep_idx < num_train_episodes:
+                        total_train_steps += steps_in_current_episode
+
+                    for k in dataset.keys():
+                        debug_data[k].append(dataset[k][-1])
+                else:
+                    print(
+                        f"Episode {ep_idx} reached max_steps ({max_steps}) without termination; not saved."
+                    )
+                    for k in dataset.keys():
+                        dataset[k] = dataset[k][:-max_steps]
+
+                        if len(dataset[k]) > 0:
+                            assert np.array_equal(
+                                debug_data[k][-1], dataset[k][-1]
+                            ), f"Data mismatch in key {k} at episode {ep_idx}, step {t}"
                 break
 
-        # record stats for this episode
         if episode_terminated:
             success_count += 1
         else:
-            # record the automaton state reached at the end of the episode
             final_state = getattr(env, "_automaton_state", None)
             failure_counts[str(final_state)] += 1
 
@@ -972,6 +1034,10 @@ def collect_policy_dataset(
     val_dataset = {}
     train_path = os.path.join(save_root, "train_dataset.npz")
     val_path = os.path.join(save_root, "val_dataset.npz")
+
+    actual_total_len = len(dataset["actions"])
+    split_idx = min(total_train_steps, actual_total_len)
+
     for k, v in dataset.items():
         if "observations" in k and v[0].dtype == np.uint8:
             dtype = np.uint8
@@ -981,18 +1047,23 @@ def collect_policy_dataset(
             dtype = np.int64
         else:
             dtype = np.float32
-        train_dataset[k] = np.array(v[:total_train_steps], dtype=dtype)
-        val_dataset[k] = np.array(v[total_train_steps:], dtype=dtype)
 
-    for path, dataset in [(train_path, train_dataset), (val_path, val_dataset)]:
-        np.savez_compressed(path, **dataset)
+        train_dataset[k] = np.array(v[:split_idx], dtype=dtype)
+        val_dataset[k] = np.array(v[split_idx:], dtype=dtype)
 
-    # write stats summary
+    for path, dset in [(train_path, train_dataset), (val_path, val_dataset)]:
+        np.savez_compressed(path, **dset)
+
     stats = {
-        "total_episodes": episodes,
+        "total_episodes_attempted": episodes + (episodes // 10),
         "successful_episodes": success_count,
-        "success_rate": float(success_count) / float(episodes) if episodes > 0 else 0.0,
+        "success_rate": (
+            float(success_count) / float(episodes + (episodes // 10))
+            if episodes > 0
+            else 0.0
+        ),
         "failure_counts": dict(failure_counts),
+        "saved_failed_episodes": save_failed_episodes,
     }
     stats_path = os.path.join(save_root, "stats.json")
     with open(stats_path, "w") as fh:
@@ -1010,6 +1081,11 @@ if __name__ == "__main__":
     parser.add_argument("--out", default="tmp/kitchen_run.mp4")
     parser.add_argument("--steps", type=int, default=1300)
     parser.add_argument(
+        "--save_failed_episodes",
+        action="store_true",
+        help="When collecting dataset, save all episodes including failed ones",
+    )
+    parser.add_argument(
         "--minimal", action="store_true", help="Use minimal observations"
     )
     parser.add_argument(
@@ -1023,6 +1099,11 @@ if __name__ == "__main__":
         type=str,
         help="Path to CRL agent checkpoint file for crl mode",
     )
+    parser.add_argument(
+        "--pixel_observations",
+        action="store_true",
+        help="Use pixel observations when collecting dataset",
+    )
     args = parser.parse_args()
 
     if args.mode == "random":
@@ -1032,12 +1113,24 @@ if __name__ == "__main__":
     elif args.mode == "dataset":
         # Use --out as a directory for the dataset
         save_root = args.out
-        collect_policy_dataset(
-            save_root=save_root,
-            episodes=args.episodes,
-            max_steps=args.steps,
-            minimal_observations=args.minimal,
-        )
+        if args.pixel_observations:
+
+            collect_policy_dataset(
+                save_root=save_root,
+                episodes=args.episodes,
+                max_steps=args.steps,
+                minimal_observations=args.minimal,
+                save_failed_episodes=args.save_failed_episodes,
+                pixel_observations=True,
+            )
+        else:
+            collect_policy_dataset(
+                save_root=save_root,
+                episodes=args.episodes,
+                max_steps=args.steps,
+                minimal_observations=args.minimal,
+                save_failed_episodes=args.save_failed_episodes,
+            )
     elif args.mode == "crl":
         if args.checkpoint is None:
             parser.error("--checkpoint is required when using --mode=crl")

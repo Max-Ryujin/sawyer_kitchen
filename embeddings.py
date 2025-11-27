@@ -1,190 +1,161 @@
-"""
-============================================================
-Embedding Visualization of CRL Datasets
-============================================================
-
-This script visualizes high-dimensional observation data from CRL trajectories
-(e.g. environments from OGBench or similar sources) by projecting them into 2D
-embeddings using **dimensionality reduction algorithms**.
-
---- Core Idea ---
-
-Real-world observations (like robot states, object positions, or sensor readings)
-live in *high-dimensional space*. To understand the structure of the dataset
-(e.g., similarity, clustering, or diversity between episodes), we use algorithms
-that map these high-dimensional vectors into 2D while preserving important
-structure.
-
-1. PCA (Principal Component Analysis)
-   - A *linear* projection that finds the directions (principal components)
-     explaining the most variance in the data.
-   - Fast, deterministic, interpretable.
-   - Often used as a first step or for roughly isotropic data.
-
-2. t-SNE (t-distributed Stochastic Neighbor Embedding)
-   - A *non-linear* embedding that preserves *local* structure:
-     points that are close in the original space stay close in 2D.
-   - Useful for discovering clusters or manifold-like structure.
-   - Computationally more expensive, non-deterministic.
-
-We generate two sets of embeddings:
-  - **Initial observations** (first frame per episode)
-  - **Episode-averaged observations** (mean of all frames in one episode)
-
-If embeddings were computed before (stored in `embeddings.npz`), they are loaded
-to save time. Otherwise, they are computed and saved automatically.
-
-The output folder will contain:
-  - PCA and t-SNE scatter plots for initial and averaged observations
-  - Combined plots comparing PCA vs t-SNE
-  - Density heatmaps for better intuition
-  - `embeddings.npz` with numeric arrays for reuse
-"""
+#!/usr/bin/env python3
 
 import os
-import json
-import numpy as np
 import argparse
+import pickle
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+import jax
+import jax.numpy as jnp
+import sys
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
-import matplotlib.pyplot as plt
+
+try:
+    import umap
+except ImportError:
+    raise ImportError("Install UMAP via: pip install umap-learn")
+
+THIS_DIR = os.path.dirname(__file__)
+OG_IMPLS = os.path.abspath(os.path.join(THIS_DIR, "..", "ogbench", "ogbench", "impls"))
+OG_IMPLS_BASE = os.path.abspath(os.path.join(THIS_DIR, "..", "ogbench", "ogbench"))
+print("Adding OGBench impls to sys.path:", OG_IMPLS)
+sys.path.insert(0, OG_IMPLS)
+sys.path.insert(0, OG_IMPLS_BASE)
+
+from utils.datasets import Dataset, GCDataset
+from utils.flax_utils import restore_agent
+from agents.crl import CRLAgent, get_config
+from ogbench import load_dataset
 
 
-# ---------------------------------------------------------------------------
-# Utility functions
-# ---------------------------------------------------------------------------
+# -------------------------------------------------------------
+# Utility: get phi and psi embeddings from critic
+# -------------------------------------------------------------
+def get_embeddings(agent, batch):
+    critic = agent.network.select("critic")
 
-def load_episodes(dataset_root):
-    with open(os.path.join(dataset_root, "all_episodes.json"), "r") as f:
-        data = json.load(f)
-    return data["episodes"]
+    # Forward pass with info=True gives v, phi, psi
+    v, phi, psi = critic(
+        batch["observations"],
+        batch["value_goals"],
+        actions=batch["actions"],
+        info=True,
+        params=agent.network.params,
+    )
 
+    # phi, psi shape: (ensemble, batch, latent_dim)
+    # For visualization use ensemble mean:
+    phi = np.array(phi).mean(axis=0)
+    psi = np.array(psi).mean(axis=0)
 
-def flatten_obs(obs):
-    """Flatten a nested observation dictionary into a single 1D NumPy array."""
-    if isinstance(obs, dict):
-        return np.concatenate([np.ravel(v) for v in obs.values()])
-    return np.ravel(obs)
-
-
-def compute_embeddings(episodes, mode="initial", method="pca"):
-    """Compute 2D embeddings for episode observations using PCA or t-SNE."""
-    obs_list = []
-    if mode == "initial":
-        for ep in episodes:
-            obs_list.append(flatten_obs(ep["trajectory"][0]["obs"]))
-    elif mode == "full":
-        for ep in episodes:
-            seq = [flatten_obs(step["obs"]) for step in ep["trajectory"]]
-            obs_list.append(np.mean(seq, axis=0))
-    X = np.stack(obs_list)
-
-    if method == "pca":
-        emb = PCA(n_components=2).fit_transform(X)
-    elif method == "tsne":
-        emb = TSNE(n_components=2, perplexity=30, init="pca", learning_rate="auto").fit_transform(X)
-    else:
-        raise ValueError(f"Unknown method: {method}")
-    return emb
+    return phi, psi
 
 
-def plot_embeddings(emb, title, save_path, color=None):
-    """Plot a simple 2D scatter of embeddings."""
-    plt.figure(figsize=(6, 6))
-    plt.scatter(emb[:, 0], emb[:, 1], s=18, alpha=0.7, c=color, cmap="viridis")
-    plt.title(title)
-    plt.xlabel("Dim 1")
-    plt.ylabel("Dim 2")
-    plt.tight_layout()
-    plt.savefig(save_path)
+# -------------------------------------------------------------
+# Main script
+# -------------------------------------------------------------
+def main(args):
+
+    print("Loading dataset...")
+
+    cfg = get_config()
+    # convert to plain dict
+    cfg = dict(cfg)
+    cfg["alpha"] = 0.03
+
+    train_dataset = load_dataset(args.dataset_path, compact_dataset=True)
+    base_train = Dataset.create(**train_dataset)
+    dataset = GCDataset(base_train, cfg)
+    batch = dataset.sample(args.num_samples)
+    example_batch = dataset.sample(1)
+
+    print("Loading agent checkpoint...")
+    agent_tmp = CRLAgent.create(
+        seed=0,
+        ex_observations=example_batch["observations"],
+        ex_actions=example_batch["actions"],
+        config=cfg,
+    )
+
+    agent = restore_agent(agent_tmp, args.agent_checkpoint, 50000)
+
+    print("Computing critic embeddings...")
+    phi, psi = get_embeddings(agent, batch)
+
+    # ---------------------------------------------------------
+    #  Compute similarity matrix φ·ψᵀ
+    # ---------------------------------------------------------
+    similarity = phi @ psi.T
+
+    # ---------------------------------------------------------
+    #  Dimensionality reduction
+    # ---------------------------------------------------------
+    pca = PCA(n_components=2).fit(phi)
+    phi_pca = pca.transform(phi)
+    psi_pca = pca.transform(psi)
+
+    tsne = TSNE(n_components=2, perplexity=30)
+    phi_tsne = tsne.fit_transform(phi)
+    psi_tsne = tsne.fit_transform(psi)
+
+    reducer = umap.UMAP()
+    phi_umap = reducer.fit_transform(phi)
+    psi_umap = reducer.fit_transform(psi)
+
+    os.makedirs(args.out_dir, exist_ok=True)
+
+    # ---------------------------------------------------------
+    #  Plot helpers
+    # ---------------------------------------------------------
+    def plot_embed(x, y, title, path):
+        plt.figure(figsize=(8, 8))
+        plt.scatter(x[:, 0], x[:, 1], s=8, alpha=0.6, label="phi")
+        plt.scatter(y[:, 0], y[:, 1], s=8, alpha=0.6, label="psi")
+        plt.title(title)
+        plt.legend()
+        plt.savefig(path, dpi=150)
+        plt.close()
+
+    print("Creating plots...")
+
+    plot_embed(phi_pca, psi_pca, "Critic Embeddings — PCA", f"{args.out_dir}/pca.png")
+
+    plot_embed(
+        phi_tsne, psi_tsne, "Critic Embeddings — t-SNE", f"{args.out_dir}/tsne.png"
+    )
+
+    plot_embed(
+        phi_umap, psi_umap, "Critic Embeddings — UMAP", f"{args.out_dir}/umap.png"
+    )
+
+    # ---------------------------------------------------------
+    # Similarity heatmap
+    # ---------------------------------------------------------
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(similarity, cmap="viridis")
+    plt.title("φ·ψᵀ Similarity Matrix")
+    plt.savefig(f"{args.out_dir}/similarity_matrix.png", dpi=150)
     plt.close()
 
-
-def plot_density(emb, title, save_path, bins=100):
-    """Plot a 2D density map of the embedding space."""
-    plt.figure(figsize=(6, 6))
-    plt.hist2d(emb[:, 0], emb[:, 1], bins=bins, cmap="viridis")
-    plt.colorbar(label="Density")
-    plt.title(title)
-    plt.xlabel("Dim 1")
-    plt.ylabel("Dim 2")
-    plt.tight_layout()
-    plt.savefig(save_path)
-    plt.close()
+    print("Saved all plots to", args.out_dir)
 
 
-def plot_comparison(emb1, emb2, title, save_path):
-    """Plot PCA vs t-SNE results side-by-side."""
-    fig, axes = plt.subplots(1, 2, figsize=(10, 5))
-    axes[0].scatter(emb1[:, 0], emb1[:, 1], s=18, alpha=0.7)
-    axes[0].set_title("PCA")
-    axes[1].scatter(emb2[:, 0], emb2[:, 1], s=18, alpha=0.7)
-    axes[1].set_title("t-SNE")
-    fig.suptitle(title)
-    plt.tight_layout()
-    plt.savefig(save_path)
-    plt.close()
-
-
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
-
-def main():
+# -------------------------------------------------------------
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset", required=True)
-    parser.add_argument("--out", default="embeddings")
-    parser.add_argument("--recompute", action="store_true",
-                        help="Force recomputation even if precomputed embeddings exist.")
+    parser.add_argument("--dataset-path", type=str, required=True)
+    parser.add_argument("--agent-checkpoint", type=str, required=True)
+    parser.add_argument("--out-dir", type=str, default="critic_embeddings")
+    parser.add_argument("--num-samples", type=int, default=3000)
+    parser.add_argument(
+        "--config",
+        type=dict,
+        required=False,
+        help="The CRL config dict used when training",
+    )
     args = parser.parse_args()
 
-    os.makedirs(args.out, exist_ok=True)
-    emb_path = os.path.join(args.out, "embeddings.npz")
-
-    if os.path.exists(emb_path) and not args.recompute:
-        print(f"Found precomputed embeddings in {emb_path}, loading...")
-        data = np.load(emb_path)
-        emb_init_pca = data["emb_init_pca"]
-        emb_full_pca = data["emb_full_pca"]
-        emb_init_tsne = data["emb_init_tsne"]
-        emb_full_tsne = data["emb_full_tsne"]
-    else:
-        print("Loading dataset and computing embeddings...")
-        episodes = load_episodes(args.dataset)
-        emb_init_pca = compute_embeddings(episodes, mode="initial", method="pca")
-        emb_full_pca = compute_embeddings(episodes, mode="full", method="pca")
-        emb_init_tsne = compute_embeddings(episodes, mode="initial", method="tsne")
-        emb_full_tsne = compute_embeddings(episodes, mode="full", method="tsne")
-
-        np.savez(
-            emb_path,
-            emb_init_pca=emb_init_pca,
-            emb_full_pca=emb_full_pca,
-            emb_init_tsne=emb_init_tsne,
-            emb_full_tsne=emb_full_tsne,
-        )
-        print(f"Saved new embeddings to {emb_path}")
-
-    # -------------------------------------------------------------------
-    # Visualizations
-    # -------------------------------------------------------------------
-
-    print("Creating visualizations...")
-
-    plot_embeddings(emb_init_pca, "Initial Observations (PCA)", os.path.join(args.out, "init_pca.png"))
-    plot_embeddings(emb_full_pca, "Episode Averages (PCA)", os.path.join(args.out, "full_pca.png"))
-
-    plot_embeddings(emb_init_tsne, "Initial Observations (t-SNE)", os.path.join(args.out, "init_tsne.png"))
-    plot_embeddings(emb_full_tsne, "Episode Averages (t-SNE)", os.path.join(args.out, "full_tsne.png"))
-
-    plot_comparison(emb_init_pca, emb_init_tsne, "Initial Observations Comparison", os.path.join(args.out, "init_compare.png"))
-    plot_comparison(emb_full_pca, emb_full_tsne, "Episode Average Comparison", os.path.join(args.out, "full_compare.png"))
-
-    plot_density(emb_init_pca, "Initial Obs Density (PCA)", os.path.join(args.out, "init_pca_density.png"))
-    plot_density(emb_init_tsne, "Initial Obs Density (t-SNE)", os.path.join(args.out, "init_tsne_density.png"))
-
-    print(f"Visualizations saved to {args.out}")
-
-
-if __name__ == "__main__":
-    main()
+    main(args)

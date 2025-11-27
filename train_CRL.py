@@ -19,77 +19,237 @@ sys.path.insert(0, OG_IMPLS)
 sys.path.insert(0, OG_IMPLS_BASE)
 
 from agents.crl import CRLAgent, get_config
+from agents.qrl import QRLAgent
+from agents.qrl import get_config as get_qrl_config
 from utils.flax_utils import save_agent
 from utils.datasets import GCDataset, Dataset
 from ogbench import load_dataset
 import wandb
 
 
-def evaluate_agent(agent, num_episodes=10, steps=1500, video=False, save_file=None):
+def normalize(x, mean, std, eps=1e-5):
+    return (x - mean) / (std + eps)
 
+
+def evaluate_agent(
+    agent,
+    obs_mean,
+    obs_std,
+    val_dataset,
+    num_episodes=10,
+    steps=1500,
+    video=False,
+    save_file_prefix=None,
+):
     gym.register(id="KitchenMinimalEnv-v0", entry_point="env:KitchenMinimalEnv")
     env = gym.make(
         "KitchenMinimalEnv-v0", render_mode="rgb_array", width=1280, height=960
     )
-    obs, _ = env.reset(options={"randomise_cup_position": True, "minimal": True})
 
-    success_count = 0
-    frames = []
+    # --- Part 1: Fixed Goal Evaluation (Original Logic) ---
+    fixed_success_count = 0
+    fixed_frames = []
+
+    # Just run 1 fixed episode or num_episodes?
+    # The prompt implies keeping the original logic but adding random cases.
+    # To keep it balanced, let's do num_episodes of fixed and num_episodes of random.
+
+    print(f"Evaluating Fixed Goal (First State) for {num_episodes} episodes...")
     for i in range(num_episodes):
-        obs, _ = env.reset(options={"randomise_cup_position": True, "minimal": True})
+        obs, _ = env.reset(options={"randomise_cup_position": False, "minimal": True})
+        raw_obs = np.asarray(obs)
+
+        # Use the env's specific fixed goal generation logic
+        goal_arr = env.unwrapped.create_goal_state(
+            current_state=raw_obs, minimal=True, fixed_goal=True
+        )
+        normalized_goal = normalize(goal_arr, obs_mean, obs_std)
+
+        current_frames = []
+        is_success = False
 
         for t in range(steps):
-            obs_arr = np.asarray(obs)
-            goal_arr = env.unwrapped.create_goal_state(current_state=obs_arr)
-
+            normalized_obs = normalize(raw_obs, obs_mean, obs_std)
             action = agent.sample_actions(
-                observations=obs_arr,
-                goals=goal_arr,
-                temperature=0.5,
+                observations=normalized_obs,
+                goals=normalized_goal,
+                temperature=0.0,
                 seed=jax.random.PRNGKey(0),
             )
-
+            action = np.clip(action, -1, 1)
             obs, _, term, trunc, _ = env.unwrapped.step(action, minimal=True)
-            if i == 0 and video:
-                frames.append(env.render())
-            if term or trunc:
-                # count as success
-                success_count += 1
-                break
-        env.close()
-        if video and i == 0:
-            imageio.mimwrite(save_file, frames, fps=env.metadata.get("render_fps", 24))
+            raw_obs = np.asarray(obs)
 
-    success_rate = success_count / num_episodes
-    print(f"Evaluation over {num_episodes} episodes: Success rate = {success_rate}")
-    return success_rate
+            if i == 0 and video:
+                current_frames.append(env.render())
+
+            if term or trunc:
+                fixed_success_count += 1
+                is_success = True
+                break
+
+        if i == 0 and video:
+            fixed_frames = current_frames
+
+    # Save the fixed scenario video (standard behavior)
+    if video and save_file_prefix:
+        imageio.mimwrite(
+            f"{save_file_prefix}_fixed.mp4",
+            fixed_frames,
+            fps=env.metadata.get("render_fps", 24),
+        )
+
+    fixed_success_rate = fixed_success_count / num_episodes
+
+    # --- Part 2: Random Validation Episodes (New Logic) ---
+
+    # 1. Identify episode boundaries in the validation dataset
+    # Assuming dataset has 'terminals' (or 'dones')
+    terminals = val_dataset["terminals"].flatten().astype(bool)
+    if "timeouts" in val_dataset:
+        terminals = terminals | val_dataset["timeouts"].flatten().astype(bool)
+
+    episode_ends = np.where(terminals)[0]
+    # Start indices are 0 and every index immediately following an end index
+    episode_starts = np.concatenate(([0], episode_ends[:-1] + 1))
+
+    # Filter out any episodes that might be malformed (start > end)
+    valid_indices = [
+        i for i in range(len(episode_starts)) if episode_starts[i] < episode_ends[i]
+    ]
+
+    rand_success_count = 0
+    print(f"Evaluating Random Validation Episodes for {num_episodes} episodes...")
+
+    for i in range(num_episodes):
+        # Pick a random episode
+        ep_idx = np.random.choice(valid_indices)
+        start_idx = episode_starts[ep_idx]
+        end_idx = episode_ends[ep_idx]
+
+        # Get Start State (Physics) and Goal (Observation)
+        # print keys
+        print(val_dataset.keys())
+        qpos = val_dataset["qpos"][start_idx]
+        qvel = val_dataset["qvel"][start_idx]
+        goal_arr = val_dataset["observations"][end_idx]
+
+        normalized_goal = normalize(goal_arr, obs_mean, obs_std)
+
+        obs, _ = env.reset(options={"randomise_cup_position": False, "minimal": True})
+        env.unwrapped.set_state(qpos, qvel)
+        obs = env.unwrapped._get_observation(minimal=True)
+        raw_obs = np.asarray(obs)
+
+        current_frames = []
+        is_success = False
+
+        for t in range(steps):
+            normalized_obs = normalize(raw_obs, obs_mean, obs_std)
+
+            action = agent.sample_actions(
+                observations=normalized_obs,
+                goals=normalized_goal,
+                temperature=0.0,
+                seed=jax.random.PRNGKey(i * 1000 + t),
+            )
+            action = np.clip(action, -1, 1)
+
+            # Step
+            obs, _, term, trunc, _ = env.unwrapped.step(action, minimal=True)
+            raw_obs = np.asarray(obs)
+
+            if term or trunc:
+                rand_success_count += 1
+                is_success = True
+                break
+
+            if video:
+                current_frames.append(env.render())
+
+        # Save video ONLY if successful
+        if video and is_success and save_file_prefix:
+            save_path = f"{save_file_prefix}_random_success_ep{i}.mp4"
+            imageio.mimwrite(
+                save_path, current_frames, fps=env.metadata.get("render_fps", 24)
+            )
+            print(f"  Saved successful random episode video to {save_path}")
+
+    env.close()
+
+    rand_success_rate = rand_success_count / num_episodes
+
+    print(
+        f"Fixed Success Rate: {fixed_success_rate:.2f} | Random Val Success Rate: {rand_success_rate:.2f}"
+    )
+
+    return {
+        "fixed_success_rate": fixed_success_rate,
+        "random_success_rate": rand_success_rate,
+    }
 
 
 def main(args):
-
-    cfg = get_config()
+    if args.agent_type == "CRL":
+        cfg = get_config()
+    elif args.agent_type == "QRL":
+        cfg = get_qrl_config()
     # convert to plain dict
     cfg = dict(cfg)
-    cfg["alpha"] = 0.03
     cfg["batch_size"] = args.batch_size
+    cfg["alpha"] = args.alpha
+    print("Training config:", cfg)
     train_path = os.path.join(args.dataset_dir, "train_dataset.npz")
     val_path = os.path.join(args.dataset_dir, "val_dataset.npz")
-    train_dataset = load_dataset(train_path, compact_dataset=True)
-    val_dataset = load_dataset(val_path, compact_dataset=True)
 
-    base_train = Dataset.create(**train_dataset)
+    train_dataset_raw = load_dataset(train_path, compact_dataset=True)
+
+    obs_data = train_dataset_raw["observations"]
+    obs_mean = np.mean(obs_data, axis=0)
+    obs_std = np.std(obs_data, axis=0)
+
+    obs_std[obs_std < 1e-2] = 1.0
+
+    train_dataset_norm = dict(train_dataset_raw)
+    train_dataset_norm["observations"] = normalize(
+        train_dataset_raw["observations"], obs_mean, obs_std
+    )
+
+    if "next_observations" in train_dataset_norm:
+        train_dataset_norm["next_observations"] = normalize(
+            train_dataset_raw["next_observations"], obs_mean, obs_std
+        )
+
+    val_dataset_raw = load_dataset(val_path, compact_dataset=True, add_info=True)
+    val_dataset_norm = dict(val_dataset_raw)
+    val_dataset_norm["observations"] = normalize(
+        val_dataset_raw["observations"], obs_mean, obs_std
+    )
+
+    base_train = Dataset.create(**train_dataset_norm)
     train_dataset = GCDataset(base_train, cfg)
 
-    base_val = Dataset.create(**val_dataset)
+    base_val = Dataset.create(**val_dataset_norm)
     val_dataset = GCDataset(base_val, cfg)
 
     example_batch = train_dataset.sample(1)
-    agent = CRLAgent.create(
-        seed=0,
-        ex_observations=example_batch["observations"],
-        ex_actions=example_batch["actions"],
-        config=cfg,
-    )
+
+    if args.agent_type == "CRL":
+
+        agent = CRLAgent.create(
+            seed=3141,
+            ex_observations=example_batch["observations"],
+            ex_actions=example_batch["actions"],
+            config=cfg,
+        )
+    elif args.agent_type == "QRL":
+
+        agent = QRLAgent.create(
+            seed=3141,
+            ex_observations=example_batch["observations"],
+            ex_actions=example_batch["actions"],
+            config=cfg,
+        )
 
     _wandb_run = None
 
@@ -122,6 +282,8 @@ def main(args):
         except Exception:
             return None
 
+    os.makedirs(save_dir, exist_ok=True)
+
     for step in range(1, steps + 1):
         batch = train_dataset.sample(cfg["batch_size"])
 
@@ -151,11 +313,19 @@ def main(args):
                     vv = _to_scalar(v)
                     print(f"  val_{k}: {vv}")
                 info.update({"val_" + k: v for k, v in val_info.items()})
-            save_file = os.path.join(save_dir, f"eval.{step}.mp4")
-            success_rate = evaluate_agent(
-                agent, num_episodes=10, video=True, save_file=save_file
+
+            save_file_prefix = os.path.join(save_dir, f"eval_step_{step}")
+            eval_metrics = evaluate_agent(
+                agent,
+                obs_mean,
+                obs_std,
+                val_dataset=val_dataset_raw,
+                num_episodes=5,
+                video=True,
+                save_file_prefix=save_file_prefix,
             )
-            info["eval/success_rate"] = success_rate
+            info["eval/fixed_success_rate"] = eval_metrics["fixed_success_rate"]
+            info["eval/random_success_rate"] = eval_metrics["random_success_rate"]
 
         if _wandb_run is not None:
             log_dict = {}
@@ -167,10 +337,6 @@ def main(args):
                 wandb.log(log_dict, step=step)
 
     print("Training finished, saving checkpoint...")
-
-    os.makedirs(save_dir, exist_ok=True)
-    # save_path = os.path.join(save_dir, "agent.pkl")
-    # change to use the wandb name as file name
 
     save_agent(agent, save_dir, step)
     print(f"Saved CRL agent checkpoint to {save_dir}")
@@ -196,8 +362,14 @@ if __name__ == "__main__":
     p.add_argument(
         "--wandb-project", type=str, default="kitchen", help="wandb project name"
     )
-    p.add_argument("--batch-size", type=int, default=256, help="training batch size")
+    p.add_argument("--batch-size", type=int, default=1024, help="training batch size")
+    p.add_argument(
+        "--alpha", type=float, default=0.3, help="Alpha parameter for the agent"
+    )
     p.add_argument("--wandb-name", type=str, default=None, help="wandb run name")
+    p.add_argument(
+        "--agent-type", type=str, default="CRL", help="Type of agent to train"
+    )
     args = p.parse_args()
     print("Args:", args)
     main(args)

@@ -231,7 +231,12 @@ def ik_solve_dm(
     ), "Must provide at least target_pos or target_quat."
 
     if not inplace:
-        data_copy = copy.copy(data)
+        #data_copy = copy.copy(data)
+        #data = data_copy
+        data_copy = mj.MjData(model)
+        data_copy.qpos[:] = data.qpos
+        data_copy.qvel[:] = data.qvel
+        data_copy.act[:]  = data.act
         data = data_copy
 
     site_id = mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, site_name)

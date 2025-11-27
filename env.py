@@ -1,16 +1,3 @@
-"""
-Minimal gymnasium environment template for modern mujoco + gymnasium.
-
-Install:
-    pip install gymnasium mujoco
-(or your chosen mujoco build; adapt imports if you use a different package)
-
-Notes:
-- Put your kitchen model and assets in a folder (e.g., models/kitchen/).
-- Update MODEL_XML_PATH to point to the kitchen xml.
-- Customize _get_observation() and _compute_reward() for your task.
-"""
-
 import os
 from typing import Optional, Tuple, Dict
 
@@ -111,14 +98,209 @@ INIT_QPOS = np.array(
     ]
 )
 
+GOAL_JOINTS = [
+    1.0328614711761475,
+    -0.30165818333625793,
+    2.068722724914551,
+    -1.1879557371139526,
+    1.174445629119873,
+    -2.5215463638305664,
+    -1.2182813882827759,
+    0.01867654360830784,
+    0.018937133252620697,
+]
+
+GOAL_STATE = [
+    1.07545805e00,
+    -3.45810235e-01,
+    2.12984538e00,
+    -1.11880410e00,
+    1.32228053e00,
+    -2.49284577e00,
+    -9.52631652e-01,
+    1.86824538e-02,
+    1.89980175e-02,
+    -5.04269898e-02,
+    -1.70732401e-02,
+    1.31066039e-01,
+    -1.31743038e-02,
+    3.54583524e-02,
+    -1.72494531e-01,
+    9.97730568e-02,
+    1.51158994e-04,
+    -1.77415219e-04,
+    -5.99206924e-01,
+    -7.99567699e-01,
+    1.58896220e00,
+    9.99796391e-01,
+    8.91402306e-04,
+    -6.78929791e-05,
+    2.01592017e-02,
+    -5.94504178e-01,
+    -9.06082630e-01,
+    1.72596216e00,
+    6.02466166e-01,
+    -7.95019090e-01,
+    -1.67549141e-02,
+    -6.85448870e-02,
+    -6.01585090e-01,
+    -8.22981358e-01,
+    1.68080163e00,
+    6.86983585e-01,
+    -7.16947675e-01,
+    -7.16830939e-02,
+    9.43460166e-02,
+    -5.96832573e-01,
+    -7.94919491e-01,
+    1.61637115e00,
+    2.40278896e-02,
+    -3.01388592e-01,
+    -1.10549189e-01,
+    -9.46766317e-01,
+    -5.93187511e-01,
+    -7.83918083e-01,
+    1.61267149e00,
+    -2.74654448e-01,
+    -2.81748533e-01,
+    1.48824334e-01,
+    9.07212198e-01,
+    -5.92452705e-01,
+    -8.11384082e-01,
+    1.66036189e00,
+    -1.69055730e-01,
+    7.95042813e-01,
+    -5.18276691e-01,
+    2.65925527e-01,
+    -6.01209283e-01,
+    -8.58185172e-01,
+    1.69537389e00,
+    3.89461875e-01,
+    -5.64100325e-01,
+    5.33016622e-01,
+    -4.95987475e-01,
+    -5.96812725e-01,
+    -8.03222537e-01,
+    1.64823198e00,
+    9.07635242e-02,
+    7.68257141e-01,
+    -2.59039879e-01,
+    5.78309000e-01,
+    -6.10493064e-01,
+    -7.84668565e-01,
+    1.61266506e00,
+    -8.65852475e-01,
+    -1.72842279e-01,
+    -3.19054574e-01,
+    -3.44425917e-01,
+    -5.84101558e-01,
+    -7.88053215e-01,
+    1.61259270e00,
+    7.25094259e-01,
+    2.09179133e-01,
+    6.55796170e-01,
+    2.03413237e-02,
+    -6.15491152e-01,
+    -8.02469015e-01,
+    1.61277854e00,
+    -1.81121320e-01,
+    8.22195351e-01,
+    5.08990586e-01,
+    -1.79216087e-01,
+    -6.02438390e-01,
+    -8.12050045e-01,
+    1.66211891e00,
+    -2.57646907e-02,
+    4.36448872e-01,
+    1.97745025e-01,
+    8.77351403e-01,
+    -1.41050527e-03,
+    -7.47250393e-04,
+    2.47015897e-03,
+    -2.67232396e-02,
+    4.03264761e-02,
+    2.43832730e-03,
+    -1.15214223e-02,
+    -3.21231522e-02,
+    4.17195596e-02,
+    -2.77386099e-01,
+    -3.38911787e-02,
+    -3.19476947e-02,
+    -6.67440891e-02,
+    2.70790637e-01,
+    -3.71152908e-01,
+    -5.33594093e01,
+    -1.72791023e01,
+    3.01200390e00,
+    4.60020173e-03,
+    2.70492196e-01,
+    -1.01233351e00,
+    5.65668640e01,
+    -9.20742702e00,
+    -3.91493988e01,
+    -4.88359248e-03,
+    -2.60812254e-03,
+    3.51082394e-03,
+    4.18669909e-01,
+    1.72233611e-01,
+    -4.55145776e-01,
+    -7.09342733e-02,
+    3.22215348e-01,
+    -7.44279027e-01,
+    -7.06422377e00,
+    6.32182961e01,
+    -4.25283241e01,
+    -2.49882601e-03,
+    6.33951053e-02,
+    -1.18472101e-03,
+    -4.66994978e-02,
+    5.64632559e00,
+    -1.91157722e01,
+    -3.52572761e-02,
+    2.88073212e-01,
+    -6.36944115e-01,
+    -9.17910767e00,
+    3.79070702e01,
+    -5.32313347e01,
+    -4.50832216e-04,
+    -2.30606925e-03,
+    4.24821535e-03,
+    3.37131284e-02,
+    1.98205598e-02,
+    6.55973330e-03,
+    -4.58848802e-03,
+    -2.68370588e-03,
+    4.90455423e-03,
+    -2.25693554e-01,
+    1.23034626e-01,
+    2.53486902e-01,
+    -4.24487628e-02,
+    -1.85182281e-02,
+    1.03737991e-02,
+    -7.19015789e00,
+    6.56675673e00,
+    -1.48706126e00,
+    -6.85138106e-02,
+    3.45408946e-01,
+    -4.90163147e-01,
+    5.79059525e01,
+    -8.62393379e00,
+    -6.98096466e01,
+]
 
 MODEL_XML_PATH = os.path.join(os.path.dirname(__file__), "kitchen", "kitchen.xml")
 
+# DEFAULT_CAMERA_CONFIG = {
+#    "distance": 2.2,
+#    "azimuth": 200.0,
+#    "elevation": -35.0,
+#    "lookat": np.array([-0.65, -0.65, 1.75]),
+# }
+
 DEFAULT_CAMERA_CONFIG = {
-    "distance": 2,
-    "azimuth": 200.0,
+    "distance": 1.8,
+    "azimuth": 350.0,
     "elevation": -35.0,
-    "lookat": np.array([-0.65, -0.65, 1.75]),
+    "lookat": np.array([-0.65, -0.8, 1.75]),
 }
 
 # DEFAULT_CAMERA_CONFIG = {
@@ -136,6 +318,7 @@ class KitchenMinimalEnv(MujocoEnv):
         self,
         model_path: str = MODEL_XML_PATH,
         render_mode: str = "rgb_array",
+        ob_type: str = "states",
         randomise_cup_position: bool = False,
         minimal: bool = True,
         physics_timestep: float = 0.001,
@@ -157,6 +340,13 @@ class KitchenMinimalEnv(MujocoEnv):
             control_timestep=float(control_timestep),
         )
 
+        # Set observation mode (either 'states' or 'pixels') and default render size
+        assert ob_type in ("states", "pixels"), "ob_type must be 'states' or 'pixels'"
+        self._ob_type = ob_type
+
+        self._width = 320
+        self._height = 240
+
         # Get actuator control ranges for proper scaling
         if (
             hasattr(self.model, "actuator_ctrlrange")
@@ -165,19 +355,33 @@ class KitchenMinimalEnv(MujocoEnv):
             self.ctrl_range = np.array(self.model.actuator_ctrlrange).reshape(
                 self.nu, 2
             )
-        else:
-            self.ctrl_range = np.tile(np.array([-1.0, 1.0]), (self.nu, 1))
+            print("control range set")
+
+        self.action_range = np.tile(np.array([-1.0, 1.0]), (self.nu, 1))
 
         # By default, we use continuous actions in [-1, 1] mapped to ctrl ranges
-        self.action_space = gym.spaces.Box(
-            low=-1.0, high=1.0, shape=(self.nu,), dtype=np.float32
+        self.action_space = spaces.Box(
+            low=self.action_range[:, 0].astype(np.float32),
+            high=self.action_range[:, 1].astype(np.float32),
+            shape=(self.nu,),
+            dtype=np.float32,
         )
 
-        # Minimal observation: concatenation of qpos and qvel
-        obs_dim = self.nq + self.nv
-        self.observation_space = gym.spaces.Box(
-            low=-np.inf, high=np.inf, shape=(obs_dim,), dtype=np.float32
-        )
+        if self._ob_type == "pixels":
+
+            obs_dim = (self._height, self._width, 3)
+            self.observation_space = gym.spaces.Box(
+                low=0,
+                high=255,
+                shape=obs_dim,
+                dtype=np.uint8,
+            )
+        else:
+            dummy_obs = self._get_observation(minimal=minimal)
+            obs_dim = dummy_obs.shape[0]
+            self.observation_space = gym.spaces.Box(
+                low=-np.inf, high=np.inf, shape=(obs_dim,), dtype=np.float32
+            )
 
         super().__init__(
             model_path=model_path,
@@ -219,8 +423,6 @@ class KitchenMinimalEnv(MujocoEnv):
             self._update_water_particle_positions()
 
         self._render_context = None
-        self._width = 1920
-        self._height = 2560
 
         # Reset to initial state
         self.reset(
@@ -316,10 +518,46 @@ class KitchenMinimalEnv(MujocoEnv):
         if randomise_cup_position:
             self.randomise_cup_position()
         else:
-            # update water particle world positions now that we ran forward
+            cup_joint_ids = []
+            for j in range(int(self.model.njnt)):
+                name = mj.mj_id2name(self.model, mj.mjtObj.mjOBJ_JOINT, j)
+                if name and "cup_freejoint" in name:
+                    cup_joint_ids.append(int(j))
+            qpos = np.array(self.data.qpos).reshape(-1)
+            qvel = np.array(self.data.qvel).reshape(-1)
+            cup_jid_for_water = cup_joint_ids[1]
+            cup_qpos_addr = int(self.model.jnt_qposadr[cup_jid_for_water])
+            cup_pos = np.copy(self.data.qpos[cup_qpos_addr : cup_qpos_addr + 3])
+            water_joint_ids = []
+            for j in range(int(self.model.njnt)):
+                name = mj.mj_id2name(self.model, mj.mjtObj.mjOBJ_JOINT, j)
+                if name and "water_balls_freejoint" in name:
+                    water_joint_ids.append(int(j))
+
+            for i, jid in enumerate(water_joint_ids):
+                qpos_addr = int(self.model.jnt_qposadr[jid])
+                x = cup_pos[0] + self.np_random.uniform(-0.01, 0.01)
+                y = cup_pos[1] + self.np_random.uniform(-0.01, 0.01)
+                z = cup_pos[2] + 0.02 + i * 0.02 + self.np_random.uniform(0.01, 0.015)
+
+                qpos[qpos_addr : qpos_addr + 3] = np.array([x, y, z])
+
+                if qpos_addr + 7 <= qpos.shape[0]:
+                    qpos[qpos_addr + 3 : qpos_addr + 7] = np.array([1.0, 0.0, 0.0, 0.0])
+
+                if jid < int(self.model.njnt):
+                    vel_addr = int(self.model.jnt_dofadr[jid])
+                    # freejoint has 6 dofs (3 lin, 3 ang)
+                    qvel[vel_addr : vel_addr + 6] = 0.0
+                    # give some initial downward velocity
+                    qvel[vel_addr + 2] = self.np_random.uniform(-0.2, -0.15)
+
+            # Apply state and forward simulate so data.geom_xpos update
+            self.set_state(qpos, qvel)
+            mj.mj_forward(self.model, self.data)
             self._update_water_particle_positions()
 
-        obs = self._get_observation(minimal=minimal)
+        obs = self.compute_observation(minimal=minimal)
         info = {}
         return obs, info
 
@@ -382,7 +620,7 @@ class KitchenMinimalEnv(MujocoEnv):
         qpos = self.init_qpos
         qvel = self.init_qvel
         self.set_state(qpos, qvel)
-        obs = self._get_obs()
+        obs = self.compute_observation(minimal=True)
 
         return obs
 
@@ -468,12 +706,22 @@ class KitchenMinimalEnv(MujocoEnv):
         return tuple(particles_in_cups)
 
     def step(
-        self, action: np.ndarray, minimal=False
+        self, action: np.ndarray, minimal=True
     ) -> Tuple[np.ndarray, float, bool, bool, Dict]:
         action = np.asarray(action, dtype=np.float32).reshape(self.nu)
+        n_scaled = self.nu - 2
 
-        # set controls
-        self.data.ctrl[: self.nu] = action
+        ctrl_low = self.ctrl_range[:n_scaled, 0]
+        ctrl_high = self.ctrl_range[:n_scaled, 1]
+
+        # Scale normalized [-1, 1] → actuator ctrl range
+        scaled_part = ctrl_low + (action[:n_scaled] + 1.0) * 0.5 * (
+            ctrl_high - ctrl_low
+        )
+
+        raw_part = action[n_scaled:]
+        self.data.ctrl[:n_scaled] = scaled_part
+        self.data.ctrl[n_scaled : self.nu] = raw_part
 
         # Step the physics forward.
         mj.mj_step(self.model, self.data, nstep=self._n_steps)
@@ -482,7 +730,7 @@ class KitchenMinimalEnv(MujocoEnv):
         self._update_water_particle_positions()
 
         # Build observation
-        obs = self._get_observation(minimal=minimal)
+        obs = self.compute_observation(minimal=minimal)
         reward = self._compute_reward(obs, action)
         Goal, Start = self.get_particles_in_cups()
         terminated = True if Goal >= 7 else False
@@ -490,6 +738,12 @@ class KitchenMinimalEnv(MujocoEnv):
         info = {}
 
         return obs, float(reward), bool(terminated), bool(truncated), info
+
+    def compute_observation(self, minimal=False):
+        if self._ob_type == "pixels":
+            return self.get_pixel_observation()
+
+        return self._get_observation(minimal=minimal)
 
     def _get_observation(self, minimal=False) -> np.ndarray:
         qpos = np.array(self.data.qpos).reshape(-1)
@@ -505,27 +759,7 @@ class KitchenMinimalEnv(MujocoEnv):
             )
         return obs
 
-    def _get_obs(self):
-        # Gather simulated observation
-        # TODO
-        #  robot_qpos, robot_qvel = robot_get_obs(
-        #     self.model, self.data, self.model_names.joint_names
-        # )
-        # Simulate observation noise
-        # robot_qpos += (
-        # self.robot_noise_ratio
-        # * self.robot_pos_noise_amp[:9]
-        # * self.np_random.uniform(low=-1.0, high=1.0, size=robot_qpos.shape)
-        # )
-        # robot_qvel += (
-        # self.robot_noise_ratio
-        # * self.robot_vel_noise_amp[:9]
-        # * self.np_random.uniform(low=-1.0, high=1.0, size=robot_qvel.shape)
-        # )
-
-        # self._last_robot_qpos = robot_qpos
-
-        # return np.concatenate((robot_qpos.copy(), robot_qvel.copy()))
+    def _get_obs(self):  # not used I think
         qpos = np.array(self.data.qpos).reshape(-1)
         qvel = np.array(self.data.qvel).reshape(-1)
         obs = np.concatenate([qpos, qvel]).astype(np.float32)
@@ -540,6 +774,13 @@ class KitchenMinimalEnv(MujocoEnv):
     def close(self):
         self._render_context = None
 
+    def get_pixel_observation(self):
+        frame = self.render()
+
+        if isinstance(frame, np.ndarray):
+            return frame.astype(np.uint8)
+        return np.asarray(frame, dtype=np.uint8)
+
     def _update_water_particle_positions(self) -> None:
         """Read current world-space positions for detected water particle geoms into
         self.water_particle_positions. Uses data.geom_xpos (ngeom x 3)."""
@@ -548,7 +789,9 @@ class KitchenMinimalEnv(MujocoEnv):
         for i, gid in enumerate(self._water_geom_ids):
             self.water_particle_positions[i, :] = geom_xpos[int(gid)]
 
-    def create_goal_state(self, minimal=True, current_state=None) -> np.ndarray:
+    def create_goal_state(
+        self, minimal=True, current_state=None, fixed_goal=False
+    ) -> np.ndarray:
         """Takes the current state and moves the water particles into the target cup by getting their relative positions to the original cup and change it to the target cup.
 
         Args:
@@ -559,6 +802,9 @@ class KitchenMinimalEnv(MujocoEnv):
             np.ndarray: Goal state observation (minimal)
         """
         # Accept either a full state (qpos+qvel) or a minimal observation
+
+        if fixed_goal:
+            current_state = GOAL_STATE
         if current_state is None:
             # use current full simulator state
             qpos_local = np.array(self.data.qpos).reshape(-1)
@@ -590,6 +836,9 @@ class KitchenMinimalEnv(MujocoEnv):
                 qvel_full[:9] = robot_qvel9
                 qpos_full[30:] = qpos_tail
                 qvel_full[29:] = qvel_tail
+        if not fixed_goal:
+            qpos_full[:9] = GOAL_JOINTS
+            qvel_full[:9] = 0
 
         state_full = np.concatenate([qpos_full, qvel_full])
 
