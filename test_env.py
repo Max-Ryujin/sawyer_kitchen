@@ -222,8 +222,6 @@ def random_action_test(save_path: str, steps: int = 250):
         print("No frames collected.")
 
 
-
-
 def moving_policy(env, obs, cup_number) -> np.ndarray:
     model, data = env.unwrapped.model, env.unwrapped.data
 
@@ -255,7 +253,9 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
     state = env._automaton_state
 
     if state == "move_above":
-        cup_pos = utils.get_object_pos(env, (f"cup_freejoint{cup_number}", f"cup{cup_number}"))
+        cup_pos = utils.get_object_pos(
+            env, (f"cup_freejoint{cup_number}", f"cup{cup_number}")
+        )
         target_pos = cup_pos + np.array([-0.015, 0.0, 0.3])
         target_quat = [0.69636424, -0.12278780, 0.12278780, 0.69636424]
         env._state_counter += 1
@@ -284,7 +284,9 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
 
     if state == "move_towards":
         env._state_counter += 1
-        cup_pos = utils.get_object_pos(env, (f"cup_freejoint{cup_number}", f"cup{cup_number}"))
+        cup_pos = utils.get_object_pos(
+            env, (f"cup_freejoint{cup_number}", f"cup{cup_number}")
+        )
         target_pos = cup_pos + np.array([-0.015, 0.0, 0.15])
         target_quat = [0.64085639, -0.29883623, 0.29883623, 0.64085639]
 
@@ -308,7 +310,9 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
 
     elif state == "move_down":
         env._state_counter += 1
-        cup_pos = utils.get_object_pos(env, (f"cup_freejoint{cup_number}", f"cup{cup_number}"))
+        cup_pos = utils.get_object_pos(
+            env, (f"cup_freejoint{cup_number}", f"cup{cup_number}")
+        )
         target_pos = cup_pos + np.array([-0.01, 0.0, 0.075])
         target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
 
@@ -335,7 +339,9 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
 
     elif state == "close_gripper":
         env._state_counter += 1
-        cup_pos = utils.get_object_pos(env, (f"cup_freejoint{cup_number}", f"cup{cup_number}"))
+        cup_pos = utils.get_object_pos(
+            env, (f"cup_freejoint{cup_number}", f"cup{cup_number}")
+        )
         target_pos = cup_pos + np.array([-0.01, 0.0, 0.075])
         target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
 
@@ -390,9 +396,13 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         ):
             env._automaton_state = "move_cup"
             other_cup_id = 1 - cup_number
-            other_cup_pos = utils.get_object_pos(env, (f"cup_freejoint{other_cup_id}", f"cup{other_cup_id}"))
+            other_cup_pos = utils.get_object_pos(
+                env, (f"cup_freejoint{other_cup_id}", f"cup{other_cup_id}")
+            )
             while True:
-                env._cup_destination = np.array([-0.8, -1.1, 1.6]) + np.random.uniform(-0.1, 0.1, 3)
+                env._cup_destination = np.array([-0.8, -1.1, 1.6]) + np.random.uniform(
+                    -0.1, 0.1, 3
+                )
                 if np.linalg.norm(env._cup_destination - other_cup_pos) > 0.2:
                     break
             print("→ move_cup")
@@ -420,7 +430,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
 
     elif state == "place_cup":
         target_pos = env._cup_destination.copy()
-        target_pos[2] -= 0.15 # move down
+        target_pos[2] -= 0.15  # move down
         target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
 
         q_target = utils.ik_solve_dm(
@@ -439,7 +449,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
 
     elif state == "open_gripper":
         target_pos = env._cup_destination.copy()
-        target_pos[2] -= 0.15 # keep it down
+        target_pos[2] -= 0.15  # keep it down
         target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
 
         q_target = utils.ik_solve_dm(
@@ -452,14 +462,14 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         )
 
         action = make_action(q_target, close=False)
-        env._state_counter +=1
+        env._state_counter += 1
         if env._state_counter > 50:
             env._automaton_state = "move_up_after_release"
         return action
 
     elif state == "move_up_after_release":
         target_pos = env._cup_destination.copy()
-        target_pos[2] += 0.15 # move up
+        target_pos[2] += 0.15  # move up
         target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
 
         q_target = utils.ik_solve_dm(
@@ -475,6 +485,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         if at_target(target_pos, tol=0.05):
             env._automaton_state = "done"
         return action
+
 
 def pour_policy_v2(env, obs) -> np.ndarray:
 
@@ -871,7 +882,11 @@ def pour_policy_v2(env, obs) -> np.ndarray:
 
 
 def collect_policy_episode(
-    save_path="tmp/policy.mp4", steps=1000, noise=True, random_action=False
+    save_path="tmp/policy.mp4",
+    steps=1000,
+    noise=True,
+    random_action=False,
+    policy_type="pouring",
 ):
     gym.register(id="KitchenMinimalEnv-v0", entry_point="env:KitchenMinimalEnv")
     env = gym.make(
@@ -883,7 +898,14 @@ def collect_policy_episode(
     env._automaton_state = "move_above"
     env._state_counter = 0
     for t in range(steps):
-        action = pour_policy_v2(env, obs)
+        if policy_type == "moving":
+            cup = np.random.choice([0, 1])
+            action = moving_policy(env, obs, cup_number=cup)
+            if env._automaton_state == "done":
+                env._automaton_state = "move_above"
+        else:
+            action = pour_policy_v2(env, obs)
+
         if random_action:
             if np.random.rand() < 0.02:
                 action = env.action_space.sample()
@@ -893,7 +915,6 @@ def collect_policy_episode(
         frames.append(env.render())
         if term or trunc:
             print(f"Episode finished after {t+1} steps.")
-            print(obs)
             break
 
     env.close()
@@ -1031,9 +1052,6 @@ def collect_policy_dataset(
         obs, _ = env.reset(options={"randomise_cup_position": True, "minimal": True})
         env._automaton_state = "move_above"
         env._state_counter = 0
-        ep_dir = os.path.join(save_root, f"episode_{ep_idx:03d}")
-        images_dir = os.path.join(ep_dir, "images")
-        os.makedirs(images_dir, exist_ok=True)
 
         episode_terminated = False
 
@@ -1080,16 +1098,12 @@ def collect_policy_dataset(
                     Goal, Start = env.unwrapped.get_particles_in_cups()
                     print(f"Goal position at max_steps: {Goal}")
                     print(f"Start position at max_steps: {Start}")
-                    final_frame = env.render()
-                    final_image_path = os.path.join(images_dir, f"step_{t:03d}.png")
-                    imageio.imwrite(final_image_path, final_frame)
-                    print(f"Saved final frame to {final_image_path}")
 
                 if save_failed_episodes:
                     print(
                         f"Episode {ep_idx} failed but saved due to save_failed_episodes=True."
                     )
-
+                    dataset["terminals"][-1] = True
                     total_steps += steps_in_current_episode
                     if ep_idx < num_train_episodes:
                         total_train_steps += steps_in_current_episode
@@ -1170,6 +1184,7 @@ def collect_moving_policy_dataset(
     random_action: bool = False,
     minimal_observations: bool = True,
     save_failed_episodes: bool = False,
+    pouring_prob: float = 0.8,
 ):
     """Run the policy multiple times and save trajectories.
 
@@ -1205,32 +1220,37 @@ def collect_moving_policy_dataset(
         obs, _ = env.reset(options={"randomise_cup_position": True, "minimal": True})
         env._automaton_state = "move_above"
         env._state_counter = 0
-        ep_dir = os.path.join(save_root, f"episode_{ep_idx:03d}")
-        images_dir = os.path.join(ep_dir, "images")
-        os.makedirs(images_dir, exist_ok=True)
 
         episode_terminated = False
 
         steps_in_current_episode = 0
 
         move_operations = np.random.randint(0, 3)
+        if move_operations == 0:
+            perform_pouring = True
+        else:
+            perform_pouring = np.random.rand() < pouring_prob
         moves_completed = 0
         policy_mode = "moving" if move_operations > 0 else "pouring"
 
         for t in range(max_steps):
             action = None
             if policy_mode == "moving":
-                action = moving_policy(env, obs, 1)
+                cup = np.random.choice([0, 1])
+                action = moving_policy(env, obs, cup_number=cup)
                 if env._automaton_state == "done":
                     moves_completed += 1
                     if moves_completed == move_operations:
-                        policy_mode = "pouring"
+                        if perform_pouring:
+                            policy_mode = "pouring"
+                        else:
+                            break
                     env._automaton_state = "move_above"
             elif policy_mode == "pouring":
                 action = pour_policy_v2(env, obs)
 
             if noise:
-                action = action + np.random.normal(0, 0.02, action.shape)
+                action = action + np.random.normal(0, 0.01, action.shape)
             if random_action:
                 if np.random.rand() < 0.01:
                     action = env.action_space.sample()
@@ -1268,16 +1288,12 @@ def collect_moving_policy_dataset(
                     Goal, Start = env.unwrapped.get_particles_in_cups()
                     print(f"Goal position at max_steps: {Goal}")
                     print(f"Start position at max_steps: {Start}")
-                    final_frame = env.render()
-                    final_image_path = os.path.join(images_dir, f"step_{t:03d}.png")
-                    imageio.imwrite(final_image_path, final_frame)
-                    print(f"Saved final frame to {final_image_path}")
 
                 if save_failed_episodes:
                     print(
                         f"Episode {ep_idx} failed but saved due to save_failed_episodes=True."
                     )
-
+                    dataset["terminals"][-1] = True
                     total_steps += steps_in_current_episode
                     if ep_idx < num_train_episodes:
                         total_train_steps += steps_in_current_episode
@@ -1380,32 +1396,47 @@ if __name__ == "__main__":
         action="store_true",
         help="Use pixel observations when collecting dataset",
     )
+    parser.add_argument(
+        "--pouring_prob",
+        type=float,
+        default=0.8,
+        help="Probability of pouring at the end of moving sequence in dataset mode",
+    )
+    parser.add_argument(
+        "--policy_type",
+        type=str,
+        default="pouring",
+        choices=["pouring", "moving"],
+        help="Policy type to run in policy mode",
+    )
     args = parser.parse_args()
 
     if args.mode == "random":
         random_action_test(args.out, steps=args.steps)
     elif args.mode == "policy":
-        collect_policy_episode(steps=args.steps)
+        collect_policy_episode(steps=args.steps, policy_type=args.policy_type)
     elif args.mode == "dataset":
         # Use --out as a directory for the dataset
         save_root = args.out
         if args.pixel_observations:
 
-            collect_policy_dataset(
+            collect_moving_policy_dataset(
                 save_root=save_root,
                 episodes=args.episodes,
                 max_steps=args.steps,
                 minimal_observations=args.minimal,
                 save_failed_episodes=args.save_failed_episodes,
                 pixel_observations=True,
+                pouring_prob=args.pouring_prob,
             )
         else:
-            collect_policy_dataset(
+            collect_moving_policy_dataset(
                 save_root=save_root,
                 episodes=args.episodes,
                 max_steps=args.steps,
                 minimal_observations=args.minimal,
                 save_failed_episodes=args.save_failed_episodes,
+                pouring_prob=args.pouring_prob,
             )
     elif args.mode == "crl":
         if args.checkpoint is None:
