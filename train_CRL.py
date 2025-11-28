@@ -14,7 +14,6 @@ import imageio
 THIS_DIR = os.path.dirname(__file__)
 OG_IMPLS = os.path.abspath(os.path.join(THIS_DIR, "..", "ogbench", "ogbench", "impls"))
 OG_IMPLS_BASE = os.path.abspath(os.path.join(THIS_DIR, "..", "ogbench", "ogbench"))
-print("Adding OGBench impls to sys.path:", OG_IMPLS)
 sys.path.insert(0, OG_IMPLS)
 sys.path.insert(0, OG_IMPLS_BASE)
 
@@ -46,15 +45,9 @@ def evaluate_agent(
         "KitchenMinimalEnv-v0", render_mode="rgb_array", width=1280, height=960
     )
 
-    # --- Part 1: Fixed Goal Evaluation (Original Logic) ---
     fixed_success_count = 0
     fixed_frames = []
 
-    # Just run 1 fixed episode or num_episodes?
-    # The prompt implies keeping the original logic but adding random cases.
-    # To keep it balanced, let's do num_episodes of fixed and num_episodes of random.
-
-    print(f"Evaluating Fixed Goal (First State) for {num_episodes} episodes...")
     for i in range(num_episodes):
         obs, _ = env.reset(options={"randomise_cup_position": False, "minimal": True})
         raw_obs = np.asarray(obs)
@@ -101,10 +94,6 @@ def evaluate_agent(
 
     fixed_success_rate = fixed_success_count / num_episodes
 
-    # --- Part 2: Random Validation Episodes (New Logic) ---
-
-    # 1. Identify episode boundaries in the validation dataset
-    # Assuming dataset has 'terminals' (or 'dones')
     terminals = val_dataset["terminals"].flatten().astype(bool)
     if "timeouts" in val_dataset:
         terminals = terminals | val_dataset["timeouts"].flatten().astype(bool)
@@ -119,7 +108,6 @@ def evaluate_agent(
     ]
 
     rand_success_count = 0
-    print(f"Evaluating Random Validation Episodes for {num_episodes} episodes...")
 
     for i in range(num_episodes):
         # Pick a random episode
@@ -128,8 +116,6 @@ def evaluate_agent(
         end_idx = episode_ends[ep_idx]
 
         # Get Start State (Physics) and Goal (Observation)
-        # print keys
-        print(val_dataset.keys())
         qpos = val_dataset["qpos"][start_idx]
         qvel = val_dataset["qvel"][start_idx]
         goal_arr = val_dataset["observations"][end_idx]
@@ -190,6 +176,8 @@ def evaluate_agent(
 
 
 def main(args):
+    print(f"JAX Backend: {jax.default_backend()}")
+    print(f"Available Devices: {jax.devices()}")
     if args.agent_type == "CRL":
         cfg = get_config()
     elif args.agent_type == "QRL":

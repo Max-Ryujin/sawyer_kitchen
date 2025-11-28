@@ -369,7 +369,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
             np.linalg.norm(forces) > 5.0
             and forces.all() > 0
             and at_target(target_pos, tol=0.05)
-        ):
+        ) or env._state_counter > 70:
             env._automaton_state = "go_up"
             env._state_counter = 0
             print("→ go up")
@@ -392,7 +392,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
             and np.linalg.norm(
                 data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
             )
-            < 0.02
+            < 0.2
         ):
             env._automaton_state = "move_cup"
             other_cup_id = 1 - cup_number
@@ -400,17 +400,23 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
                 env, (f"cup_freejoint{other_cup_id}", f"cup{other_cup_id}")
             )
             while True:
-                env._cup_destination = np.array([-0.8, -1.1, 1.6]) + np.random.uniform(
-                    -0.1, 0.1, 3
+                # randomise xy position
+                env._cup_destination = np.array(
+                    [
+                        np.random.uniform(-0.93, -0.45),
+                        np.random.uniform(-1.1, -0.4),
+                        1.71,
+                    ]
                 )
-                if np.linalg.norm(env._cup_destination - other_cup_pos) > 0.2:
+                if np.linalg.norm(env._cup_destination - other_cup_pos) > 0.1:
                     break
             print("→ move_cup")
 
         return make_action(q_target, close=True)
 
     elif state == "move_cup":
-        target_pos = env._cup_destination
+        target_pos = env._cup_destination.copy()
+        target_pos[2] += 0.15  # move above place position
         target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
 
         q_target = utils.ik_solve_dm(
@@ -422,7 +428,13 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
             inplace=False,
         )
 
-        if at_target(target_pos, tol=0.05):
+        if (
+            at_target(target_pos, tol=0.09)
+            and np.linalg.norm(
+                data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
+            )
+            < 0.002
+        ):
             env._automaton_state = "place_cup"
             print("→ place_cup")
 
@@ -430,7 +442,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
 
     elif state == "place_cup":
         target_pos = env._cup_destination.copy()
-        target_pos[2] -= 0.15  # move down
+        target_pos[2] += 0.05
         target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
 
         q_target = utils.ik_solve_dm(
@@ -441,7 +453,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
             target_quat=target_quat,
             inplace=False,
         )
-        if at_target(target_pos, tol=0.05):
+        if at_target(target_pos, tol=0.04):
             env._automaton_state = "open_gripper"
             print("→ open_gripper")
 
@@ -449,7 +461,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
 
     elif state == "open_gripper":
         target_pos = env._cup_destination.copy()
-        target_pos[2] -= 0.15  # keep it down
+        target_pos[2] += 0.05
         target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
 
         q_target = utils.ik_solve_dm(
@@ -463,13 +475,13 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
 
         action = make_action(q_target, close=False)
         env._state_counter += 1
-        if env._state_counter > 50:
+        if env._state_counter > 20:
             env._automaton_state = "move_up_after_release"
         return action
 
     elif state == "move_up_after_release":
         target_pos = env._cup_destination.copy()
-        target_pos[2] += 0.15  # move up
+        target_pos[2] += 0.35  # move up
         target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
 
         q_target = utils.ik_solve_dm(
@@ -482,7 +494,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         )
 
         action = make_action(q_target, close=False)
-        if at_target(target_pos, tol=0.05):
+        if at_target(target_pos, tol=0.6):
             env._automaton_state = "done"
         return action
 
@@ -890,19 +902,19 @@ def collect_policy_episode(
 ):
     gym.register(id="KitchenMinimalEnv-v0", entry_point="env:KitchenMinimalEnv")
     env = gym.make(
-        "KitchenMinimalEnv-v0", render_mode="rgb_array", width=320, height=240
+        "KitchenMinimalEnv-v0", render_mode="rgb_array", width=640, height=480
     )
     obs, _ = env.reset(options={"randomise_cup_position": False, "minimal": True})
     frames = []
-    # env._automaton_state = "move_left"
     env._automaton_state = "move_above"
     env._state_counter = 0
+    cup = np.random.choice(np.array([0, 1]))
     for t in range(steps):
         if policy_type == "moving":
-            cup = np.random.choice([0, 1])
             action = moving_policy(env, obs, cup_number=cup)
             if env._automaton_state == "done":
                 env._automaton_state = "move_above"
+                cup = np.random.choice(np.array([0, 1]))
         else:
             action = pour_policy_v2(env, obs)
 
@@ -910,7 +922,7 @@ def collect_policy_episode(
             if np.random.rand() < 0.02:
                 action = env.action_space.sample()
         if noise:
-            action = action + np.random.normal(0, 0.02, action.shape)
+            action = action + np.random.normal(0, 0.01, action.shape)
         obs, _, term, trunc, _ = env.unwrapped.step(action, minimal=True)
         frames.append(env.render())
         if term or trunc:
@@ -1184,7 +1196,7 @@ def collect_moving_policy_dataset(
     random_action: bool = False,
     minimal_observations: bool = True,
     save_failed_episodes: bool = False,
-    pouring_prob: float = 0.8,
+    pouring_prob: float = 0.9,
 ):
     """Run the policy multiple times and save trajectories.
 
@@ -1232,11 +1244,11 @@ def collect_moving_policy_dataset(
             perform_pouring = np.random.rand() < pouring_prob
         moves_completed = 0
         policy_mode = "moving" if move_operations > 0 else "pouring"
-
+        done2 = False
         for t in range(max_steps):
             action = None
             if policy_mode == "moving":
-                cup = np.random.choice([0, 1])
+                cup = np.random.choice(np.array([0, 1]))
                 action = moving_policy(env, obs, cup_number=cup)
                 if env._automaton_state == "done":
                     moves_completed += 1
@@ -1244,7 +1256,7 @@ def collect_moving_policy_dataset(
                         if perform_pouring:
                             policy_mode = "pouring"
                         else:
-                            break
+                            done2 = True
                     env._automaton_state = "move_above"
             elif policy_mode == "pouring":
                 action = pour_policy_v2(env, obs)
@@ -1258,7 +1270,7 @@ def collect_moving_policy_dataset(
             obs_next, reward, terminated, truncated, info = env.unwrapped.step(
                 action, minimal=True
             )
-            done = terminated or truncated
+            done = terminated or truncated or done2
 
             if minimal_observations:
                 dataset["observations"].append(obs_to_store)
@@ -1371,7 +1383,7 @@ if __name__ == "__main__":
         "--mode", choices=["random", "policy", "dataset", "crl"], default="random"
     )
     parser.add_argument("--out", default="tmp/kitchen_run.mp4")
-    parser.add_argument("--steps", type=int, default=1300)
+    parser.add_argument("--steps", type=int, default=1700)
     parser.add_argument(
         "--save_failed_episodes",
         action="store_true",
@@ -1399,7 +1411,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--pouring_prob",
         type=float,
-        default=0.8,
+        default=0.9,
         help="Probability of pouring at the end of moving sequence in dataset mode",
     )
     parser.add_argument(
