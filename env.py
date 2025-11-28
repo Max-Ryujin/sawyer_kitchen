@@ -733,7 +733,7 @@ class KitchenMinimalEnv(MujocoEnv):
         obs = self.compute_observation(minimal=minimal)
         reward = self._compute_reward(obs, action)
         Goal, Start = self.get_particles_in_cups()
-        terminated = True if Goal >= 7 else False
+        terminated = True if Goal >= 6 else False
         truncated = terminated
         info = {}
 
@@ -754,7 +754,7 @@ class KitchenMinimalEnv(MujocoEnv):
             # Return only robot joint qpos and qvel (first 8 qpos/qvel),
             # gripper state, water particle positions and velocities and cup positions and velocities
             # qpos and qvel 0 to 8 and from qpos from 30 to end and qvel from 29 to end
-            obs = np.concatenate([qpos[:9], qvel[:9], qpos[30:], qvel[29:]]).astype(
+            obs = np.concatenate([qpos[:9], qvel[:9], qpos[30:], qvel[29:41]]).astype(
                 np.float32
             )
         return obs
@@ -769,7 +769,7 @@ class KitchenMinimalEnv(MujocoEnv):
         return 1.0 if self.get_particles_in_cups()[0] == 10 else 0.0
 
     def _is_terminated(self, obs: np.ndarray) -> bool:
-        return True if self.get_particles_in_cups()[0] >= 7 else False
+        return True if self.get_particles_in_cups()[0] >= 6 else False
 
     def close(self):
         self._render_context = None
@@ -814,7 +814,7 @@ class KitchenMinimalEnv(MujocoEnv):
         else:
             state = np.asarray(current_state).astype(np.float64).copy()
             full_len = int(self.nq + self.nv)
-            minimal_len = full_len - 41
+            minimal_len = 18 + (self.nq - 30) + 12
 
             if state.size == full_len:
                 qpos_full = state[: self.nq].copy()
@@ -823,7 +823,7 @@ class KitchenMinimalEnv(MujocoEnv):
                 robot_qpos9 = state[0:9].copy()
                 robot_qvel9 = state[9:18].copy()
                 qpos_tail_len = self.nq - 30
-                qvel_tail_len = self.nv - 29
+                qvel_tail_len = 12
                 qpos_tail = state[18 : 18 + qpos_tail_len].copy()
                 qvel_tail = state[
                     18 + qpos_tail_len : 18 + qpos_tail_len + qvel_tail_len
@@ -835,7 +835,7 @@ class KitchenMinimalEnv(MujocoEnv):
                 qpos_full[:9] = robot_qpos9
                 qvel_full[:9] = robot_qvel9
                 qpos_full[30:] = qpos_tail
-                qvel_full[29:] = qvel_tail
+                qvel_full[29:41] = qvel_tail
         if not fixed_goal:
             qpos_full[:9] = GOAL_JOINTS
             qvel_full[:9] = 0
@@ -855,7 +855,7 @@ class KitchenMinimalEnv(MujocoEnv):
             qpos_out = state_full[: self.nq]
             qvel_out = state_full[self.nq : self.nq + self.nv]
             return np.concatenate(
-                [qpos_out[:9], qvel_out[:9], qpos_out[30:], qvel_out[29:]]
+                [qpos_out[:9], qvel_out[:9], qpos_out[30:], qvel_out[29:41]]
             ).astype(np.float32)
 
         return state_full.astype(np.float32)
