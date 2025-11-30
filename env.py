@@ -355,7 +355,6 @@ class KitchenMinimalEnv(MujocoEnv):
             self.ctrl_range = np.array(self.model.actuator_ctrlrange).reshape(
                 self.nu, 2
             )
-            print("control range set")
 
         self.action_range = np.tile(np.array([-1.0, 1.0]), (self.nu, 1))
 
@@ -802,7 +801,8 @@ class KitchenMinimalEnv(MujocoEnv):
             np.ndarray: Goal state observation (minimal)
         """
         # Accept either a full state (qpos+qvel) or a minimal observation
-
+        qpos_full = np.zeros(self.nq, dtype=np.float64)
+        qvel_full = np.zeros(self.nv, dtype=np.float64)
         if fixed_goal:
             current_state = GOAL_STATE
         if current_state is None:

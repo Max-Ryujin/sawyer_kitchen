@@ -3,6 +3,8 @@ Minimal training script that wires OGBench's CRL agent to the local kitchen traj
 """
 
 import os
+
+os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
 import sys
 import argparse
 import pickle
@@ -10,6 +12,7 @@ import jax
 import numpy as np
 import gymnasium as gym
 import imageio
+import multiprocessing as mp
 
 THIS_DIR = os.path.dirname(__file__)
 OG_IMPLS = os.path.abspath(os.path.join(THIS_DIR, "..", "ogbench", "ogbench", "impls"))
@@ -253,7 +256,6 @@ def main(args):
         project=args.wandb_project or None,
         name=args.wandb_name or None,
         config=wandb_cfg,
-        reinit=True,
     )
     save_dir = os.path.join(
         os.path.dirname(args.dataset_dir), "checkpoints", args.wandb_name
@@ -282,7 +284,7 @@ def main(args):
 
         agent, info = agent.update(batch)
 
-        if step % print_every == 0 or step == 1:
+        if step % print_every == 0:
             print(f"Step {step}/{steps} — info keys: {list(info.keys())}")
             for k in sorted(info.keys()):
                 v = info[k]
@@ -336,6 +338,10 @@ def main(args):
 
 
 if __name__ == "__main__":
+    try:
+        mp.set_start_method("spawn", force=True)
+    except RuntimeError:
+        pass
     p = argparse.ArgumentParser()
     p.add_argument(
         "--dataset-dir",
