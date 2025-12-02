@@ -225,66 +225,124 @@ GOAL_STATE = [
     -2.77386099e-01,
     -3.38911787e-02,
     -3.19476947e-02,
-    -6.67440891e-02,
-    2.70790637e-01,
-    -3.71152908e-01,
-    -5.33594093e01,
-    -1.72791023e01,
-    3.01200390e00,
-    4.60020173e-03,
-    2.70492196e-01,
-    -1.01233351e00,
-    5.65668640e01,
-    -9.20742702e00,
-    -3.91493988e01,
-    -4.88359248e-03,
-    -2.60812254e-03,
-    3.51082394e-03,
-    4.18669909e-01,
-    1.72233611e-01,
-    -4.55145776e-01,
-    -7.09342733e-02,
-    3.22215348e-01,
-    -7.44279027e-01,
-    -7.06422377e00,
-    6.32182961e01,
-    -4.25283241e01,
-    -2.49882601e-03,
-    6.33951053e-02,
-    -1.18472101e-03,
-    -4.66994978e-02,
-    5.64632559e00,
-    -1.91157722e01,
-    -3.52572761e-02,
-    2.88073212e-01,
-    -6.36944115e-01,
-    -9.17910767e00,
-    3.79070702e01,
-    -5.32313347e01,
-    -4.50832216e-04,
-    -2.30606925e-03,
-    4.24821535e-03,
-    3.37131284e-02,
-    1.98205598e-02,
-    6.55973330e-03,
-    -4.58848802e-03,
-    -2.68370588e-03,
-    4.90455423e-03,
-    -2.25693554e-01,
-    1.23034626e-01,
-    2.53486902e-01,
-    -4.24487628e-02,
-    -1.85182281e-02,
-    1.03737991e-02,
-    -7.19015789e00,
-    6.56675673e00,
-    -1.48706126e00,
-    -6.85138106e-02,
-    3.45408946e-01,
-    -4.90163147e-01,
-    5.79059525e01,
-    -8.62393379e00,
-    -6.98096466e01,
+]
+
+
+MOVING_GOAL_STATE = [
+    2.159642457962036,
+    -0.10995837301015854,
+    1.5188195705413818,
+    -1.471531629562378,
+    1.076535701751709,
+    -1.3156180381774902,
+    -0.697909951210022,
+    0.009322389028966427,
+    0.009459411725401878,
+    0.07799883186817169,
+    0.2097632884979248,
+    0.24370022118091583,
+    -0.2910488545894623,
+    0.14127174019813538,
+    0.1319103240966797,
+    0.25795871019363403,
+    -0.05900793522596359,
+    -0.059946853667497635,
+    -0.5267668962478638,
+    -0.9562153816223145,
+    1.5801501274108887,
+    0.9984312057495117,
+    -0.03856143355369568,
+    0.03994974493980408,
+    -0.007226120680570602,
+    -0.8000472187995911,
+    -1.1000237464904785,
+    1.5889480113983154,
+    0.9999995231628418,
+    8.086483285296708e-05,
+    -0.0009184352238662541,
+    0.00028437477885745466,
+    -0.8119636178016663,
+    -1.1021802425384521,
+    1.6126853227615356,
+    0.7789384722709656,
+    0.6046792268753052,
+    -0.013668391853570938,
+    -0.16562329232692719,
+    -0.7986109256744385,
+    -1.1152387857437134,
+    1.6127070188522339,
+    0.5592268705368042,
+    0.5389202833175659,
+    -0.627842366695404,
+    -0.05142202600836754,
+    -0.7848583459854126,
+    -1.101852297782898,
+    1.6127344369888306,
+    0.5282660126686096,
+    0.4182727038860321,
+    0.7361798286437988,
+    0.0634213536977768,
+    -0.8054980039596558,
+    -1.0851140022277832,
+    1.6127002239227295,
+    0.4111011028289795,
+    -0.5848034620285034,
+    -0.6529611349105835,
+    0.25028496980667114,
+    -0.8140132427215576,
+    -1.091016411781311,
+    1.6126837730407715,
+    0.9921442270278931,
+    -0.10417235642671585,
+    0.0673166811466217,
+    0.016321102157235146,
+    -0.8085049986839294,
+    -1.1137375831604004,
+    1.61268949508667,
+    -0.38063672184944153,
+    0.7345278263092041,
+    -0.39539316296577454,
+    -0.39905986189842224,
+    -0.7901497483253479,
+    -1.0851787328720093,
+    1.6127279996871948,
+    -0.14813897013664246,
+    -0.9648413062095642,
+    0.21688757836818695,
+    -0.00979399774223566,
+    -0.7937706112861633,
+    -1.1064852476119995,
+    1.6127175092697144,
+    -0.03492381051182747,
+    0.7362642288208008,
+    0.599088191986084,
+    -0.3127117156982422,
+    -0.7922301292419434,
+    -1.0949842929840088,
+    1.612722396850586,
+    0.7833766937255859,
+    -0.35952121019363403,
+    0.5008659958839417,
+    -0.0787319466471672,
+    -0.7862828373908997,
+    -1.1147964000701904,
+    1.6127294301986694,
+    0.9410353899002075,
+    0.23408016562461853,
+    0.24400077760219574,
+    0.011068851687014103,
+    0.016990942880511284,
+    0.018744247034192085,
+    0.08126810193061829,
+    1.2619215250015259,
+    -1.1199562549591064,
+    0.007560721132904291,
+    8.360292122233659e-05,
+    -0.0003339182585477829,
+    0.0005906213191337883,
+    -0.023027963936328888,
+    -0.010386912152171135,
+    0.0009183932561427355,
 ]
 
 MODEL_XML_PATH = os.path.join(os.path.dirname(__file__), "kitchen", "kitchen.xml")
@@ -325,7 +383,6 @@ class KitchenMinimalEnv(MujocoEnv):
         control_timestep: float = 0.004,
         **kwargs,
     ):
-
         # load model and data
         self.model = mj.MjModel.from_xml_path(model_path)
         self.data = mj.MjData(self.model)
@@ -816,6 +873,72 @@ class KitchenMinimalEnv(MujocoEnv):
             full_len = int(self.nq + self.nv)
             minimal_len = 18 + (self.nq - 30) + 12
 
+            if state.size == full_len:
+                qpos_full = state[: self.nq].copy()
+                qvel_full = state[self.nq : self.nq + self.nv].copy()
+            elif state.size == minimal_len:
+                robot_qpos9 = state[0:9].copy()
+                robot_qvel9 = state[9:18].copy()
+                qpos_tail_len = self.nq - 30
+                qvel_tail_len = 12
+                qpos_tail = state[18 : 18 + qpos_tail_len].copy()
+                qvel_tail = state[
+                    18 + qpos_tail_len : 18 + qpos_tail_len + qvel_tail_len
+                ].copy()
+
+                qpos_full = np.zeros(self.nq, dtype=np.float64)
+                qvel_full = np.zeros(self.nv, dtype=np.float64)
+
+                qpos_full[:9] = robot_qpos9
+                qvel_full[:9] = robot_qvel9
+                qpos_full[30:] = qpos_tail
+                qvel_full[29:41] = qvel_tail
+        if not fixed_goal:
+            qpos_full[:9] = GOAL_JOINTS
+            qvel_full[:9] = 0
+
+        state_full = np.concatenate([qpos_full, qvel_full])
+
+        source_cup_pos = state_full[37:40]
+        target_cup_pos = state_full[30:33]
+        cup_offset = target_cup_pos - source_cup_pos
+
+        num_particles = 10
+        for i in range(num_particles):
+            particle_pos_start = 44 + (i * 7)
+            state_full[particle_pos_start : particle_pos_start + 3] += cup_offset
+
+        if minimal:
+            qpos_out = state_full[: self.nq]
+            qvel_out = state_full[self.nq : self.nq + self.nv]
+            return np.concatenate(
+                [qpos_out[:9], qvel_out[:9], qpos_out[30:], qvel_out[29:41]]
+            ).astype(np.float32)
+
+        return state_full.astype(np.float32)
+
+    def create_moving_goal_state(
+        self, minimal=True, current_state=None, fixed_goal=False
+    ) -> np.ndarray:
+
+        # Accept either a full state (qpos+qvel) or a minimal observation
+        qpos_full = np.zeros(self.nq, dtype=np.float64)
+        qvel_full = np.zeros(self.nv, dtype=np.float64)
+        if fixed_goal:
+            current_state = MOVING_GOAL_STATE
+        if current_state is None:
+            # use current full simulator state
+            qpos_local = np.array(self.data.qpos).reshape(-1)
+            qvel_local = np.array(self.data.qvel).reshape(-1)
+            qpos_full = qpos_local.copy()
+            qvel_full = qvel_local.copy()
+        else:
+            state = np.asarray(current_state).astype(np.float64).copy()
+            full_len = int(self.nq + self.nv)
+            minimal_len = 18 + (self.nq - 30) + 12
+            print("state size:", state.size)
+            print("full len:", full_len)
+            print("minimal len:", minimal_len)
             if state.size == full_len:
                 qpos_full = state[: self.nq].copy()
                 qvel_full = state[self.nq : self.nq + self.nv].copy()
