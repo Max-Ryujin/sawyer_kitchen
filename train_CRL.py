@@ -38,15 +38,16 @@ def evaluate_agent(
     obs_mean,
     obs_std,
     val_dataset,
-    num_episodes=10,
+    num_episodes=5,
     steps=1500,
     video=False,
     save_file_prefix=None,
+    env=None,
 ):
-    gym.register(id="KitchenMinimalEnv-v0", entry_point="env:KitchenMinimalEnv")
-    env = gym.make(
-        "KitchenMinimalEnv-v0", render_mode="rgb_array", width=1280, height=960
-    )
+    if env is None:
+        env = gym.make(
+            "KitchenMinimalEnv-v0", render_mode="rgb_array", width=1280, height=960
+        )
 
     fixed_success_count = 0
     fixed_frames = []
@@ -55,7 +56,6 @@ def evaluate_agent(
         obs, _ = env.reset(options={"randomise_cup_position": False, "minimal": True})
         raw_obs = np.asarray(obs)
 
-        # Use the env's specific fixed goal generation logic
         goal_arr = env.unwrapped.create_goal_state(
             current_state=raw_obs, minimal=True, fixed_goal=True
         )
@@ -87,10 +87,9 @@ def evaluate_agent(
         if i == 0 and video:
             fixed_frames = current_frames
 
-    # Save the fixed scenario video (standard behavior)
     if video and save_file_prefix:
         imageio.mimwrite(
-            f"{save_file_prefix}_fixed.mp4",
+            f"{save_file_prefix}_fixed.gif",
             fixed_frames,
             fps=env.metadata.get("render_fps", 24),
         )
@@ -102,10 +101,8 @@ def evaluate_agent(
         terminals = terminals | val_dataset["timeouts"].flatten().astype(bool)
 
     episode_ends = np.where(terminals)[0]
-    # Start indices are 0 and every index immediately following an end index
     episode_starts = np.concatenate(([0], episode_ends[:-1] + 1))
 
-    # Filter out any episodes that might be malformed (start > end)
     valid_indices = [
         i for i in range(len(episode_starts)) if episode_starts[i] < episode_ends[i]
     ]
@@ -113,12 +110,11 @@ def evaluate_agent(
     rand_success_count = 0
 
     for i in range(num_episodes):
-        # Pick a random episode
-        ep_idx = np.random.choice(valid_indices)
+        ep_idx = valid_indices[i]
+
         start_idx = episode_starts[ep_idx]
         end_idx = episode_ends[ep_idx]
 
-        # Get Start State (Physics) and Goal (Observation)
         qpos = val_dataset["qpos"][start_idx]
         qvel = val_dataset["qvel"][start_idx]
         goal_arr = val_dataset["observations"][end_idx]
@@ -127,6 +123,8 @@ def evaluate_agent(
 
         obs, _ = env.reset(options={"randomise_cup_position": False, "minimal": True})
         env.unwrapped.set_state(qpos, qvel)
+        if hasattr(env.unwrapped, "sim"):
+            env.unwrapped.sim.forward()
         obs = env.unwrapped._get_observation(minimal=True)
         raw_obs = np.asarray(obs)
 
@@ -144,7 +142,6 @@ def evaluate_agent(
             )
             action = np.clip(action, -1, 1)
 
-            # Step
             obs, _, term, trunc, _ = env.unwrapped.step(action, minimal=True)
             raw_obs = np.asarray(obs)
 
@@ -156,20 +153,17 @@ def evaluate_agent(
             if video:
                 current_frames.append(env.render())
 
-        # Save video ONLY if successful
+        # Save video only if successful
         if video and is_success and save_file_prefix:
-            save_path = f"{save_file_prefix}_random_success_ep{i}.mp4"
+            save_path = f"{save_file_prefix}_val_ep{ep_idx}_success.gif"
             imageio.mimwrite(
                 save_path, current_frames, fps=env.metadata.get("render_fps", 24)
             )
-            print(f"  Saved successful random episode video to {save_path}")
-
-    env.close()
 
     rand_success_rate = rand_success_count / num_episodes
 
     print(
-        f"Fixed Success Rate: {fixed_success_rate:.2f} | Random Val Success Rate: {rand_success_rate:.2f}"
+        f"Fixed Success Rate: {fixed_success_rate:.2f} | Val Set Success Rate: {rand_success_rate:.2f}"
     )
 
     return {
@@ -179,8 +173,6 @@ def evaluate_agent(
 
 
 def main(args):
-    print(f"JAX Backend: {jax.default_backend()}")
-    print(f"Available Devices: {jax.devices()}")
     if args.agent_type == "CRL":
         cfg = get_config()
     elif args.agent_type == "QRL":
@@ -189,6 +181,11 @@ def main(args):
     cfg = dict(cfg)
     cfg["batch_size"] = args.batch_size
     cfg["alpha"] = args.alpha
+    gym.register(id="KitchenMinimalEnv-v0", entry_point="env:KitchenMinimalEnv")
+    print("Initializing validation environment...")
+    val_env = gym.make(
+        "KitchenMinimalEnv-v0", render_mode="rgb_array", width=1280, height=960
+    )
     print("Training config:", cfg)
     train_path = os.path.join(args.dataset_dir, "train_dataset.npz")
     val_path = os.path.join(args.dataset_dir, "val_dataset.npz")
@@ -313,6 +310,7 @@ def main(args):
                 num_episodes=5,
                 video=True,
                 save_file_prefix=save_file_prefix,
+                env=val_env,
             )
             info["eval/fixed_success_rate"] = eval_metrics["fixed_success_rate"]
             info["eval/random_success_rate"] = eval_metrics["random_success_rate"]
