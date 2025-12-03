@@ -876,10 +876,9 @@ def collect_crl_episode(
     obs, _ = env.reset(options={"randomise_cup_position": False, "minimal": True})
     frames = []
 
-    train_path = os.path.join(
-        "/u/maximilian.kannen/work/new_kitchen/tmp/normalised_noise",
-        "train_dataset.npz",
-    )
+    train_path = os.path.dirname(checkpoint_path)
+    two_levels_up = os.path.dirname(os.path.dirname(train_path))
+    train_path = os.path.join(two_levels_up, "train_dataset.npz")
 
     train_dataset_raw = load_dataset(train_path, compact_dataset=True)
 
@@ -890,7 +889,8 @@ def collect_crl_episode(
     cfg = get_config()
     # convert to plain dict
     cfg = dict(cfg)
-    cfg["alpha"] = 0.03
+    cfg["alpha"] = 0.1
+    cfg["actor_loss"] = "awr"
 
     agent_tmp = CRLAgent.create(
         seed=0, ex_observations=obs, ex_actions=env.action_space.sample(), config=cfg
