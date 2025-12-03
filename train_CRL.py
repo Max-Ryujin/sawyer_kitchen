@@ -89,7 +89,7 @@ def evaluate_agent(
 
     if video and save_file_prefix:
         imageio.mimwrite(
-            f"{save_file_prefix}_fixed.gif",
+            f"{save_file_prefix}_fixed.mp4",
             fixed_frames,
             fps=env.metadata.get("render_fps", 24),
         )
@@ -154,8 +154,8 @@ def evaluate_agent(
                 current_frames.append(env.render())
 
         # Save video only if successful
-        if video and is_success and save_file_prefix:
-            save_path = f"{save_file_prefix}_val_ep{ep_idx}_success.gif"
+        if video and (is_success or i == 0) and save_file_prefix:
+            save_path = f"{save_file_prefix}_val_ep{ep_idx}_success.mp4"
             imageio.mimwrite(
                 save_path, current_frames, fps=env.metadata.get("render_fps", 24)
             )
@@ -168,7 +168,7 @@ def evaluate_agent(
 
     return {
         "fixed_success_rate": fixed_success_rate,
-        "random_success_rate": rand_success_rate,
+        "validation_success_rate": rand_success_rate,
     }
 
 
@@ -181,6 +181,7 @@ def main(args):
     cfg = dict(cfg)
     cfg["batch_size"] = args.batch_size
     cfg["alpha"] = args.alpha
+    # cfg["actor_loss"] = "awr"
     gym.register(id="KitchenMinimalEnv-v0", entry_point="env:KitchenMinimalEnv")
     print("Initializing validation environment...")
     val_env = gym.make(
