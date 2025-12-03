@@ -352,7 +352,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
 
     elif state == "place_cup":
         target_pos = env._cup_destination.copy()
-        target_pos[2] += 0.05
+        target_pos[2] += 0.02
         target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
 
         q_target = utils.ik_solve_dm(
@@ -371,7 +371,6 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
 
     elif state == "open_gripper":
         target_pos = env._cup_destination.copy()
-        target_pos[2] += 0.05
         target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
 
         q_target = utils.ik_solve_dm(
@@ -926,7 +925,6 @@ def collect_crl_episode(
                 print(f"Moving task successful after {t+1} steps.")
                 break
         else:
-            # For the pouring task, check standard termination (particles in cup)
             if term or trunc:
                 print(f"Episode finished after {t+1} steps.")
                 break
@@ -1112,7 +1110,7 @@ def collect_policy_dataset(
 def collect_moving_policy_dataset(
     save_root: str = "tmp/policy_dataset",
     episodes: int = 100,
-    max_steps: int = 1600,
+    max_steps: int = 1900,
     width: int = 320,
     height: int = 240,
     noise: bool = True,
@@ -1309,7 +1307,7 @@ if __name__ == "__main__":
         "--mode", choices=["policy", "dataset", "crl"], default="policy"
     )
     parser.add_argument("--out", default="tmp/kitchen_run.mp4")
-    parser.add_argument("--steps", type=int, default=1700)
+    parser.add_argument("--steps", type=int, default=1900)
     parser.add_argument(
         "--save_failed_episodes",
         action="store_true",
