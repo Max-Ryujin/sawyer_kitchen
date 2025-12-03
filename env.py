@@ -982,3 +982,32 @@ class KitchenMinimalEnv(MujocoEnv):
             ).astype(np.float32)
 
         return state_full.astype(np.float32)
+
+    def check_moving_success(
+        self, goal_state: np.ndarray, pos_tol: float = 0.05, rot_tol: float = 0.8
+    ) -> bool:
+        """
+        Checks if the task is successful based on the cup position and orientation.
+        Assumes goal_state is a minimal observation.
+
+        Args:
+            goal_state: The goal observation (minimal format).
+            pos_tol: Euclidean distance tolerance for position.
+            rot_tol: Tolerance for upright orientation (1.0 = perfect, 0.0 = 90 deg tilt).
+        """
+        curr_pos = self.data.qpos[30:33]
+        curr_quat = self.data.qpos[33:37]
+
+        target_pos = goal_state[18:21]
+
+        dist = np.linalg.norm(curr_pos - target_pos)
+        pos_ok = dist < pos_tol
+
+        w, x, y, z = curr_quat
+        z_align = 1.0 - 2.0 * (x * x + y * y)
+        rot_ok = z_align > (1.0 - rot_tol)
+
+        print(f"Position distance: {dist:.4f}, within tolerance: {pos_ok}")
+        print(f"Z-axis alignment: {z_align:.4f}, within tolerance: {rot_ok}")
+
+        return bool(pos_ok and rot_ok)

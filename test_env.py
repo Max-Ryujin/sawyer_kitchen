@@ -921,9 +921,15 @@ def collect_crl_episode(
         obs, _, term, trunc, _ = env.unwrapped.step(action, minimal=True)
         obs_arr = np.asarray(obs)
         frames.append(env.render())
-        if term or trunc:
-            print(f"Episode finished after {t+1} steps.")
-            break
+        if policy_type == "moving":
+            if env.unwrapped.check_moving_success(goal_arr):
+                print(f"Moving task successful after {t+1} steps.")
+                break
+        else:
+            # For the pouring task, check standard termination (particles in cup)
+            if term or trunc:
+                print(f"Episode finished after {t+1} steps.")
+                break
 
     env.close()
     for i, f in enumerate(frames):

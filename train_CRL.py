@@ -94,6 +94,52 @@ def evaluate_agent(
             fps=env.metadata.get("render_fps", 24),
         )
 
+    moving_success_count = 0
+    moving_frames = []
+
+    for i in range(num_episodes):
+        obs, _ = env.reset(options={"randomise_cup_position": False, "minimal": True})
+        raw_obs = np.asarray(obs)
+
+        # Create moving goal state
+        goal_arr = env.unwrapped.create_moving_goal_state(minimal=True, fixed_goal=True)
+        normalized_goal = normalize(goal_arr, obs_mean, obs_std)
+
+        current_frames = []
+        is_success = False
+
+        for t in range(steps):
+            normalized_obs = normalize(raw_obs, obs_mean, obs_std)
+            action = agent.sample_actions(
+                observations=normalized_obs,
+                goals=normalized_goal,
+                temperature=0.0,
+                seed=jax.random.PRNGKey(i * 2000 + t),
+            )
+            action = np.clip(action, -1, 1)
+            obs, _, term, trunc, _ = env.unwrapped.step(action, minimal=True)
+            raw_obs = np.asarray(obs)
+
+            if env.unwrapped.check_moving_success(goal_arr):
+                moving_success_count += 1
+                is_success = True
+                break
+
+            if i == 0 and video:
+                current_frames.append(env.render())
+
+        if i == 0 and video:
+            moving_frames = current_frames
+
+    if video and save_file_prefix:
+        imageio.mimwrite(
+            f"{save_file_prefix}_moving.mp4",
+            moving_frames,
+            fps=env.metadata.get("render_fps", 24),
+        )
+
+    moving_success_rate = moving_success_count / num_episodes
+
     fixed_success_rate = fixed_success_count / num_episodes
 
     terminals = val_dataset["terminals"].flatten().astype(bool)
@@ -154,7 +200,7 @@ def evaluate_agent(
                 current_frames.append(env.render())
 
         # Save video only if successful
-        if video and (is_success or i == 0) and save_file_prefix:
+        if video and is_success and save_file_prefix:
             save_path = f"{save_file_prefix}_val_ep{ep_idx}_success.mp4"
             imageio.mimwrite(
                 save_path, current_frames, fps=env.metadata.get("render_fps", 24)
@@ -167,7 +213,8 @@ def evaluate_agent(
     )
 
     return {
-        "fixed_success_rate": fixed_success_rate,
+        "pouring_success_rate": fixed_success_rate,
+        "moving_success_rate": moving_success_rate,
         "validation_success_rate": rand_success_rate,
     }
 
@@ -314,7 +361,9 @@ def main(args):
                 env=val_env,
             )
             info["eval/fixed_success_rate"] = eval_metrics["fixed_success_rate"]
-            info["eval/random_success_rate"] = eval_metrics["random_success_rate"]
+            info["eval/validation_success_rate"] = eval_metrics[
+                "validation_success_rate"
+            ]
 
         if _wandb_run is not None:
             log_dict = {}
