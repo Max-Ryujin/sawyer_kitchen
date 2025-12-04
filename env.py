@@ -1007,7 +1007,4 @@ class KitchenMinimalEnv(MujocoEnv):
         z_align = 1.0 - 2.0 * (x * x + y * y)
         rot_ok = z_align > (1.0 - rot_tol)
 
-        print(f"Position distance: {dist:.4f}, within tolerance: {pos_ok}")
-        print(f"Z-axis alignment: {z_align:.4f}, within tolerance: {rot_ok}")
-
         return bool(pos_ok and rot_ok)

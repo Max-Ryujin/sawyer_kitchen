@@ -208,10 +208,6 @@ def evaluate_agent(
 
     rand_success_rate = rand_success_count / num_episodes
 
-    print(
-        f"Fixed Success Rate: {fixed_success_rate:.2f} | Val Set Success Rate: {rand_success_rate:.2f}"
-    )
-
     return {
         "pouring_success_rate": fixed_success_rate,
         "moving_success_rate": moving_success_rate,
@@ -360,7 +356,8 @@ def main(args):
                 save_file_prefix=save_file_prefix,
                 env=val_env,
             )
-            info["eval/fixed_success_rate"] = eval_metrics["fixed_success_rate"]
+            info["eval/fixed_success_rate"] = eval_metrics["pouring_success_rate"]
+            info["eval/moving_success_rate"] = eval_metrics["moving_success_rate"]
             info["eval/validation_success_rate"] = eval_metrics[
                 "validation_success_rate"
             ]
