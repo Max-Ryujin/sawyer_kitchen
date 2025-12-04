@@ -859,6 +859,8 @@ def collect_crl_episode(
     OG_IMPLS = os.path.abspath(os.path.join(THIS_DIR, "..", "ogbench", "impls"))
     sys.path.insert(0, OG_IMPLS)
     from agents.crl import CRLAgent, get_config
+    from agents.qrl import QRLAgent, get_config as get_qrl_config
+    from agents.tmd import TMDAgent, get_config as get_tmd_config
     from utils.flax_utils import restore_agent
 
     OG_IMPLS_BASE = os.path.abspath(os.path.join(THIS_DIR, "..", "ogbench", "ogbench"))
