@@ -23,6 +23,8 @@ sys.path.insert(0, OG_IMPLS_BASE)
 from agents.crl import CRLAgent, get_config
 from agents.qrl import QRLAgent
 from agents.qrl import get_config as get_qrl_config
+from agents.tmd import TMDAgent
+from agents.tmd import get_config as get_tmd_config
 from utils.flax_utils import save_agent
 from utils.datasets import GCDataset, Dataset
 from ogbench import load_dataset
@@ -220,11 +222,13 @@ def main(args):
         cfg = get_config()
     elif args.agent_type == "QRL":
         cfg = get_qrl_config()
+    elif args.agent_type == "TMD":
+        cfg = get_tmd_config()
     # convert to plain dict
     cfg = dict(cfg)
     cfg["batch_size"] = args.batch_size
     cfg["alpha"] = args.alpha
-    # cfg["actor_loss"] = "awr"
+    #cfg["actor_loss"] = "awr"
     gym.register(id="KitchenMinimalEnv-v0", entry_point="env:KitchenMinimalEnv")
     print("Initializing validation environment...")
     val_env = gym.make(
@@ -277,6 +281,14 @@ def main(args):
     elif args.agent_type == "QRL":
 
         agent = QRLAgent.create(
+            seed=3141,
+            ex_observations=example_batch["observations"],
+            ex_actions=example_batch["actions"],
+            config=cfg,
+        )
+    elif args.agent_type == "TMD":
+
+        agent = TMDAgent.create(
             seed=3141,
             ex_observations=example_batch["observations"],
             ex_actions=example_batch["actions"],
