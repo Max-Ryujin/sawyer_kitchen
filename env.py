@@ -936,9 +936,6 @@ class KitchenMinimalEnv(MujocoEnv):
             state = np.asarray(current_state).astype(np.float64).copy()
             full_len = int(self.nq + self.nv)
             minimal_len = 18 + (self.nq - 30) + 12
-            print("state size:", state.size)
-            print("full len:", full_len)
-            print("minimal len:", minimal_len)
             if state.size == full_len:
                 qpos_full = state[: self.nq].copy()
                 qvel_full = state[self.nq : self.nq + self.nv].copy()
