@@ -844,17 +844,18 @@ def collect_policy_episode(
     imageio.mimwrite(save_path, frames, fps=env.metadata.get("render_fps", 24))
     print(f"Saved test-policy video to {save_path}")
 
+
 def run_single_episode(
-    seed, 
-    max_steps, 
-    width, 
-    height, 
-    noise, 
-    pixel_observations, 
-    random_action, 
-    minimal_observations, 
-    save_failed_episodes, 
-    pouring_prob
+    seed,
+    max_steps,
+    width,
+    height,
+    noise,
+    pixel_observations,
+    random_action,
+    minimal_observations,
+    save_failed_episodes,
+    pouring_prob,
 ):
     """
     Worker function that creates its own environment and runs one episode.
@@ -862,10 +863,10 @@ def run_single_episode(
     # Re-import inside worker to ensure clean state
     import gymnasium as gym
     import numpy as np
-    
+
     # Register the environment inside the worker process
     gym.register(id="KitchenMinimalEnv-v0", entry_point="env:KitchenMinimalEnv")
-    
+
     if pixel_observations:
         env = gym.make(
             "KitchenMinimalEnv-v0",
@@ -878,29 +879,31 @@ def run_single_episode(
         env = gym.make(
             "KitchenMinimalEnv-v0", render_mode="rgb_array", width=width, height=height
         )
-    
+
     # Seed the environment
-    obs, _ = env.reset(seed=seed, options={"randomise_cup_position": True, "minimal": True})
-    
+    obs, _ = env.reset(
+        seed=seed, options={"randomise_cup_position": True, "minimal": True}
+    )
+
     # Initialize state tracking variables locally
     env._automaton_state = "move_above"
     env._state_counter = 0
-    
+
     episode_data = defaultdict(list)
     success = False
     failure_reason = "max_steps"
-    
+
     move_operations = np.random.randint(0, 3)
     if move_operations == 0:
         perform_pouring = True
     else:
         perform_pouring = np.random.rand() < pouring_prob
-        
+
     moves_completed = 0
     policy_mode = "moving" if move_operations > 0 else "pouring"
     done2 = False
     cup = np.random.choice(np.array([0, 1]))
-    
+
     steps_run = 0
 
     for t in range(max_steps):
@@ -928,7 +931,7 @@ def run_single_episode(
         if random_action:
             if np.random.rand() < 0.01:
                 action = env.action_space.sample()
-                
+
         obs_to_store = env.unwrapped._get_observation(minimal=True)
         obs_next, reward, terminated, truncated, info = env.unwrapped.step(
             action, minimal=True
@@ -939,7 +942,7 @@ def run_single_episode(
             episode_data["observations"].append(obs_to_store)
         else:
             episode_data["observations"].append(obs)
-            
+
         episode_data["actions"].append(action)
         episode_data["terminals"].append(done)
         episode_data["qpos"].append(env.unwrapped.data.qpos.copy())
@@ -952,12 +955,12 @@ def run_single_episode(
             success = True
             failure_reason = None
             break
-            
+
         if t == max_steps - 1:
             failure_reason = getattr(env, "_automaton_state", "unknown")
 
     env.close()
-    
+
     # Return structure: (success, failure_reason, data_dict, steps_count)
     if success or save_failed_episodes:
         if not success and save_failed_episodes:
@@ -966,6 +969,7 @@ def run_single_episode(
         return (success, failure_reason, episode_data, steps_run)
     else:
         return (success, failure_reason, None, steps_run)
+
 
 def collect_moving_policy_dataset(
     save_root: str = "tmp/policy_dataset",
@@ -981,14 +985,15 @@ def collect_moving_policy_dataset(
     pouring_prob: float = 0.9,
 ):
     os.makedirs(save_root, exist_ok=True)
-    
-    total_episodes_to_run = episodes + (episodes // 10)
-    
+
+    num_val_attempts = max(1, episodes // 10)
+    total_episodes_to_run = episodes + num_val_attempts
+
     print(f"Starting parallel collection of {total_episodes_to_run} episodes...")
-    print(f"To use GPU for rendering, ensure 'export MUJOCO_GL=egl' is set.")
+    if pixel_observations:
+        print("Ensure 'export MUJOCO_GL=egl' is set for GPU rendering.")
 
-
-    results = Parallel(n_jobs=20, verbose=10)(
+    results = Parallel(n_jobs=-1, verbose=10)(
         delayed(run_single_episode)(
             seed=i,
             max_steps=max_steps,
@@ -999,8 +1004,8 @@ def collect_moving_policy_dataset(
             random_action=random_action,
             minimal_observations=minimal_observations,
             save_failed_episodes=save_failed_episodes,
-            pouring_prob=pouring_prob
-        ) 
+            pouring_prob=pouring_prob,
+        )
         for i in range(total_episodes_to_run)
     )
 
@@ -1008,60 +1013,54 @@ def collect_moving_policy_dataset(
     dataset = defaultdict(list)
     success_count = 0
     failure_counts = defaultdict(int)
-    total_steps = 0
-    total_train_steps = 0
-    
-    # Filter out None results (failed episodes that weren't saved)
+
+    # Filter only valid results (non-None)
     valid_results = [r for r in results if r[2] is not None]
-    
-    # Count stats
-    for res in results:
-        is_success, fail_reason, _, steps = res
+    num_valid = len(valid_results)
+
+    num_val = max(1, int(num_valid * 0.1))
+    num_train = num_valid - num_val
+
+    print(
+        f"Collected {num_valid} valid episodes. Splitting: {num_train} Train, {num_val} Val."
+    )
+
+    total_train_steps = 0
+
+    # Aggregate data
+    for i, (is_success, fail_reason, data, steps) in enumerate(valid_results):
         if is_success:
             success_count += 1
         else:
             failure_counts[str(fail_reason)] += 1
 
-    # Flatten the list of lists into the main dataset
-    # We need to be careful to maintain the 'episode' structure if required, 
-    # but usually standard RL datasets are just concatenated arrays.
-    
-    # If you need to distinguish episodes, you might need to add an 'timeouts' or 'episode_terminals' key.
-    # Here we perform simple concatenation as per your original script.
-    
-    num_train_episodes = episodes
-    train_episode_count = 0
-    
-    print("Aggregating data...")
-    for i, (_, _, data, steps) in enumerate(valid_results):
-        if data is None: continue
-        
-        total_steps += steps
-        is_train = train_episode_count < num_train_episodes
-        
-        if is_train:
+        # Calculate split index based on step count
+        if i < num_train:
             total_train_steps += steps
-            train_episode_count += 1
 
         for k, v in data.items():
             dataset[k].extend(v)
 
-    # --- Saving Logic (same as original) ---
+    # --- Saving Logic ---
     train_dataset = {}
     val_dataset = {}
     train_path = os.path.join(save_root, "train_dataset.npz")
     val_path = os.path.join(save_root, "val_dataset.npz")
 
     actual_total_len = len(dataset["actions"])
-    # Determine split index based on total steps calculated above
     split_idx = min(total_train_steps, actual_total_len)
 
     for k, v in dataset.items():
-        # Convert list to numpy array
         arr = np.array(v)
-        
-        if "observations" in k and arr.dtype == np.float64 and arr.max() > 1.0 and pixel_observations:
-             arr = arr.astype(np.uint8) # Optimization for pixels
+
+        # Optimize types
+        if (
+            "observations" in k
+            and arr.dtype == np.float64
+            and arr.max() > 1.0
+            and pixel_observations
+        ):
+            arr = arr.astype(np.uint8)
         elif k == "terminals":
             arr = arr.astype(bool)
         elif arr.dtype == np.float64:
@@ -1075,15 +1074,21 @@ def collect_moving_policy_dataset(
 
     stats = {
         "total_episodes_attempted": total_episodes_to_run,
+        "valid_episodes_collected": num_valid,
         "successful_episodes": success_count,
-        "success_rate": float(success_count) / total_episodes_to_run if total_episodes_to_run > 0 else 0.0,
+        "success_rate": (
+            float(success_count) / total_episodes_to_run
+            if total_episodes_to_run > 0
+            else 0.0
+        ),
         "failure_counts": dict(failure_counts),
-        "saved_failed_episodes": save_failed_episodes,
+        "split": {"train": num_train, "val": num_val},
     }
     stats_path = os.path.join(save_root, "stats.json")
     with open(stats_path, "w") as fh:
         json.dump(stats, fh, indent=2)
     print(f"Saved dataset to {save_root}")
+
 
 def collect_policy_dataset(
     save_root: str = "tmp/policy_dataset",
@@ -1252,7 +1257,6 @@ def collect_policy_dataset(
     print(f"Saved dataset to {save_root}")
 
 
-
 if __name__ == "__main__":
     import argparse
 
@@ -1326,9 +1330,3 @@ if __name__ == "__main__":
                 save_failed_episodes=args.save_failed_episodes,
                 pouring_prob=args.pouring_prob,
             )
-    elif args.mode == "crl":
-        if args.checkpoint is None:
-            parser.error("--checkpoint is required when using --mode=crl")
-        collect_crl_episode(
-            save_path=args.out, steps=args.steps, checkpoint_path=args.checkpoint
-        )
