@@ -493,15 +493,15 @@ class KitchenMinimalEnv(MujocoEnv):
         """Sample a random robot qpos within joint limits."""
         INIT_QPOS = np.array(
             [
-                np.random.uniform(0.9, 1.1),
-                np.random.uniform(-0.7, -0.3),
+                np.random.uniform(0.8, 1.2),
+                np.random.uniform(-0.6, -0.4),
                 np.random.uniform(-0.1, 0.1),
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
+                np.random.uniform(-0.1, 0.1),
+                np.random.uniform(-0.1, 0.1),
+                np.random.uniform(-0.1, 0.1),
+                np.random.uniform(-0.1, 0.1),
+                np.random.uniform(-0.1, 0.1),
+                np.random.uniform(-0.1, 0.1),
                 -2.66279850e-04,
                 -5.18043486e-05,
                 3.12877220e-05,
@@ -981,7 +981,7 @@ class KitchenMinimalEnv(MujocoEnv):
         return state_full.astype(np.float32)
 
     def check_moving_success(
-        self, goal_state: np.ndarray, pos_tol: float = 0.05, rot_tol: float = 0.8
+        self, goal_state: np.ndarray, pos_tol: float = 0.04, rot_tol: float = 0.9
     ) -> bool:
         """
         Checks if the task is successful based on the cup position and orientation.
