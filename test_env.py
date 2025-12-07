@@ -897,7 +897,7 @@ def collect_crl_episode(
         seed=0, ex_observations=obs, ex_actions=env.action_space.sample(), config=cfg
     )
 
-    agent = restore_agent(agent_tmp, checkpoint_path, 60000)
+    agent = restore_agent(agent_tmp, checkpoint_path, 100000)
     print(f"Loaded checkpoint from {checkpoint_path}")
     obs_arr = np.asarray(obs)
     if policy_type == "pouring":

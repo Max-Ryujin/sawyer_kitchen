@@ -932,6 +932,9 @@ def run_single_episode(
             if np.random.rand() < 0.01:
                 action = env.action_space.sample()
 
+        episode_data["qpos"].append(env.unwrapped.data.qpos.copy())
+        episode_data["qvel"].append(env.unwrapped.data.qvel.copy())
+
         obs_to_store = env.unwrapped._get_observation(minimal=True)
         obs_next, reward, terminated, truncated, info = env.unwrapped.step(
             action, minimal=True
@@ -945,8 +948,6 @@ def run_single_episode(
 
         episode_data["actions"].append(action)
         episode_data["terminals"].append(done)
-        episode_data["qpos"].append(env.unwrapped.data.qpos.copy())
-        episode_data["qvel"].append(env.unwrapped.data.qvel.copy())
 
         obs = obs_next
         steps_run += 1
@@ -1326,6 +1327,7 @@ if __name__ == "__main__":
                 save_root=save_root,
                 episodes=args.episodes,
                 max_steps=args.steps,
+                noise=True,
                 minimal_observations=args.minimal,
                 save_failed_episodes=args.save_failed_episodes,
                 pouring_prob=args.pouring_prob,

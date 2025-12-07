@@ -228,7 +228,8 @@ def main(args):
     cfg = dict(cfg)
     cfg["batch_size"] = args.batch_size
     cfg["alpha"] = args.alpha
-    #cfg["actor_loss"] = "awr"
+    if args.awr:
+        cfg["actor_loss"] = "awr"
     gym.register(id="KitchenMinimalEnv-v0", entry_point="env:KitchenMinimalEnv")
     print("Initializing validation environment...")
     val_env = gym.make(
@@ -404,7 +405,7 @@ if __name__ == "__main__":
         "--dataset-dir",
         type=str,
     )
-    p.add_argument("--steps", type=int, default=10000)
+    p.add_argument("--steps", type=int, default=100000)
     p.add_argument(
         "--wandb",
         action="store_true",
@@ -421,6 +422,7 @@ if __name__ == "__main__":
     p.add_argument(
         "--agent-type", type=str, default="CRL", help="Type of agent to train"
     )
+    p.add_argument("--awr", action="store_true", help="Use AWR for actor loss")
     args = p.parse_args()
     print("Args:", args)
     main(args)
