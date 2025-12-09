@@ -91,7 +91,7 @@ def evaluate_agent(
 
     if video and save_file_prefix:
         imageio.mimwrite(
-            f"{save_file_prefix}_fixed.mp4",
+            f"{save_file_prefix}_pour.mp4",
             fixed_frames,
             fps=env.metadata.get("render_fps", 24),
         )
@@ -157,7 +157,7 @@ def evaluate_agent(
 
     rand_success_count = 0
 
-    for i in range(num_episodes):
+    for i in range(2 * num_episodes):
         ep_idx = valid_indices[i]
 
         start_idx = episode_starts[ep_idx]
@@ -208,7 +208,7 @@ def evaluate_agent(
                 save_path, current_frames, fps=env.metadata.get("render_fps", 24)
             )
 
-    rand_success_rate = rand_success_count / num_episodes
+    rand_success_rate = rand_success_count / (2 * num_episodes)
 
     return {
         "pouring_success_rate": fixed_success_rate,

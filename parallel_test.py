@@ -927,7 +927,7 @@ def run_single_episode(
         # --------------------
 
         if noise:
-            action = action + np.random.normal(0, 0.01, action.shape)
+            action = action + np.random.normal(0, 0.02, action.shape)
         if random_action:
             if np.random.rand() < 0.01:
                 action = env.action_space.sample()
