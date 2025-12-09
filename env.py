@@ -500,8 +500,8 @@ class KitchenMinimalEnv(MujocoEnv):
                 np.random.uniform(-0.1, 0.1),
                 np.random.uniform(-0.1, 0.1),
                 np.random.uniform(-0.1, 0.1),
-                np.random.uniform(-0.1, 0.1),
-                np.random.uniform(-0.1, 0.1),
+                0,
+                0,
                 -2.66279850e-04,
                 -5.18043486e-05,
                 3.12877220e-05,
@@ -858,6 +858,7 @@ class KitchenMinimalEnv(MujocoEnv):
             np.ndarray: Goal state observation (minimal)
         """
         # Accept either a full state (qpos+qvel) or a minimal observation
+        current_state = current_state.copy() if current_state is not None else None
         qpos_full = np.zeros(self.nq, dtype=np.float64)
         qvel_full = np.zeros(self.nv, dtype=np.float64)
         if fixed_goal:
@@ -903,10 +904,11 @@ class KitchenMinimalEnv(MujocoEnv):
         target_cup_pos = state_full[30:33]
         cup_offset = target_cup_pos - source_cup_pos
 
-        num_particles = 10
-        for i in range(num_particles):
-            particle_pos_start = 44 + (i * 7)
-            state_full[particle_pos_start : particle_pos_start + 3] += cup_offset
+        if not fixed_goal:
+            num_particles = 10
+            for i in range(num_particles):
+                particle_pos_start = 44 + (i * 7)
+                state_full[particle_pos_start : particle_pos_start + 3] += cup_offset
 
         if minimal:
             qpos_out = state_full[: self.nq]
@@ -920,7 +922,7 @@ class KitchenMinimalEnv(MujocoEnv):
     def create_moving_goal_state(
         self, minimal=True, current_state=None, fixed_goal=False
     ) -> np.ndarray:
-
+        current_state = current_state.copy() if current_state is not None else None
         # Accept either a full state (qpos+qvel) or a minimal observation
         qpos_full = np.zeros(self.nq, dtype=np.float64)
         qvel_full = np.zeros(self.nv, dtype=np.float64)
@@ -966,11 +968,11 @@ class KitchenMinimalEnv(MujocoEnv):
         target_cup_pos = state_full[30:33]
         cup_offset = target_cup_pos - source_cup_pos
 
-        num_particles = 10
-        for i in range(num_particles):
-            particle_pos_start = 44 + (i * 7)
-            state_full[particle_pos_start : particle_pos_start + 3] += cup_offset
-
+        if not fixed_goal:
+            num_particles = 10
+            for i in range(num_particles):
+                particle_pos_start = 44 + (i * 7)
+                state_full[particle_pos_start : particle_pos_start + 3] += cup_offset
         if minimal:
             qpos_out = state_full[: self.nq]
             qvel_out = state_full[self.nq : self.nq + self.nv]
