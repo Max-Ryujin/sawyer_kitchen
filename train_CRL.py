@@ -53,6 +53,7 @@ def evaluate_agent(
 
     fixed_success_count = 0
     fixed_frames = []
+    fixed_success_frames_list = []
 
     for i in range(num_episodes):
         obs, _ = env.reset(options={"randomise_cup_position": False, "minimal": True})
@@ -78,7 +79,7 @@ def evaluate_agent(
             obs, _, term, trunc, _ = env.unwrapped.step(action, minimal=True)
             raw_obs = np.asarray(obs)
 
-            if i == 0 and video:
+            if video:
                 current_frames.append(env.render())
 
             if term or trunc:
@@ -86,8 +87,11 @@ def evaluate_agent(
                 is_success = True
                 break
 
-        if i == 0 and video:
-            fixed_frames = current_frames
+        if video:
+            if i == 0:
+                fixed_frames = current_frames
+            if is_success:
+                fixed_success_frames_list.append(current_frames)
 
     if video and save_file_prefix:
         imageio.mimwrite(
@@ -95,9 +99,17 @@ def evaluate_agent(
             fixed_frames,
             fps=env.metadata.get("render_fps", 24),
         )
+        # Save all successful attempts
+        for idx, frames in enumerate(fixed_success_frames_list):
+            imageio.mimwrite(
+                f"{save_file_prefix}_pour_success_{idx}.mp4",
+                frames,
+                fps=env.metadata.get("render_fps", 24),
+            )
 
     moving_success_count = 0
     moving_frames = []
+    moving_success_frames_list = []
 
     for i in range(num_episodes):
         obs, _ = env.reset(options={"randomise_cup_position": False, "minimal": True})
@@ -122,16 +134,19 @@ def evaluate_agent(
             obs, _, term, trunc, _ = env.unwrapped.step(action, minimal=True)
             raw_obs = np.asarray(obs)
 
+            if video:
+                current_frames.append(env.render())
+
             if env.unwrapped.check_moving_success(goal_arr):
                 moving_success_count += 1
                 is_success = True
                 break
 
-            if i == 0 and video:
-                current_frames.append(env.render())
-
-        if i == 0 and video:
-            moving_frames = current_frames
+        if video:
+            if i == 0:
+                moving_frames = current_frames
+            if is_success:
+                moving_success_frames_list.append(current_frames)
 
     if video and save_file_prefix:
         imageio.mimwrite(
@@ -139,6 +154,13 @@ def evaluate_agent(
             moving_frames,
             fps=env.metadata.get("render_fps", 24),
         )
+        # Save all successful attempts
+        for idx, frames in enumerate(moving_success_frames_list):
+            imageio.mimwrite(
+                f"{save_file_prefix}_moving_success_{idx}.mp4",
+                frames,
+                fps=env.metadata.get("render_fps", 24),
+            )
 
     moving_success_rate = moving_success_count / num_episodes
 
@@ -156,6 +178,7 @@ def evaluate_agent(
     ]
 
     rand_success_count = 0
+    val_test_frames = None
 
     for i in range(2 * num_episodes):
         ep_idx = valid_indices[i]
@@ -201,12 +224,24 @@ def evaluate_agent(
             if video:
                 current_frames.append(env.render())
 
+        # Save video from first validation test
+        if video and i == 0 and save_file_prefix:
+            val_test_frames = current_frames
+
         # Save video only if successful
         if video and is_success and save_file_prefix:
             save_path = f"{save_file_prefix}_val_ep{ep_idx}_success.mp4"
             imageio.mimwrite(
                 save_path, current_frames, fps=env.metadata.get("render_fps", 24)
             )
+
+    # Save one validation test video
+    if video and val_test_frames and save_file_prefix:
+        imageio.mimwrite(
+            f"{save_file_prefix}_val_test.mp4",
+            val_test_frames,
+            fps=env.metadata.get("render_fps", 24),
+        )
 
     rand_success_rate = rand_success_count / (2 * num_episodes)
 
