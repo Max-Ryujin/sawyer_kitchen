@@ -185,7 +185,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
                 data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
             )
             < 0.001
-        ) or env._state_counter > 200:
+        ) or env._state_counter > 110:
             env._automaton_state = "move_towards"
             env._state_counter = 0
             env._above_position = target_pos
@@ -353,7 +353,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
 
     elif state == "place_cup":
         target_pos = env._cup_destination.copy()
-        target_pos[2] += 0.02
+        target_pos[2] += 0.01
         target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
 
         q_target = utils.ik_solve_dm(
@@ -364,7 +364,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
             target_quat=target_quat,
             inplace=False,
         )
-        if at_target(target_pos, tol=0.04):
+        if at_target(target_pos, tol=0.035):
             env._automaton_state = "open_gripper"
             print("→ open_gripper")
 
@@ -404,7 +404,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         )
 
         action = make_action(q_target, close=False)
-        if at_target(target_pos, tol=0.6):
+        if at_target(target_pos, tol=0.4):
             env._automaton_state = "done"
         return action
 
@@ -464,7 +464,7 @@ def pour_policy_v2(env, obs) -> np.ndarray:
                 data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
             )
             < 0.001
-        ) or env._state_counter > 200:
+        ) or env._state_counter > 110:
             env._automaton_state = "move_towards"
             env._state_counter = 0
             env._above_position = target_pos
@@ -523,7 +523,7 @@ def pour_policy_v2(env, obs) -> np.ndarray:
                 data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
             )
             < 0.001
-        ) or env._state_counter > 160:
+        ) or env._state_counter > 130:
             env._automaton_state = "close_gripper"
             env._state_counter = 0
             print("→ close_gripper")
@@ -600,6 +600,7 @@ def pour_policy_v2(env, obs) -> np.ndarray:
     # Lift the cup up
     # ───────────────────────────
     elif state == "lift_above":
+        env._state_counter += 1
         cup_pos = utils.get_object_pos(env, ("cup_freejoint0", "cup0"))
         target_pos = cup_pos + np.array([0.0, 0.0, 0.4])
         target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
@@ -628,12 +629,16 @@ def pour_policy_v2(env, obs) -> np.ndarray:
 
         if (
             # check xy positions only
-            np.linalg.norm(target_pos[:2] - utils.get_effector_pos(env)[:2]) < 0.05
-            and np.linalg.norm(
-                data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
+            (
+                np.linalg.norm(target_pos[:2] - utils.get_effector_pos(env)[:2]) < 0.05
+                and np.linalg.norm(
+                    data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
+                )
+                < 0.02
             )
-            < 0.02
+            or env._state_counter > 100
         ):
+            env._state_counter = 0
             env._automaton_state = "lift_lower"
             print("→ lift_lower")
 
@@ -713,13 +718,13 @@ def pour_policy_v2(env, obs) -> np.ndarray:
         )
 
         if (
-            at_target(target_pos, tol=0.02)
+            at_target(target_pos, tol=0.024)
             and np.linalg.norm(
                 data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
             )
             < 0.02
             and np.abs(target_pos[0] - ee_pos[0]) < 0.002
-        ) or env._state_counter > 180:
+        ) or env._state_counter > 100:
             env._automaton_state = "start_pouring"
             env._state_counter = 0
             print("→ start pouring")
@@ -863,6 +868,7 @@ def run_single_episode(
     # Re-import inside worker to ensure clean state
     import gymnasium as gym
     import numpy as np
+    from collections import defaultdict
 
     # Register the environment inside the worker process
     gym.register(id="KitchenMinimalEnv-v0", entry_point="env:KitchenMinimalEnv")
@@ -906,6 +912,12 @@ def run_single_episode(
 
     steps_run = 0
 
+    # --- State timing instrumentation ---
+    last_state = getattr(env, "_automaton_state", None)
+    state_step_counter = 0
+    state_stats_local = defaultdict(lambda: {"total_steps": 0, "count": 0})
+    # ------------------------------------
+
     for t in range(max_steps):
         action = None
         # --- POLICY LOGIC ---
@@ -936,10 +948,10 @@ def run_single_episode(
         episode_data["qvel"].append(env.unwrapped.data.qvel.copy())
 
         obs_to_store = env.unwrapped._get_observation(minimal=True)
-        obs_next, reward, terminated, truncated, info = env.unwrapped.step(
+        obs_next, reward, terminated, trunc, info = env.unwrapped.step(
             action, minimal=True
         )
-        done = terminated or truncated or done2
+        done = terminated or trunc or done2
 
         if minimal_observations:
             episode_data["observations"].append(obs_to_store)
@@ -952,24 +964,52 @@ def run_single_episode(
         obs = obs_next
         steps_run += 1
 
+        # --- State timing update ---
+        state_step_counter += 1
+        current_state = getattr(env, "_automaton_state", None)
+        if current_state != last_state:
+            # print how many steps last_state took
+            print(f"State '{last_state}' took {state_step_counter} steps")
+            # record stats
+            state_stats_local[last_state]["total_steps"] += state_step_counter
+            state_stats_local[last_state]["count"] += 1
+            state_step_counter = 0
+            last_state = current_state
+        # ----------------------------
+
         if done:
+            # finalize last state's counter
+            if state_step_counter > 0 and last_state is not None:
+                print(f"State '{last_state}' took {state_step_counter} steps")
+                state_stats_local[last_state]["total_steps"] += state_step_counter
+                state_stats_local[last_state]["count"] += 1
+                state_step_counter = 0
             success = True
             failure_reason = None
             break
 
         if t == max_steps - 1:
             failure_reason = getattr(env, "_automaton_state", "unknown")
+            # finalize last state's counter even on timeout
+            if state_step_counter > 0 and last_state is not None:
+                print(f"State '{last_state}' took {state_step_counter} steps (end)")
+                state_stats_local[last_state]["total_steps"] += state_step_counter
+                state_stats_local[last_state]["count"] += 1
+                state_step_counter = 0
 
     env.close()
 
-    # Return structure: (success, failure_reason, data_dict, steps_count)
+    # Return structure: (success, failure_reason, data_dict, steps_count, state_stats)
+    # Convert defaultdict to plain dict for serialization
+    state_stats_local = dict(state_stats_local)
+
     if success or save_failed_episodes:
         if not success and save_failed_episodes:
             # Mark last terminal as True if forcing save
             episode_data["terminals"][-1] = True
-        return (success, failure_reason, episode_data, steps_run)
+        return (success, failure_reason, episode_data, steps_run, state_stats_local)
     else:
-        return (success, failure_reason, None, steps_run)
+        return (success, failure_reason, None, steps_run, state_stats_local)
 
 
 def collect_moving_policy_dataset(
@@ -1029,11 +1069,21 @@ def collect_moving_policy_dataset(
     total_train_steps = 0
 
     # Aggregate data
-    for i, (is_success, fail_reason, data, steps) in enumerate(valid_results):
+
+    global_state_stats = defaultdict(lambda: {"total_steps": 0, "count": 0})
+
+    for i, res in enumerate(valid_results):
+        is_success, fail_reason, data, steps, state_stats = res
         if is_success:
             success_count += 1
         else:
             failure_counts[str(fail_reason)] += 1
+
+        # accumulate per-state stats
+        for st, vals in state_stats.items():
+            # vals is {'total_steps':..., 'count':...}
+            global_state_stats[st]["total_steps"] += vals.get("total_steps", 0)
+            global_state_stats[st]["count"] += vals.get("count", 0)
 
         # Calculate split index based on step count
         if i < num_train:
@@ -1042,7 +1092,6 @@ def collect_moving_policy_dataset(
         for k, v in data.items():
             dataset[k].extend(v)
 
-    # --- Saving Logic ---
     train_dataset = {}
     val_dataset = {}
     train_path = os.path.join(save_root, "train_dataset.npz")
@@ -1073,6 +1122,23 @@ def collect_moving_policy_dataset(
     for path, dset in [(train_path, train_dataset), (val_path, val_dataset)]:
         np.savez_compressed(path, **dset)
 
+    total_steps_all = sum([res[3] for res in results if res[2] is not None])
+    avg_steps_per_valid_episode = (
+        float(total_steps_all) / num_valid if num_valid > 0 else 0.0
+    )
+    avg_steps_per_attempted_episode = (
+        float(total_steps_all) / total_episodes_to_run
+        if total_episodes_to_run > 0
+        else 0.0
+    )
+
+    state_timing_summary = {}
+    for st, vals in global_state_stats.items():
+        cnt = vals["count"]
+        tot = vals["total_steps"]
+        avg = float(tot) / cnt if cnt > 0 else 0.0
+        state_timing_summary[st] = {"avg_steps": avg, "total_steps": tot, "count": cnt}
+
     stats = {
         "total_episodes_attempted": total_episodes_to_run,
         "valid_episodes_collected": num_valid,
@@ -1084,6 +1150,9 @@ def collect_moving_policy_dataset(
         ),
         "failure_counts": dict(failure_counts),
         "split": {"train": num_train, "val": num_val},
+        "state_timings": state_timing_summary,
+        "avg_steps_per_valid_episode": avg_steps_per_valid_episode,
+        "avg_steps_per_attempted_episode": avg_steps_per_attempted_episode,
     }
     stats_path = os.path.join(save_root, "stats.json")
     with open(stats_path, "w") as fh:
@@ -1133,6 +1202,8 @@ def collect_policy_dataset(
     num_val_episodes = episodes // 10
 
     debug_data = defaultdict(list)
+    saved_failed_count = 0
+
     for ep_idx in trange(num_train_episodes + num_val_episodes):
         obs, _ = env.reset(options={"randomise_cup_position": True, "minimal": True})
         env._automaton_state = "move_above"
@@ -1142,6 +1213,10 @@ def collect_policy_dataset(
 
         steps_in_current_episode = 0
 
+        # Per-episode timing
+        last_state = getattr(env, "_automaton_state", None)
+        state_counter = 0
+
         for t in range(max_steps):
             action = pour_policy_v2(env, obs)
             if noise:
@@ -1150,10 +1225,20 @@ def collect_policy_dataset(
                 if np.random.rand() < 0.01:
                     action = env.action_space.sample()
             obs_to_store = env.unwrapped._get_observation(minimal=True)
-            obs_next, reward, terminated, truncated, info = env.unwrapped.step(
+            obs_next, reward, terminated, trunc, info = env.unwrapped.step(
                 action, minimal=True
             )
-            done = terminated or truncated
+            done = terminated or trunc
+
+            # update per-episode counter
+            state_counter += 1
+            current_state = getattr(env, "_automaton_state", None)
+            if current_state != last_state:
+                print(f"State '{last_state}' took {state_counter} steps")
+                global_state_stats[last_state]["total_steps"] += state_counter
+                global_state_stats[last_state]["count"] += 1
+                state_counter = 0
+                last_state = current_state
 
             if minimal_observations:
                 dataset["observations"].append(obs_to_store)
@@ -1168,6 +1253,13 @@ def collect_policy_dataset(
             steps_in_current_episode += 1
 
             if done:
+                # finalize last state's counter
+                if state_counter > 0 and last_state is not None:
+                    print(f"State '{last_state}' took {state_counter} steps")
+                    global_state_stats[last_state]["total_steps"] += state_counter
+                    global_state_stats[last_state]["count"] += 1
+                    state_counter = 0
+
                 episode_terminated = True
                 total_steps += steps_in_current_episode
                 if ep_idx < num_train_episodes:
@@ -1179,6 +1271,13 @@ def collect_policy_dataset(
                 break
 
             elif t == max_steps - 1:
+                # finalize last state's counter on timeout
+                if state_counter > 0 and last_state is not None:
+                    print(f"State '{last_state}' took {state_counter} steps (end)")
+                    global_state_stats[last_state]["total_steps"] += state_counter
+                    global_state_stats[last_state]["count"] += 1
+                    state_counter = 0
+
                 if env._automaton_state == "pour":
                     Goal, Start = env.unwrapped.get_particles_in_cups()
                     print(f"Goal position at max_steps: {Goal}")
@@ -1192,6 +1291,9 @@ def collect_policy_dataset(
                     total_steps += steps_in_current_episode
                     if ep_idx < num_train_episodes:
                         total_train_steps += steps_in_current_episode
+
+                    # increment saved failed counter
+                    saved_failed_count += 1
 
                     for k in dataset.keys():
                         debug_data[k].append(dataset[k][-1])
@@ -1241,6 +1343,19 @@ def collect_policy_dataset(
     for path, dset in [(train_path, train_dataset), (val_path, val_dataset)]:
         np.savez_compressed(path, **dset)
 
+    # compute average per-state durations
+    state_timing_summary = {}
+    for st, vals in global_state_stats.items():
+        cnt = vals["count"]
+        tot = vals["total_steps"]
+        avg = float(tot) / cnt if cnt > 0 else 0.0
+        state_timing_summary[st] = {"avg_steps": avg, "total_steps": tot, "count": cnt}
+
+    total_saved_episodes = success_count + saved_failed_count
+    avg_steps_per_saved_episode = (
+        float(total_steps) / total_saved_episodes if total_saved_episodes > 0 else 0.0
+    )
+
     stats = {
         "total_episodes_attempted": episodes + (episodes // 10),
         "successful_episodes": success_count,
@@ -1251,6 +1366,8 @@ def collect_policy_dataset(
         ),
         "failure_counts": dict(failure_counts),
         "saved_failed_episodes": save_failed_episodes,
+        "state_timings": state_timing_summary,
+        "avg_steps_per_saved_episode": avg_steps_per_saved_episode,
     }
     stats_path = os.path.join(save_root, "stats.json")
     with open(stats_path, "w") as fh:

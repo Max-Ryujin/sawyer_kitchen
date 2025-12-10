@@ -463,8 +463,9 @@ def pour_policy_v2(env, obs) -> np.ndarray:
                 data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
             )
             < 0.001
-        ) or env._state_counter > 200:
+        ) or env._state_counter > 100:
             env._automaton_state = "move_towards"
+            print("steps for move_above:", env._state_counter)
             env._state_counter = 0
             env._above_position = target_pos
             print("→ move_towards")
@@ -490,6 +491,7 @@ def pour_policy_v2(env, obs) -> np.ndarray:
         )
         if at_target(target_pos, tol=0.07) or env._state_counter > 200:
             env._automaton_state = "move_down"
+            print("steps for move_towards:", env._state_counter)
             env._state_counter = 0
             print("→ move_down")
 
@@ -522,8 +524,9 @@ def pour_policy_v2(env, obs) -> np.ndarray:
                 data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
             )
             < 0.001
-        ) or env._state_counter > 160:
+        ) or env._state_counter > 130:
             env._automaton_state = "close_gripper"
+            print("steps for move_down:", env._state_counter)
             env._state_counter = 0
             print("→ close_gripper")
         return make_action(q_target, close=False)
@@ -565,6 +568,7 @@ def pour_policy_v2(env, obs) -> np.ndarray:
             and at_target(target_pos, tol=0.05)
         ):
             env._automaton_state = "go_up"
+            print("steps for close_gripper:", env._state_counter)
             env._state_counter = 0
             print("→ go up")
 
@@ -622,6 +626,7 @@ def pour_policy_v2(env, obs) -> np.ndarray:
         ):
             print("Lost grip on cup, moving back to move_above")
             env._automaton_state = "move_above"
+            print("→ move_above")
             env._state_counter = 0
             return make_action(q_target, close=True)
 
@@ -677,6 +682,7 @@ def pour_policy_v2(env, obs) -> np.ndarray:
             < 0.01
         ) or env._state_counter > 180:
             env._automaton_state = "tilt_halfway"
+            print("steps for lift_lower:", env._state_counter)
             env._state_counter = 0
             print("→ tilt_halfway")
 
@@ -712,14 +718,15 @@ def pour_policy_v2(env, obs) -> np.ndarray:
         )
 
         if (
-            at_target(target_pos, tol=0.02)
+            at_target(target_pos, tol=0.024)
             and np.linalg.norm(
                 data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
             )
             < 0.02
             and np.abs(target_pos[0] - ee_pos[0]) < 0.002
-        ) or env._state_counter > 180:
+        ) or env._state_counter > 100:
             env._automaton_state = "start_pouring"
+            print("steps for tilt_halfway:", env._state_counter)
             env._state_counter = 0
             print("→ start pouring")
 
@@ -760,6 +767,7 @@ def pour_policy_v2(env, obs) -> np.ndarray:
             and np.abs(target_pos[0] - ee_pos[0]) < 0.002
         ) or env._state_counter > 80:
             env._automaton_state = "pour"
+            print("steps for start_pouring:", env._state_counter)
             env._state_counter = 0
             print("→ pour")
 
