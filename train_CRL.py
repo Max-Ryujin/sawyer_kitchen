@@ -225,7 +225,7 @@ def evaluate_agent(
                 current_frames.append(env.render())
 
         # Save video from first validation test
-        if video and i == 0 and save_file_prefix:
+        if video and (i == 0 or i == 1) and save_file_prefix:
             val_test_frames = current_frames
 
         # Save video only if successful
