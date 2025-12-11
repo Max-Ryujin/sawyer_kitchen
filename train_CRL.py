@@ -25,6 +25,8 @@ from agents.qrl import QRLAgent
 from agents.qrl import get_config as get_qrl_config
 from agents.tmd import TMDAgent
 from agents.tmd import get_config as get_tmd_config
+from agents.gciql import GCIQLAgent
+from agents.gciql import get_config as get_gciql_config
 from utils.flax_utils import save_agent
 from utils.datasets import GCDataset, Dataset
 from ogbench import load_dataset
@@ -259,6 +261,8 @@ def main(args):
         cfg = get_qrl_config()
     elif args.agent_type == "TMD":
         cfg = get_tmd_config()
+    elif args.agent_type == "GCIQL":
+        cfg = get_gciql_config()
     # convert to plain dict
     cfg = dict(cfg)
     cfg["batch_size"] = args.batch_size
@@ -325,6 +329,14 @@ def main(args):
     elif args.agent_type == "TMD":
 
         agent = TMDAgent.create(
+            seed=3141,
+            ex_observations=example_batch["observations"],
+            ex_actions=example_batch["actions"],
+            config=cfg,
+        )
+    elif args.agent_type == "GCIQL":
+
+        agent = GCIQLAgent.create(
             seed=3141,
             ex_observations=example_batch["observations"],
             ex_actions=example_batch["actions"],
