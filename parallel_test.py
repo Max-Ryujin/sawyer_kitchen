@@ -209,7 +209,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
             target_quat=target_quat,
             inplace=False,
         )
-        if at_target(target_pos, tol=0.07) or env._state_counter > 200:
+        if at_target(target_pos, tol=0.07) or env._state_counter > 150:
             env._automaton_state = "move_down"
             env._state_counter = 0
             print("→ move_down")
@@ -242,7 +242,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
                 data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
             )
             < 0.001
-        ) or env._state_counter > 160:
+        ) or env._state_counter > 100:
             env._automaton_state = "close_gripper"
             env._state_counter = 0
             print("→ close_gripper")
@@ -267,7 +267,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
 
         action = make_action(q_target, close=True)
 
-        if env._state_counter > 100:
+        if env._state_counter > 50:
             env._state_counter = 0
             env._automaton_state = "move_towards"
 
@@ -523,7 +523,7 @@ def pour_policy_v2(env, obs) -> np.ndarray:
                 data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
             )
             < 0.001
-        ) or env._state_counter > 130:
+        ) or env._state_counter > 100:
             env._automaton_state = "close_gripper"
             env._state_counter = 0
             print("→ close_gripper")
@@ -1383,7 +1383,7 @@ if __name__ == "__main__":
         "--mode", choices=["policy", "dataset", "crl"], default="policy"
     )
     parser.add_argument("--out", default="tmp/kitchen_run.mp4")
-    parser.add_argument("--steps", type=int, default=1900)
+    parser.add_argument("--steps", type=int, default=1400)
     parser.add_argument(
         "--save_failed_episodes",
         action="store_true",
