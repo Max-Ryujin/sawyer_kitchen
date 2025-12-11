@@ -1204,6 +1204,8 @@ def collect_policy_dataset(
     debug_data = defaultdict(list)
     saved_failed_count = 0
 
+    global_state_stats = defaultdict(lambda: {"total_steps": 0, "count": 0})
+
     for ep_idx in trange(num_train_episodes + num_val_episodes):
         obs, _ = env.reset(options={"randomise_cup_position": True, "minimal": True})
         env._automaton_state = "move_above"

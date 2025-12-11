@@ -983,7 +983,7 @@ class KitchenMinimalEnv(MujocoEnv):
         return state_full.astype(np.float32)
 
     def check_moving_success(
-        self, goal_state: np.ndarray, pos_tol: float = 0.04, rot_tol: float = 0.9
+        self, goal_state: np.ndarray, pos_tol: float = 0.03, rot_tol: float = 0.9
     ) -> bool:
         """
         Checks if the task is successful based on the cup position and orientation.
