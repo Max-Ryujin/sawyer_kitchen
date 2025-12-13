@@ -163,19 +163,12 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
 
     state = env._automaton_state
 
-    # On the first entry to a new state, initialize random offsets
-    if state != getattr(env, "_last_policy_state", None):
-        env._grasp_height_offset = np.random.uniform(-0.01, 0.015)
-        env._approach_xy_offset = np.random.uniform(-0.03, 0.03, size=2)
-        env._last_policy_state = state
-
     if state == "move_above":
         cup_pos = utils.get_object_pos(
             env, (f"cup_freejoint{cup_number}", f"cup{cup_number}")
         )
-        approach_offset = np.array([env._approach_xy_offset[0], env._approach_xy_offset[1], 0.3])
-        target_pos = cup_pos + approach_offset
-        target_quat = np.array([0.707, 0, 0, 0.707]) # Top-down
+        target_pos = cup_pos + np.array([-0.015, 0.0, 0.3])
+        target_quat = [0.69636424, -0.12278780, 0.12278780, 0.69636424]
         env._state_counter += 1
 
         q_target = utils.ik_solve_dm(
@@ -202,13 +195,12 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
 
     if state == "move_towards":
         env._state_counter += 1
-        # Continuously update cup_pos to track it
         cup_pos = utils.get_object_pos(
             env, (f"cup_freejoint{cup_number}", f"cup{cup_number}")
         )
-        approach_offset = np.array([env._approach_xy_offset[0], env._approach_xy_offset[1], 0.15])
-        target_pos = cup_pos + approach_offset
-        target_quat = np.array([0.707, 0, 0, 0.707]) # Top-down
+        target_pos = cup_pos + np.array([-0.015, 0.0, 0.15])
+        target_quat = [0.64085639, -0.29883623, 0.29883623, 0.64085639]
+
         q_target = utils.ik_solve_dm(
             model,
             data,
@@ -229,13 +221,11 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
 
     elif state == "move_down":
         env._state_counter += 1
-        # Continuously update cup_pos to track it
         cup_pos = utils.get_object_pos(
             env, (f"cup_freejoint{cup_number}", f"cup{cup_number}")
         )
-        # Use randomized grasp height
-        target_pos = cup_pos + np.array([0.0, 0.0, 0.075 + env._grasp_height_offset])
-        target_quat = np.array([0.707, 0, 0, 0.707]) # Top-down
+        target_pos = cup_pos + np.array([-0.01, 0.0, 0.075])
+        target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
 
         q_target = utils.ik_solve_dm(
             model,
@@ -260,13 +250,12 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
 
     elif state == "close_gripper":
         env._state_counter += 1
-        # Keep hand steady while closing
         cup_pos = utils.get_object_pos(
             env, (f"cup_freejoint{cup_number}", f"cup{cup_number}")
         )
-        target_pos = cup_pos + np.array([0.0, 0.0, 0.075 + env._grasp_height_offset])
-        target_quat = np.array([0.707, 0, 0, 0.707])
-        
+        target_pos = cup_pos + np.array([-0.01, 0.0, 0.075])
+        target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
+
         q_target = utils.ik_solve_dm(
             model,
             data,
@@ -299,18 +288,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         return action
 
     elif state == "go_up":
-        # Smarter check: If we lost the cup, restart the process
-        cup_body_pos = utils.get_object_pos(env, (f"cup_freejoint{cup_number}", f"cup{cup_number}"))
-        ee_pos = utils.get_effector_pos(env)
-        if np.linalg.norm(cup_body_pos - ee_pos) > 0.2:
-            print("Lost grip on cup, restarting.")
-            env._automaton_state = "move_above"
-            env._state_counter = 0
-            # Return a neutral action
-            return make_action(data.qpos, close=False)
-
-
-        target_quat = np.array([0.707, 0, 0, 0.707])
+        target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
 
         q_target = utils.ik_solve_dm(
             model,
@@ -348,18 +326,9 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         return make_action(q_target, close=True)
 
     elif state == "move_cup":
-        # Smarter check: If we lost the cup, restart the process
-        cup_body_pos = utils.get_object_pos(env, (f"cup_freejoint{cup_number}", f"cup{cup_number}"))
-        ee_pos = utils.get_effector_pos(env)
-        if np.linalg.norm(cup_body_pos - ee_pos) > 0.2:
-            print("Lost grip on cup, restarting.")
-            env._automaton_state = "move_above"
-            env._state_counter = 0
-            return make_action(data.qpos, close=False)
-
         target_pos = env._cup_destination.copy()
         target_pos[2] += 0.15  # move above place position
-        target_quat = np.array([0.707, 0, 0, 0.707])
+        target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
 
         q_target = utils.ik_solve_dm(
             model,
@@ -384,9 +353,9 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
 
     elif state == "place_cup":
         target_pos = env._cup_destination.copy()
-        # Lower until contact is made
-        target_pos[2] -= 0.1 # Aim slightly below the surface
-        target_quat = np.array([0.707, 0, 0, 0.707])
+        target_pos[2] += 0.01
+        target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
+
         q_target = utils.ik_solve_dm(
             model,
             data,
@@ -395,20 +364,15 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
             target_quat=target_quat,
             inplace=False,
         )
-
-        # Smarter check: use contact force to detect placement
-        contact_force = utils.get_body_contact_force(model, data, f"cup{cup_number}")
-        # Check for upward force (contact from below)
-        if contact_force[2] > 1.0:
+        if at_target(target_pos, tol=0.035):
             env._automaton_state = "open_gripper"
             print("→ open_gripper")
 
         return make_action(q_target, close=True)
 
     elif state == "open_gripper":
-        # Hold position while opening
-        target_pos = utils.get_effector_pos(env)
-        target_quat = np.array([0.707, 0, 0, 0.707])
+        target_pos = env._cup_destination.copy()
+        target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
 
         q_target = utils.ik_solve_dm(
             model,
@@ -428,7 +392,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
     elif state == "move_up_after_release":
         target_pos = env._cup_destination.copy()
         target_pos[2] += 0.35  # move up
-        target_quat = np.array([0.707, 0, 0, 0.707])
+        target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
 
         q_target = utils.ik_solve_dm(
             model,
@@ -477,23 +441,13 @@ def pour_policy_v2(env, obs) -> np.ndarray:
 
     state = env._automaton_state
 
-    # On the first entry to a new state, initialize random offsets
-    if state != getattr(env, "_last_policy_state", None):
-        env._grasp_height_offset = np.random.uniform(-0.01, 0.015)
-        env._approach_xy_offset = np.random.uniform(-0.03, 0.03, size=2)
-        env._pour_tilt_angle_offset = np.random.uniform(-0.1, 0.1)
-        env._pour_height_offset = np.random.uniform(-0.02, 0.02)
-        env._last_policy_state = state
-
     # ───────────────────────────
     # Move above cup
     # ───────────────────────────
     if state == "move_above":
-        # Continuously update cup_pos to track it
         cup_pos = utils.get_object_pos(env, ("cup_freejoint1", "cup1"))
-        approach_offset = np.array([env._approach_xy_offset[0], env._approach_xy_offset[1], 0.3])
-        target_pos = cup_pos + approach_offset
-        target_quat = np.array([0.707, 0, 0, 0.707]) # Top-down
+        target_pos = cup_pos + np.array([-0.015, 0.0, 0.3])
+        target_quat = [0.69636424, -0.12278780, 0.12278780, 0.69636424]
         env._state_counter += 1
 
         q_target = utils.ik_solve_dm(
@@ -523,11 +477,10 @@ def pour_policy_v2(env, obs) -> np.ndarray:
     # ───────────────────────────
     if state == "move_towards":
         env._state_counter += 1
-        # Continuously update cup_pos to track it
         cup_pos = utils.get_object_pos(env, ("cup_freejoint1", "cup1"))
-        approach_offset = np.array([env._approach_xy_offset[0], env._approach_xy_offset[1], 0.15])
-        target_pos = cup_pos + approach_offset
-        target_quat = np.array([0.707, 0, 0, 0.707]) # Top-down
+        target_pos = cup_pos + np.array([-0.015, 0.0, 0.15])
+        target_quat = [0.64085639, -0.29883623, 0.29883623, 0.64085639]
+
         q_target = utils.ik_solve_dm(
             model,
             data,
@@ -551,10 +504,9 @@ def pour_policy_v2(env, obs) -> np.ndarray:
     # ───────────────────────────
     elif state == "move_down":
         env._state_counter += 1
-        # Continuously update cup_pos to track it
         cup_pos = utils.get_object_pos(env, ("cup_freejoint1", "cup1"))
-        target_pos = cup_pos + np.array([0.0, 0.0, 0.075 + env._grasp_height_offset])
-        target_quat = np.array([0.707, 0, 0, 0.707]) # Top-down
+        target_pos = cup_pos + np.array([-0.01, 0.0, 0.075])
+        target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
 
         q_target = utils.ik_solve_dm(
             model,
@@ -583,10 +535,9 @@ def pour_policy_v2(env, obs) -> np.ndarray:
     elif state == "close_gripper":
 
         env._state_counter += 1
-        # Hold position while closing
         cup_pos = utils.get_object_pos(env, ("cup_freejoint1", "cup1"))
-        target_pos = cup_pos + np.array([0.0, 0.0, 0.075 + env._grasp_height_offset])
-        target_quat = np.array([0.707, 0, 0, 0.707])
+        target_pos = cup_pos + np.array([-0.01, 0.0, 0.075])
+        target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
 
         q_target = utils.ik_solve_dm(
             model,
@@ -624,16 +575,7 @@ def pour_policy_v2(env, obs) -> np.ndarray:
     # Move up above cup
     # ───────────────────────────
     elif state == "go_up":
-        # Smarter check: If we lost the cup, restart the process
-        cup_body_pos = utils.get_object_pos(env, ("cup_freejoint1", "cup1"))
-        ee_pos = utils.get_effector_pos(env)
-        if np.linalg.norm(cup_body_pos - ee_pos) > 0.2:
-            print("Lost grip on cup, restarting.")
-            env._automaton_state = "move_above"
-            env._state_counter = 0
-            return make_action(data.qpos, close=False)
-
-        target_quat = np.array([0.707, 0, 0, 0.707])
+        target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
 
         q_target = utils.ik_solve_dm(
             model,
@@ -659,9 +601,9 @@ def pour_policy_v2(env, obs) -> np.ndarray:
     # ───────────────────────────
     elif state == "lift_above":
         env._state_counter += 1
-        target_cup_pos = utils.get_object_pos(env, ("cup_freejoint0", "cup0"))
-        target_pos = target_cup_pos + np.array([0.0, 0.0, 0.4])
-        target_quat = np.array([0.707, 0, 0, 0.707])
+        cup_pos = utils.get_object_pos(env, ("cup_freejoint0", "cup0"))
+        target_pos = cup_pos + np.array([0.0, 0.0, 0.4])
+        target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
 
         q_target = utils.ik_solve_dm(
             model,
@@ -707,9 +649,9 @@ def pour_policy_v2(env, obs) -> np.ndarray:
     # ───────────────────────────
     elif state == "lift_lower":
         env._state_counter += 1
-        target_cup_pos = utils.get_object_pos(env, ("cup_freejoint0", "cup0"))
-        target_pos = target_cup_pos + np.array([0.0, 0.0, 0.29 + env._pour_height_offset])
-        target_quat = np.array([0.579, -0.405, 0.405, 0.579]) # Slight pre-tilt
+        cup_pos = utils.get_object_pos(env, ("cup_freejoint0", "cup0"))
+        target_pos = cup_pos + np.array([0.0, 0.0, 0.29])
+        target_quat = [0.57922797, -0.40557978, 0.40557978, 0.57922797]
 
         q_target = utils.ik_solve_dm(
             model,
@@ -757,10 +699,9 @@ def pour_policy_v2(env, obs) -> np.ndarray:
     # ───────────────────────────
     elif state == "tilt_halfway":
         env._state_counter += 1
-        target_cup_pos = utils.get_object_pos(env, ("cup_freejoint0", "cup0"))
-        target_pos = target_cup_pos + np.array([-0.005, -0.02, 0.28 + env._pour_height_offset])
-        # Base quaternion for halfway tilt
-        target_quat = np.array([0.454, -0.541, 0.541, 0.454])
+        cup_pos = utils.get_object_pos(env, ("cup_freejoint0", "cup0"))
+        target_pos = cup_pos + np.array([-0.005, -0.02, 0.28])
+        target_quat = [0.45451949, -0.54167521, 0.54167521, 0.45451949]
 
         cup1_pos = utils.get_object_pos(env, ("cup_freejoint1", "cup1"))
         ee_pos = utils.get_effector_pos(env)
@@ -798,10 +739,9 @@ def pour_policy_v2(env, obs) -> np.ndarray:
 
     elif state == "start_pouring":
         env._state_counter += 1
-        target_cup_pos = utils.get_object_pos(env, ("cup_freejoint0", "cup0"))
-        target_pos = target_cup_pos + np.array([-0.01, -0.026, 0.22 + env._pour_height_offset])
-        # Add randomized tilt
-        target_quat = np.array([0.405, -0.579, 0.579, 0.405])
+        cup_pos = utils.get_object_pos(env, ("cup_freejoint0", "cup0"))
+        target_pos = cup_pos + np.array([-0.01, -0.026, 0.22])
+        target_quat = [0.40557981, -0.57922795, 0.57922795, 0.40557981]
 
         cup1_pos = utils.get_object_pos(env, ("cup_freejoint1", "cup1"))
         ee_pos = utils.get_effector_pos(env)
@@ -841,12 +781,9 @@ def pour_policy_v2(env, obs) -> np.ndarray:
     # Final pour
     # ───────────────────────────
     elif state == "pour":
-        target_cup_pos = utils.get_object_pos(env, ("cup_freejoint0", "cup0"))
-        target_pos = target_cup_pos + np.array([-0.02, -0.028, 0.24 + env._pour_height_offset])
-        
-        # Base quaternion for full pour + random offset
-        base_quat = np.array([0.122, -0.696, 0.696, 0.122])
-        target_quat = base_quat + np.array([0, env._pour_tilt_angle_offset, -env._pour_tilt_angle_offset, 0])
+        cup_pos = utils.get_object_pos(env, ("cup_freejoint0", "cup0"))
+        target_pos = cup_pos + np.array([-0.02, -0.028, 0.24])
+        target_quat = [0.12278783, -0.69636423, 0.69636423, 0.12278783]
 
         cup1_pos = utils.get_object_pos(env, ("cup_freejoint1", "cup1"))
         ee_pos = utils.get_effector_pos(env)
