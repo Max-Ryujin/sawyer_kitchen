@@ -311,3 +311,31 @@ def ik_solve_dm(
         mj.mj_integratePos(model, qpos, update, 1)
 
     return qpos
+
+
+def get_body_contact_force(
+    model: mj.MjModel, data: mj.MjData, body_name: str
+) -> np.ndarray:
+    """
+    Calculates the total contact force vector acting on a specified body.
+
+    Args:
+        model: The MuJoCo model.
+        data: The MuJoCo data.
+        body_name: The name of the body to check for contacts.
+
+    Returns:
+        A 3D numpy array representing the total contact force vector in the world frame.
+    """
+    body_id = mj.mj_name2id(model, mj.mjtObj.mjOBJ_BODY, body_name)
+    if body_id == -1:
+        return np.zeros(3)
+
+    total_force = np.zeros(3)
+    for i in range(data.ncon):
+        contact = data.contact[i]
+        if contact.geom1 == body_id or contact.geom2 == body_id:
+            force_vector = np.zeros(6)
+            mj.mj_contactForce(model, data, i, force_vector)
+            total_force += force_vector[:3]  # We only care about the linear force
+    return total_force
