@@ -538,6 +538,9 @@ def pour_policy_v2(env, obs) -> np.ndarray:
 
     state = env._automaton_state
 
+    if not hasattr(env, "_quat_offset") or env._quat_offset is None:
+        env._quat_offset = np.random.uniform(-0.3, 0.3)
+
     # ───────────────────────────
     # Move above cup
     # ───────────────────────────
@@ -557,17 +560,19 @@ def pour_policy_v2(env, obs) -> np.ndarray:
             inplace=False,
         )
         if (
-            at_target(target_pos, tol=0.08)
+            at_target(target_pos, tol=0.07)
             and np.linalg.norm(
                 data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
             )
-            < 0.001
-        ) or env._state_counter > 110:
+            < 0.01
+        ):
             env._automaton_state = "move_towards"
             env._state_counter = 0
             env._above_position = target_pos
-            env._quat_offset = np.random.uniform(-0.3, 0.3)
             print("→ move_towards")
+        if env._state_counter > 110:
+            env._state_counter = 0
+            env._quat_offset = np.random.uniform(-0.3, 0.3)
 
         return make_action(q_target, close=False)
 
@@ -589,10 +594,13 @@ def pour_policy_v2(env, obs) -> np.ndarray:
             target_quat=target_quat,
             inplace=False,
         )
-        if at_target(target_pos, tol=0.07) or env._state_counter > 200:
+        if at_target(target_pos, tol=0.07):
             env._automaton_state = "move_down"
             env._state_counter = 0
             print("→ move_down")
+        if env._state_counter > 150:
+            env._state_counter = 0
+            env._quat_offset = np.random.uniform(-0.3, 0.3)
 
         alpha = 0.1
         q_current = data.qpos[:7].copy()
@@ -605,10 +613,9 @@ def pour_policy_v2(env, obs) -> np.ndarray:
     elif state == "move_down":
         env._state_counter += 1
         cup_pos = utils.get_object_pos(env, ("cup_freejoint1", "cup1"))
-        target_pos = cup_pos + np.array([-0.01, 0.0, 0.075])
+        target_pos = cup_pos + np.array([-0.01, 0.0, 0.08])
         target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
         target_quat = rotate_quat_around_z(target_quat, env._quat_offset)
-        target_pos += env._noise_generator.sample()
         q_target = utils.ik_solve_dm(
             model,
             data,
@@ -618,12 +625,12 @@ def pour_policy_v2(env, obs) -> np.ndarray:
             inplace=False,
         )
         if (
-            np.abs(target_pos[2] - utils.get_effector_pos(env)[2]) < 0.006
-            and np.abs(target_pos[1] - utils.get_effector_pos(env)[1]) < 0.005
+            np.abs(target_pos[2] - utils.get_effector_pos(env)[2]) < 0.0065
+            and np.abs(target_pos[1] - utils.get_effector_pos(env)[1]) < 0.006
             and np.linalg.norm(
                 data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
             )
-            < 0.001
+            < 0.002
         ) or env._state_counter > 100:
             env._automaton_state = "close_gripper"
             env._state_counter = 0
@@ -637,7 +644,7 @@ def pour_policy_v2(env, obs) -> np.ndarray:
 
         env._state_counter += 1
         cup_pos = utils.get_object_pos(env, ("cup_freejoint1", "cup1"))
-        target_pos = cup_pos + np.array([-0.01, 0.0, 0.075])
+        target_pos = cup_pos + np.array([-0.01, 0.0, 0.076])
         target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
         target_quat = rotate_quat_around_z(target_quat, env._quat_offset)
         q_target = utils.ik_solve_dm(

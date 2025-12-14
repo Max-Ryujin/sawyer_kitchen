@@ -133,20 +133,6 @@ MOVING_GOAL_OBS = [
 ]
 
 
-def get_quaternion_from_euler(roll, pitch, yaw):
-    cr = np.cos(roll * 0.5)
-    sr = np.sin(roll * 0.5)
-    cp = np.cos(pitch * 0.5)
-    sp = np.sin(pitch * 0.5)
-    cy = np.cos(yaw * 0.5)
-    sy = np.sin(yaw * 0.5)
-    w = cr * cp * cy + sr * sp * sy
-    x = sr * cp * cy - cr * sp * sy
-    y = cr * sp * cy + sr * cp * sy
-    z = cr * cp * sy - sr * sp * cy
-    return np.array([w, x, y, z])
-
-
 def multiply_quaternions(q1, q2):
     w1, x1, y1, z1 = q1
     w2, x2, y2, z2 = q2
@@ -165,7 +151,7 @@ def rotate_quat_around_z(base_quat, angle_rad):
 
 
 class OUNoise:
-    def __init__(self, size, mu=0.0, theta=0.15, sigma=0.005):  # Reduced sigma slightly
+    def __init__(self, size, mu=0.0, theta=0.155, sigma=0.0055):
         self.mu = mu * np.ones(size)
         self.theta = theta
         self.sigma = sigma
@@ -280,7 +266,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
             env._automaton_state = "move_towards"
             env._state_counter = 0
             env._above_position = target_pos
-            env._quat_offset = np.random.random()
+            env._quat_offset = np.random.uniform(-0.3, 0.3)
             print("→ move_towards")
 
         return make_action(q_target, close=False)
@@ -307,7 +293,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
             env._state_counter = 0
             print("→ move_down")
 
-        alpha = 0.1
+        alpha = np.random.uniform(0.05, 0.3)
         q_current = data.qpos[:7].copy()
         q_smooth = q_current + alpha * (q_target[:7] - q_current)
         return make_action(q_smooth, close=False)
@@ -350,6 +336,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         target_pos = cup_pos + np.array([-0.01, 0.0, 0.075])
         target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
         target_quat = rotate_quat_around_z(target_quat, env._quat_offset)
+        target_pos += env._noise_generator.sample()
         q_target = utils.ik_solve_dm(
             model,
             data,
@@ -538,6 +525,9 @@ def pour_policy_v2(env, obs) -> np.ndarray:
 
     state = env._automaton_state
 
+    if not hasattr(env, "_quat_offset") or env._quat_offset is None:
+        env._quat_offset = np.random.uniform(-0.3, 0.3)
+
     # ───────────────────────────
     # Move above cup
     # ───────────────────────────
@@ -557,17 +547,19 @@ def pour_policy_v2(env, obs) -> np.ndarray:
             inplace=False,
         )
         if (
-            at_target(target_pos, tol=0.08)
+            at_target(target_pos, tol=0.07)
             and np.linalg.norm(
                 data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
             )
-            < 0.001
-        ) or env._state_counter > 110:
+            < 0.01
+        ):
             env._automaton_state = "move_towards"
             env._state_counter = 0
             env._above_position = target_pos
-            env._quat_offset = np.random.random()
             print("→ move_towards")
+        if env._state_counter > 110:
+            env._state_counter = 0
+            env._quat_offset = np.random.uniform(-0.3, 0.3)
 
         return make_action(q_target, close=False)
 
@@ -589,12 +581,15 @@ def pour_policy_v2(env, obs) -> np.ndarray:
             target_quat=target_quat,
             inplace=False,
         )
-        if at_target(target_pos, tol=0.07) or env._state_counter > 200:
+        if at_target(target_pos, tol=0.07):
             env._automaton_state = "move_down"
             env._state_counter = 0
             print("→ move_down")
+        if env._state_counter > 150:
+            env._state_counter = 0
+            env._quat_offset = np.random.uniform(-0.3, 0.3)
 
-        alpha = 0.1
+        alpha = np.random.uniform(0.05, 0.2)
         q_current = data.qpos[:7].copy()
         q_smooth = q_current + alpha * (q_target[:7] - q_current)
         return make_action(q_smooth, close=False)
@@ -605,10 +600,9 @@ def pour_policy_v2(env, obs) -> np.ndarray:
     elif state == "move_down":
         env._state_counter += 1
         cup_pos = utils.get_object_pos(env, ("cup_freejoint1", "cup1"))
-        target_pos = cup_pos + np.array([-0.01, 0.0, 0.075])
+        target_pos = cup_pos + np.array([-0.01, 0.0, 0.08])
         target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
         target_quat = rotate_quat_around_z(target_quat, env._quat_offset)
-        target_pos += env._noise_generator.sample()
         q_target = utils.ik_solve_dm(
             model,
             data,
@@ -618,12 +612,12 @@ def pour_policy_v2(env, obs) -> np.ndarray:
             inplace=False,
         )
         if (
-            np.abs(target_pos[2] - utils.get_effector_pos(env)[2]) < 0.006
-            and np.abs(target_pos[1] - utils.get_effector_pos(env)[1]) < 0.005
+            np.abs(target_pos[2] - utils.get_effector_pos(env)[2]) < 0.0065
+            and np.abs(target_pos[1] - utils.get_effector_pos(env)[1]) < 0.006
             and np.linalg.norm(
                 data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
             )
-            < 0.001
+            < 0.002
         ) or env._state_counter > 100:
             env._automaton_state = "close_gripper"
             env._state_counter = 0
@@ -637,7 +631,7 @@ def pour_policy_v2(env, obs) -> np.ndarray:
 
         env._state_counter += 1
         cup_pos = utils.get_object_pos(env, ("cup_freejoint1", "cup1"))
-        target_pos = cup_pos + np.array([-0.01, 0.0, 0.075])
+        target_pos = cup_pos + np.array([-0.01, 0.0, 0.076])
         target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
         target_quat = rotate_quat_around_z(target_quat, env._quat_offset)
         q_target = utils.ik_solve_dm(
@@ -694,7 +688,7 @@ def pour_policy_v2(env, obs) -> np.ndarray:
             < 0.02
         ):
             env._automaton_state = "lift_above"
-            env._quat_offset = np.random.random()
+            env._quat_offset = np.random.uniform(-0.3, 0.3)
             print("→ lift above")
 
         return make_action(q_target, close=True)
@@ -790,7 +784,7 @@ def pour_policy_v2(env, obs) -> np.ndarray:
             env._state_counter = 0
             print("→ tilt_halfway")
 
-        alpha = 0.5
+        alpha = np.random.uniform(0.1, 0.7)
         q_current = data.qpos[:7].copy()
         q_smooth = q_current + alpha * (q_target[:7] - q_current)
         if np.linalg.norm(q_smooth - q_current) < 0.05:
@@ -847,7 +841,7 @@ def pour_policy_v2(env, obs) -> np.ndarray:
             env._state_counter = 0
             print("→ start pouring")
 
-        alpha = 0.5
+        alpha = np.random.uniform(0.1, 0.7)
         q_current = data.qpos[:7].copy()
         q_smooth = q_current + alpha * (q_target[:7] - q_current)
         if np.linalg.norm(q_smooth - q_current) < 0.05:
@@ -877,7 +871,6 @@ def pour_policy_v2(env, obs) -> np.ndarray:
             ee_pos = utils.get_effector_pos(env)
             offset = ee_pos - cup1_pos
             target_pos[0] -= offset[0]
-
         q_target = utils.ik_solve_dm(
             model,
             data,
@@ -899,7 +892,7 @@ def pour_policy_v2(env, obs) -> np.ndarray:
             env._state_counter = 0
             print("→ pour")
 
-        alpha = 0.5
+        alpha = np.random.uniform(0.1, 0.7)
         q_current = data.qpos[:7].copy()
         q_smooth = q_current + alpha * (q_target[:7] - q_current)
         if np.linalg.norm(q_smooth - q_current) < 0.01:
@@ -931,7 +924,6 @@ def pour_policy_v2(env, obs) -> np.ndarray:
             ee_pos = utils.get_effector_pos(env)
             offset = ee_pos - cup1_pos
             target_pos[0] -= offset[0]
-
         # Solve IK for the target position
         delta_q = utils.ik_step(
             model,
@@ -1032,7 +1024,7 @@ def run_single_episode(
         seed=seed, options={"randomise_cup_position": True, "minimal": True}
     )
 
-    env._noise_generator = OUNoise(size=3, sigma=0.05)
+    env._noise_generator = OUNoise(size=3)
 
     # Initialize state tracking variables locally
     env._automaton_state = "move_above"
