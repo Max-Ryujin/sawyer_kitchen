@@ -493,13 +493,13 @@ class KitchenMinimalEnv(MujocoEnv):
         """Sample a random robot qpos within joint limits."""
         INIT_QPOS = np.array(
             [
-                np.random.uniform(0.8, 1.2),
-                np.random.uniform(-0.6, -0.4),
-                np.random.uniform(-0.1, 0.1),
-                np.random.uniform(-0.1, 0.1),
-                np.random.uniform(-0.1, 0.1),
-                np.random.uniform(-0.1, 0.1),
-                np.random.uniform(-0.1, 0.1),
+                np.random.uniform(0.6, 1.4),
+                np.random.uniform(-0.8, -0.2),
+                np.random.uniform(-0.2, 0.2),
+                np.random.uniform(-0.2, 0.2),
+                np.random.uniform(-0.2, 0.2),
+                np.random.uniform(-0.2, 0.2),
+                np.random.uniform(-0.2, 0.2),
                 0,
                 0,
                 -2.66279850e-04,
@@ -631,8 +631,8 @@ class KitchenMinimalEnv(MujocoEnv):
         for jid in cup_joint_ids:
             qpos_addr = int(self.model.jnt_qposadr[jid])
             pos = np.copy(qpos[qpos_addr : qpos_addr + 3])
-            pos[0] += self.np_random.uniform(-0.1, 0.1)
-            pos[1] += self.np_random.uniform(-0.4, 0.2)
+            pos[0] += self.np_random.uniform(-0.15, 0.15)
+            pos[1] += self.np_random.uniform(-0.42, 0.25)
             qpos[qpos_addr : qpos_addr + 3] = pos
 
         # Apply full state so MuJoCo updates positions
@@ -789,7 +789,7 @@ class KitchenMinimalEnv(MujocoEnv):
         obs = self.compute_observation(minimal=minimal)
         reward = self._compute_reward(obs, action)
         Goal, Start = self.get_particles_in_cups()
-        terminated = True if Goal >= 6 else False
+        terminated = True if Goal >= 5 else False
         truncated = terminated
         info = {}
 
@@ -825,7 +825,7 @@ class KitchenMinimalEnv(MujocoEnv):
         return 1.0 if self.get_particles_in_cups()[0] == 10 else 0.0
 
     def _is_terminated(self, obs: np.ndarray) -> bool:
-        return True if self.get_particles_in_cups()[0] >= 6 else False
+        return True if self.get_particles_in_cups()[0] >= 5 else False
 
     def close(self):
         self._render_context = None
