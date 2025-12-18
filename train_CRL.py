@@ -75,12 +75,15 @@ def evaluate_agent(
 
         for t in range(steps):
             normalized_obs = normalize(raw_obs, obs_mean, obs_std)
+
             action = agent.sample_actions(
-                observations=normalized_obs,
-                goals=normalized_goal,
+                observations=normalized_obs[None],  
+                goals=normalized_goal[None],
                 temperature=0.0,
-                seed=jax.random.PRNGKey(0),
+                seed=jax.random.PRNGKey(i * 10000 + t),
             )
+            # Flatten action back to [Dim]
+            action = np.array(action).flatten()
             action = np.clip(action, -1, 1)
             obs, _, term, trunc, _ = env.unwrapped.step(action, minimal=True)
             raw_obs = np.asarray(obs)
@@ -131,11 +134,13 @@ def evaluate_agent(
         for t in range(steps):
             normalized_obs = normalize(raw_obs, obs_mean, obs_std)
             action = agent.sample_actions(
-                observations=normalized_obs,
-                goals=normalized_goal,
+                observations=normalized_obs[None],  
+                goals=normalized_goal[None],
                 temperature=0.0,
-                seed=jax.random.PRNGKey(i * 2000 + t),
+                seed=jax.random.PRNGKey(i * 10000 + t),
             )
+            # Flatten action back to [Dim]
+            action = np.array(action).flatten()
             action = np.clip(action, -1, 1)
             obs, _, term, trunc, _ = env.unwrapped.step(action, minimal=True)
             raw_obs = np.asarray(obs)
@@ -212,11 +217,13 @@ def evaluate_agent(
             normalized_obs = normalize(raw_obs, obs_mean, obs_std)
 
             action = agent.sample_actions(
-                observations=normalized_obs,
-                goals=normalized_goal,
+                observations=normalized_obs[None],  
+                goals=normalized_goal[None],
                 temperature=0.0,
-                seed=jax.random.PRNGKey(i * 1000 + t),
+                seed=jax.random.PRNGKey(i * 10000 + t),
             )
+            # Flatten action back to [Dim]
+            action = np.array(action).flatten()
             action = np.clip(action, -1, 1)
 
             obs, _, term, trunc, _ = env.unwrapped.step(action, minimal=True)
@@ -292,7 +299,7 @@ def main(args):
     obs_mean = np.mean(obs_data, axis=0)
     obs_std = np.std(obs_data, axis=0)
 
-    obs_std[obs_std < 1e-2] = 1.0
+    obs_std[obs_std < 1e-3] = 1.0
 
     train_dataset_norm = dict(train_dataset_raw)
     train_dataset_norm["observations"] = normalize(
