@@ -6,6 +6,7 @@ import numpy as np
 from gymnasium import spaces
 import mujoco as mj
 from gymnasium.envs.mujoco.mujoco_env import MujocoEnv
+from kitchen_utils import ik_solve_dm
 
 
 """
@@ -413,13 +414,18 @@ class KitchenMinimalEnv(MujocoEnv):
                 self.nu, 2
             )
 
-        self.action_range = np.tile(np.array([-1.0, 1.0]), (self.nu, 1))
-
-        # By default, we use continuous actions in [-1, 1] mapped to ctrl ranges
+        # Task-space action: [x, y, z, qx, qy, qz, qw, gripper]
+        # All normalized to [-1, 1]: xyz position, quaternion (4D), and gripper [0, 1]
+        # Workspace bounds for denormalization: x: [-1.5, 0], y: [-2.5, 0], z: [1.5, 3]
+        self.workspace_bounds = {
+            'x': np.array([-1.5, 0.0]),
+            'y': np.array([-2.5, 0.0]),
+            'z': np.array([1.5, 3.0]),
+        }
         self.action_space = spaces.Box(
-            low=self.action_range[:, 0].astype(np.float32),
-            high=self.action_range[:, 1].astype(np.float32),
-            shape=(self.nu,),
+            low=np.array([-1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, 0.0], dtype=np.float32),
+            high=np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], dtype=np.float32),
+            shape=(8,),
             dtype=np.float32,
         )
 
@@ -761,23 +767,56 @@ class KitchenMinimalEnv(MujocoEnv):
 
         return tuple(particles_in_cups)
 
+
     def step(
         self, action: np.ndarray, minimal=True
     ) -> Tuple[np.ndarray, float, bool, bool, Dict]:
-        action = np.asarray(action, dtype=np.float32).reshape(self.nu)
-        n_scaled = self.nu - 2
-
-        ctrl_low = self.ctrl_range[:n_scaled, 0]
-        ctrl_high = self.ctrl_range[:n_scaled, 1]
-
-        # Scale normalized [-1, 1] → actuator ctrl range
-        scaled_part = ctrl_low + (action[:n_scaled] + 1.0) * 0.5 * (
-            ctrl_high - ctrl_low
+        action = np.asarray(action, dtype=np.float32).reshape(8)
+        
+        # Parse task-space action: [x, y, z, qx, qy, qz, qw, gripper]
+        # Note: xyz are normalized to [-1, 1], denormalize using workspace bounds
+        action_xyz_norm = action[:3]
+        target_quat = action[3:7]
+        gripper_val = action[7]
+        
+        # Denormalize xyz from [-1, 1] to workspace bounds
+        bounds_x = self.workspace_bounds['x']
+        bounds_y = self.workspace_bounds['y']
+        bounds_z = self.workspace_bounds['z']
+        
+        target_pos = np.array([
+            bounds_x[0] + (action_xyz_norm[0] + 1.0) * 0.5 * (bounds_x[1] - bounds_x[0]),
+            bounds_y[0] + (action_xyz_norm[1] + 1.0) * 0.5 * (bounds_y[1] - bounds_y[0]),
+            bounds_z[0] + (action_xyz_norm[2] + 1.0) * 0.5 * (bounds_z[1] - bounds_z[0]),
+        ])
+        
+        # Normalize quaternion
+        quat_norm = np.linalg.norm(target_quat)
+        if quat_norm > 1e-6:
+            target_quat = target_quat / quat_norm
+        else:
+            target_quat = np.array([0.0, 0.0, 0.0, 1.0])  # Default identity quaternion
+        
+        # Solve IK to get target joint positions (7 arm joints)
+        joint_indices = np.arange(7)  # 7 arm joints
+        target_qpos = ik_solve_dm(
+            self.model,
+            self.data,
+            site_name="grip_site",
+            target_pos=target_pos,
+            target_quat=target_quat,
+            joint_indices=joint_indices,
+            inplace=False,
         )
-
-        raw_part = action[n_scaled:]
-        self.data.ctrl[:n_scaled] = scaled_part
-        self.data.ctrl[n_scaled : self.nu] = raw_part
+        
+        # Apply solved joint positions to first 7 actuators
+        self.data.ctrl[:7] = target_qpos[:7]
+        
+        # Set gripper commands (two gripper actuators at indices 7 and 8)
+        # Scale gripper value from [0, 1] to [0, open_val]
+        gripper_cmd = gripper_val * 0.015  # 0 = closed, 0.015 = open
+        self.data.ctrl[7] = gripper_cmd
+        self.data.ctrl[8] = gripper_cmd
 
         # Step the physics forward.
         mj.mj_step(self.model, self.data, nstep=self._n_steps)

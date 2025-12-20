@@ -295,10 +295,10 @@ def main(args):
 
     train_dataset_raw = load_dataset(train_path, compact_dataset=True)
 
+    # Normalize observations (but not actions - they're already in fixed normalized ranges)
     obs_data = train_dataset_raw["observations"]
     obs_mean = np.mean(obs_data, axis=0)
     obs_std = np.std(obs_data, axis=0)
-
     obs_std[obs_std < 1e-3] = 1.0
 
     train_dataset_norm = dict(train_dataset_raw)
@@ -310,6 +310,7 @@ def main(args):
         train_dataset_norm["next_observations"] = normalize(
             train_dataset_raw["next_observations"], obs_mean, obs_std
         )
+    
 
     val_dataset_raw = load_dataset(val_path, compact_dataset=True, add_info=True)
     val_dataset_norm = dict(val_dataset_raw)
