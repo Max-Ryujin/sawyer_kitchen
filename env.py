@@ -422,6 +422,10 @@ class KitchenMinimalEnv(MujocoEnv):
             'y': np.array([-2.5, 0.0]),
             'z': np.array([1.5, 3.0]),
         }
+    
+        # Helper method to normalize position to [-1, 1] using workspace bounds
+        self._normalize_position = self._make_position_normalizer()
+
         self.action_space = spaces.Box(
             low=np.array([-1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, 0.0], dtype=np.float32),
             high=np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], dtype=np.float32),
@@ -495,6 +499,89 @@ class KitchenMinimalEnv(MujocoEnv):
             },
         )
 
+    def _make_position_normalizer(self):
+        """Create a function that normalizes 3D positions using workspace bounds."""
+        bounds_x = self.workspace_bounds['x']
+        bounds_y = self.workspace_bounds['y']
+        bounds_z = self.workspace_bounds['z']
+        
+        def normalize_position(pos_3d):
+            """Normalize a 3D position to [-1, 1] range using workspace bounds."""
+            pos = np.asarray(pos_3d, dtype=np.float32)
+            normalized = np.array([
+                2.0 * (pos[0] - bounds_x[0]) / (bounds_x[1] - bounds_x[0]) - 1.0,
+                2.0 * (pos[1] - bounds_y[0]) / (bounds_y[1] - bounds_y[0]) - 1.0,
+                2.0 * (pos[2] - bounds_z[0]) / (bounds_z[1] - bounds_z[0]) - 1.0,
+            ], dtype=np.float32)
+            return np.clip(normalized, -1.0, 1.0)
+        
+        return normalize_position
+    
+    def _get_task_space_obs(self):
+        """Get current task-space representation as 8D action-like observation.
+        
+        Returns 8D array: [x_norm, y_norm, z_norm, qx, qy, qz, qw, gripper]
+        where positions are normalized to [-1, 1] and gripper is in [0, 1].
+        """
+        # Get current end-effector position and orientation from grip_site
+        grip_site_id = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_SITE, "grip_site")
+        if grip_site_id == -1:
+            # Fallback: use last 7 joint forward kinematics
+            ee_pos = np.array([0.0, 0.0, 0.0])
+            ee_quat = np.array([0.0, 0.0, 0.0, 1.0])
+        else:
+            ee_pos = self.data.site_xpos[grip_site_id].copy()
+            ee_quat = self.data.site_xmat[grip_site_id].reshape(3, 3)
+            # Convert rotation matrix to quaternion (wxyz)
+            ee_quat = self._rot_matrix_to_quat(ee_quat)
+        
+        # Normalize position using workspace bounds
+        pos_norm = self._normalize_position(ee_pos)
+        
+        # Gripper state: average of two gripper joint positions, scaled from [0, 0.015] to [0, 1]
+        gripper_pos = (self.data.qpos[7] + self.data.qpos[8]) / 2.0
+        gripper_norm = np.clip(gripper_pos / 0.015, 0.0, 1.0)
+        
+        task_space_obs = np.concatenate([
+            pos_norm,
+            ee_quat,
+            [gripper_norm]
+        ]).astype(np.float32)
+        
+        return task_space_obs
+    
+    def _rot_matrix_to_quat(self, rot_mat):
+        """Convert 3x3 rotation matrix to quaternion (wxyz format)."""
+        # Compute quaternion from rotation matrix using Shepperd's method
+        trace = np.trace(rot_mat)
+        
+        if trace > 0:
+            s = 0.5 / np.sqrt(trace + 1.0)
+            w = 0.25 / s
+            x = (rot_mat[2, 1] - rot_mat[1, 2]) * s
+            y = (rot_mat[0, 2] - rot_mat[2, 0]) * s
+            z = (rot_mat[1, 0] - rot_mat[0, 1]) * s
+        elif rot_mat[0, 0] > rot_mat[1, 1] and rot_mat[0, 0] > rot_mat[2, 2]:
+            s = 2.0 * np.sqrt(1.0 + rot_mat[0, 0] - rot_mat[1, 1] - rot_mat[2, 2])
+            w = (rot_mat[2, 1] - rot_mat[1, 2]) / s
+            x = 0.25 * s
+            y = (rot_mat[0, 1] + rot_mat[1, 0]) / s
+            z = (rot_mat[0, 2] + rot_mat[2, 0]) / s
+        elif rot_mat[1, 1] > rot_mat[2, 2]:
+            s = 2.0 * np.sqrt(1.0 + rot_mat[1, 1] - rot_mat[0, 0] - rot_mat[2, 2])
+            w = (rot_mat[0, 2] - rot_mat[2, 0]) / s
+            x = (rot_mat[0, 1] + rot_mat[1, 0]) / s
+            y = 0.25 * s
+            z = (rot_mat[1, 2] + rot_mat[2, 1]) / s
+        else:
+            s = 2.0 * np.sqrt(1.0 + rot_mat[2, 2] - rot_mat[0, 0] - rot_mat[1, 1])
+            w = (rot_mat[1, 0] - rot_mat[0, 1]) / s
+            x = (rot_mat[0, 2] + rot_mat[2, 0]) / s
+            y = (rot_mat[1, 2] + rot_mat[2, 1]) / s
+            z = 0.25 * s
+        
+        return np.array([w, x, y, z], dtype=np.float32)
+    
     def get_random_robot_qpos(self):
         """Sample a random robot qpos within joint limits."""
         INIT_QPOS = np.array(
@@ -840,17 +927,46 @@ class KitchenMinimalEnv(MujocoEnv):
 
         return self._get_observation(minimal=minimal)
 
-    def _get_observation(self, minimal=False) -> np.ndarray:
+    def _get_observation(self, minimal=True) -> np.ndarray:
         qpos = np.array(self.data.qpos).reshape(-1)
         qvel = np.array(self.data.qvel).reshape(-1)
         obs = np.concatenate([qpos, qvel]).astype(np.float32)
 
         if minimal:
-            # Return only robot joint qpos and qvel (first 8 qpos/qvel),
-            # gripper state, water particle positions and velocities and cup positions and velocities
-            # qpos and qvel 0 to 8 and from qpos from 30 to end and qvel from 29 to end
-            obs = np.concatenate([qpos[:9], qvel[:9], qpos[30:], qvel[29:41]]).astype(
-                np.float32
+            # plus normalized cup/water particle positions and their velocities
+            task_space_obs = self._get_task_space_obs()  # 8D: xyz_norm + quat + gripper
+            
+            # Normalize cup positions using workspace bounds
+            cup0_pos_norm = self._normalize_position(qpos[30:33])
+            cup1_pos_norm = self._normalize_position(qpos[37:40])
+            
+            # Cup velocities (not normalized, use as-is)
+            cup0_vel = qvel[29:32]
+            cup1_vel = qvel[35:38]
+            
+            # Water particle positions and velocities (qpos[44:] and qvel[41:])
+            # Normalize water particle positions
+            water_qpos_norm_list = []
+            num_particles = self.num_water_particles
+            for i in range(num_particles):
+                water_pos_idx = 44 + (i * 7)
+                water_pos = qpos[water_pos_idx : water_pos_idx + 3]
+                water_pos_norm = self._normalize_position(water_pos)
+                water_qpos_norm_list.append(water_pos_norm)
+            water_qpos_norm = np.concatenate(water_qpos_norm_list)
+            
+            # Water particle velocities (first 3 components are linear velocity)
+            water_qvel = qvel[41:]  # All water particle velocities
+            
+            obs = np.concatenate([
+                task_space_obs,  # 8D
+                cup0_pos_norm,   # 3D (normalized)
+                cup1_pos_norm,   # 3D (normalized)
+                cup0_vel,        # 3D
+                cup1_vel,        # 3D
+                water_qpos_norm, # num_particles * 3 (normalized)
+                water_qvel       # remaining velocities
+            ]).astype(np.float32    np.float32
             )
         return obs
 
