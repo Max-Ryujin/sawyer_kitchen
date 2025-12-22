@@ -211,19 +211,17 @@ def is_cup_grasped(env, cup_id: int, tol=0.06) -> bool:
 
 
 def make_task_space_action(
-    target_pos: np.ndarray, 
-    target_quat: np.ndarray, 
-    gripper_val: float
+    target_pos: np.ndarray, target_quat: np.ndarray, gripper_val: float
 ) -> np.ndarray:
     """
-    Build 8D task-space action [x, y, z, qx, qy, qz, qw, gripper] 
+    Build 8D task-space action [x, y, z, qx, qy, qz, qw, gripper]
     with normalized xyz to [-1, 1] and gripper to [0, 1].
-    
+
     Args:
         target_pos: 3D world position in workspace bounds
         target_quat: 4D quaternion (will be normalized)
         gripper_val: scalar in [0, 1] where 0=closed, 1=open
-    
+
     Returns:
         8D action array normalized appropriately
     """
@@ -231,17 +229,17 @@ def make_task_space_action(
     bounds_x = np.array([-1.5, 0.0])
     bounds_y = np.array([-2.5, 0.0])
     bounds_z = np.array([1.5, 3.0])
-    
+
     # Normalize xyz from workspace bounds to [-1, 1]
     x_norm = 2.0 * (target_pos[0] - bounds_x[0]) / (bounds_x[1] - bounds_x[0]) - 1.0
     y_norm = 2.0 * (target_pos[1] - bounds_y[0]) / (bounds_y[1] - bounds_y[0]) - 1.0
     z_norm = 2.0 * (target_pos[2] - bounds_z[0]) / (bounds_z[1] - bounds_z[0]) - 1.0
-    
+
     # Clamp to [-1, 1] to be safe
     x_norm = np.clip(x_norm, -1.0, 1.0)
     y_norm = np.clip(y_norm, -1.0, 1.0)
     z_norm = np.clip(z_norm, -1.0, 1.0)
-    
+
     # Normalize quaternion
     quat = np.asarray(target_quat, dtype=np.float32)
     quat_norm = np.linalg.norm(quat)
@@ -249,12 +247,14 @@ def make_task_space_action(
         quat = quat / quat_norm
     else:
         quat = np.array([0.0, 0.0, 0.0, 1.0])
-    
+
     # Clamp gripper to [0, 1]
     gripper = np.clip(float(gripper_val), 0.0, 1.0)
-    
-    action = np.array([x_norm, y_norm, z_norm, quat[0], quat[1], quat[2], quat[3], gripper], 
-                      dtype=np.float32)
+
+    action = np.array(
+        [x_norm, y_norm, z_norm, quat[0], quat[1], quat[2], quat[3], gripper],
+        dtype=np.float32,
+    )
     return action
 
 
@@ -274,7 +274,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         target_pos = cup_pos + np.array([-0.015, 0.0, 0.3])
         target_quat = [0.69636424, -0.12278780, 0.12278780, 0.69636424]
         env._state_counter += 1
-        
+
         if (
             at_target(target_pos, tol=0.08)
             and np.linalg.norm(
@@ -457,6 +457,46 @@ def pour_policy_v2(env, obs) -> np.ndarray:
         ee_pos = utils.get_effector_pos(env)
         return np.linalg.norm(target_pos - ee_pos) < tol
 
+    def slow_down_position(ee_pos: np.ndarray, target_pos: np.ndarray) -> np.ndarray:
+        """Move halfway from current position to target to slow down movement."""
+        return ee_pos + 0.5 * (target_pos - ee_pos)
+
+    def slow_down_quaternion(
+        current_quat: np.ndarray, target_quat: np.ndarray, factor: float = 0.5
+    ) -> np.ndarray:
+        """Interpolate between current and target quaternion to slow down rotation."""
+        # Normalize both quaternions
+        current_quat = current_quat / np.linalg.norm(current_quat)
+        target_quat = target_quat / np.linalg.norm(target_quat)
+
+        # Calculate dot product
+        dot = np.dot(current_quat, target_quat)
+
+        # If dot product is negative, negate one quaternion to take shorter path
+        if dot < 0.0:
+            target_quat = -target_quat
+            dot = -dot
+
+        # If quaternions are very close, return the target
+        if dot > 0.9995:
+            return target_quat
+
+        # Calculate angle between quaternions
+        theta_0 = np.arccos(np.abs(dot))
+        sin_theta_0 = np.sin(theta_0)
+
+        # Calculate interpolation weights
+        theta = theta_0 * factor
+        sin_theta = np.sin(theta)
+
+        # Perform spherical linear interpolation
+        s0 = np.cos(theta) - dot * sin_theta / sin_theta_0
+        s1 = sin_theta / sin_theta_0
+
+        # Interpolate
+        result = (s0 * current_quat) + (s1 * target_quat)
+        return result / np.linalg.norm(result)
+
     state = env._automaton_state
 
     if not hasattr(env, "_quat_offset") or env._quat_offset is None:
@@ -575,7 +615,9 @@ def pour_policy_v2(env, obs) -> np.ndarray:
             env._quat_offset = np.random.uniform(-0.3, 0.3)
             print("→ lift above")
 
-        action = make_task_space_action(env._above_position, target_quat, gripper_val=1.0)
+        action = make_task_space_action(
+            env._above_position, target_quat, gripper_val=1.0
+        )
         action[:3] += env._noise_generator.sample()
         return action
 
@@ -640,7 +682,7 @@ def pour_policy_v2(env, obs) -> np.ndarray:
             print("Lost grip on cup, moving back to move_above")
             env._automaton_state = "move_above"
             env._state_counter = 0
-            action = make_task_space_action(target_pos, target_quat, gripper_val=0.0)
+            action = make_task_space_action(target_pos, target_quat, gripper_val=1.0)
             action[:3] += env._noise_generator.sample()
             return action
 
@@ -655,7 +697,18 @@ def pour_policy_v2(env, obs) -> np.ndarray:
             env._state_counter = 0
             print("→ tilt_halfway")
 
-        action = make_task_space_action(target_pos, target_quat, gripper_val=1.0)
+        # Slow down movement by moving halfway to the target
+        ee_pos = utils.get_effector_pos(env)
+        actual_pos = slow_down_position(ee_pos, target_pos)
+
+        # Get current quaternion of the end effector
+        grip_site_id = mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")
+        rotation_matrix = data.site_xmat[grip_site_id].reshape(3, 3)
+        current_quat = np.empty(4)
+        mj.mju_mat2Quat(current_quat, rotation_matrix.flatten())
+        actual_quat = slow_down_quaternion(current_quat, target_quat, 0.5)
+
+        action = make_task_space_action(actual_pos, actual_quat, gripper_val=1.0)
         action[:3] += env._noise_generator.sample()
         return action
 
@@ -696,14 +749,24 @@ def pour_policy_v2(env, obs) -> np.ndarray:
             env._state_counter = 0
             print("→ start pouring")
 
-        action = make_task_space_action(target_pos, target_quat, gripper_val=1.0)
+        # Slow down movement by moving halfway to the target
+        actual_pos = slow_down_position(ee_pos, target_pos)
+
+        # Get current quaternion of the end effector
+        grip_site_id = mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")
+        rotation_matrix = data.site_xmat[grip_site_id].reshape(3, 3)
+        current_quat = np.empty(4)
+        mj.mju_mat2Quat(current_quat, rotation_matrix.flatten())
+        actual_quat = slow_down_quaternion(current_quat, target_quat, 0.5)
+
+        action = make_task_space_action(actual_pos, actual_quat, gripper_val=1.0)
         action[:3] += env._noise_generator.sample()
         return action
 
     elif state == "start_pouring":
         env._state_counter += 1
         cup_pos = utils.get_object_pos(env, ("cup_freejoint0", "cup0"))
-        target_pos = cup_pos + np.array([-0.01, -0.026, 0.22])
+        target_pos = cup_pos + np.array([-0.008, -0.02, 0.22])
         target_quat = [0.40557981, -0.57922795, 0.57922795, 0.40557981]
         target_quat = rotate_quat_around_z(target_quat, env._quat_offset)
         # Align using cup1's `cup_top` site so cup_top will be above cup0.
@@ -736,14 +799,25 @@ def pour_policy_v2(env, obs) -> np.ndarray:
             env._state_counter = 0
             print("→ pour")
 
-        action = make_task_space_action(target_pos, target_quat, gripper_val=1.0)
+        # Slow down movement by moving halfway to the target
+        actual_pos = slow_down_position(ee_pos, target_pos)
+
+        # Get current quaternion of the end effector
+        grip_site_id = mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")
+        rotation_matrix = data.site_xmat[grip_site_id].reshape(3, 3)
+        current_quat = np.empty(4)
+        mj.mju_mat2Quat(current_quat, rotation_matrix.flatten())
+        actual_quat = slow_down_quaternion(current_quat, target_quat, 0.5)
+        actual_quat = slow_down_quaternion(current_quat, target_quat, 0.5)
+
+        action = make_task_space_action(actual_pos, actual_quat, gripper_val=1.0)
         action[:3] += env._noise_generator.sample()
         return action
 
     # Final pour
     elif state == "pour":
         cup_pos = utils.get_object_pos(env, ("cup_freejoint0", "cup0"))
-        target_pos = cup_pos + np.array([-0.02, -0.028, 0.24])
+        target_pos = cup_pos + np.array([-0.01, -0.022, 0.23])
         target_quat = [0.12278783, -0.69636423, 0.69636423, 0.12278783]
         target_quat = rotate_quat_around_z(target_quat, env._quat_offset)
         # Compute target so that the `cup_top` site of cup1 will end up over cup0.
@@ -763,7 +837,17 @@ def pour_policy_v2(env, obs) -> np.ndarray:
             offset = ee_pos - cup1_pos
             target_pos[0] -= offset[0]
 
-        action = make_task_space_action(target_pos, target_quat, gripper_val=1.0)
+        # Slow down movement by moving halfway to the target
+        actual_pos = slow_down_position(ee_pos, target_pos)
+
+        # Get current quaternion of the end effector
+        grip_site_id = mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")
+        rotation_matrix = data.site_xmat[grip_site_id].reshape(3, 3)
+        current_quat = np.empty(4)
+        mj.mju_mat2Quat(current_quat, rotation_matrix.flatten())
+        actual_quat = slow_down_quaternion(current_quat, target_quat, 0.5)
+
+        action = make_task_space_action(actual_pos, actual_quat, gripper_val=1.0)
         action[:3] += env._noise_generator.sample()
         return action
 
