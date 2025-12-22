@@ -418,16 +418,18 @@ class KitchenMinimalEnv(MujocoEnv):
         # All normalized to [-1, 1]: xyz position, quaternion (4D), and gripper [0, 1]
         # Workspace bounds for denormalization: x: [-1.5, 0], y: [-2.5, 0], z: [1.5, 3]
         self.workspace_bounds = {
-            'x': np.array([-1.5, 0.0]),
-            'y': np.array([-2.5, 0.0]),
-            'z': np.array([1.5, 3.0]),
+            "x": np.array([-1.5, 0.0]),
+            "y": np.array([-2.5, 0.0]),
+            "z": np.array([1.5, 3.0]),
         }
-    
+
         # Helper method to normalize position to [-1, 1] using workspace bounds
         self._normalize_position = self._make_position_normalizer()
 
         self.action_space = spaces.Box(
-            low=np.array([-1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, 0.0], dtype=np.float32),
+            low=np.array(
+                [-1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, 0.0], dtype=np.float32
+            ),
             high=np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], dtype=np.float32),
             shape=(8,),
             dtype=np.float32,
@@ -501,25 +503,28 @@ class KitchenMinimalEnv(MujocoEnv):
 
     def _make_position_normalizer(self):
         """Create a function that normalizes 3D positions using workspace bounds."""
-        bounds_x = self.workspace_bounds['x']
-        bounds_y = self.workspace_bounds['y']
-        bounds_z = self.workspace_bounds['z']
-        
+        bounds_x = self.workspace_bounds["x"]
+        bounds_y = self.workspace_bounds["y"]
+        bounds_z = self.workspace_bounds["z"]
+
         def normalize_position(pos_3d):
             """Normalize a 3D position to [-1, 1] range using workspace bounds."""
             pos = np.asarray(pos_3d, dtype=np.float32)
-            normalized = np.array([
-                2.0 * (pos[0] - bounds_x[0]) / (bounds_x[1] - bounds_x[0]) - 1.0,
-                2.0 * (pos[1] - bounds_y[0]) / (bounds_y[1] - bounds_y[0]) - 1.0,
-                2.0 * (pos[2] - bounds_z[0]) / (bounds_z[1] - bounds_z[0]) - 1.0,
-            ], dtype=np.float32)
+            normalized = np.array(
+                [
+                    2.0 * (pos[0] - bounds_x[0]) / (bounds_x[1] - bounds_x[0]) - 1.0,
+                    2.0 * (pos[1] - bounds_y[0]) / (bounds_y[1] - bounds_y[0]) - 1.0,
+                    2.0 * (pos[2] - bounds_z[0]) / (bounds_z[1] - bounds_z[0]) - 1.0,
+                ],
+                dtype=np.float32,
+            )
             return np.clip(normalized, -1.0, 1.0)
-        
+
         return normalize_position
-    
+
     def _get_task_space_obs(self):
         """Get current task-space representation as 8D action-like observation.
-        
+
         Returns 8D array: [x_norm, y_norm, z_norm, qx, qy, qz, qw, gripper]
         where positions are normalized to [-1, 1] and gripper is in [0, 1].
         """
@@ -534,27 +539,25 @@ class KitchenMinimalEnv(MujocoEnv):
             ee_quat = self.data.site_xmat[grip_site_id].reshape(3, 3)
             # Convert rotation matrix to quaternion (wxyz)
             ee_quat = self._rot_matrix_to_quat(ee_quat)
-        
+
         # Normalize position using workspace bounds
         pos_norm = self._normalize_position(ee_pos)
-        
+
         # Gripper state: average of two gripper joint positions, scaled from [0, 0.015] to [0, 1]
         gripper_pos = (self.data.qpos[7] + self.data.qpos[8]) / 2.0
         gripper_norm = np.clip(gripper_pos / 0.015, 0.0, 1.0)
-        
-        task_space_obs = np.concatenate([
-            pos_norm,
-            ee_quat,
-            [gripper_norm]
-        ]).astype(np.float32)
-        
+
+        task_space_obs = np.concatenate([pos_norm, ee_quat, [gripper_norm]]).astype(
+            np.float32
+        )
+
         return task_space_obs
-    
+
     def _rot_matrix_to_quat(self, rot_mat):
         """Convert 3x3 rotation matrix to quaternion (wxyz format)."""
         # Compute quaternion from rotation matrix using Shepperd's method
         trace = np.trace(rot_mat)
-        
+
         if trace > 0:
             s = 0.5 / np.sqrt(trace + 1.0)
             w = 0.25 / s
@@ -579,9 +582,9 @@ class KitchenMinimalEnv(MujocoEnv):
             x = (rot_mat[0, 2] + rot_mat[2, 0]) / s
             y = (rot_mat[1, 2] + rot_mat[2, 1]) / s
             z = 0.25 * s
-        
+
         return np.array([w, x, y, z], dtype=np.float32)
-    
+
     def get_random_robot_qpos(self):
         """Sample a random robot qpos within joint limits."""
         INIT_QPOS = np.array(
@@ -854,36 +857,40 @@ class KitchenMinimalEnv(MujocoEnv):
 
         return tuple(particles_in_cups)
 
-
     def step(
         self, action: np.ndarray, minimal=True
     ) -> Tuple[np.ndarray, float, bool, bool, Dict]:
         action = np.asarray(action, dtype=np.float32).reshape(8)
-        
+
         # Parse task-space action: [x, y, z, qx, qy, qz, qw, gripper]
         # Note: xyz are normalized to [-1, 1], denormalize using workspace bounds
         action_xyz_norm = action[:3]
         target_quat = action[3:7]
         gripper_val = action[7]
-        
+
         # Denormalize xyz from [-1, 1] to workspace bounds
-        bounds_x = self.workspace_bounds['x']
-        bounds_y = self.workspace_bounds['y']
-        bounds_z = self.workspace_bounds['z']
-        
-        target_pos = np.array([
-            bounds_x[0] + (action_xyz_norm[0] + 1.0) * 0.5 * (bounds_x[1] - bounds_x[0]),
-            bounds_y[0] + (action_xyz_norm[1] + 1.0) * 0.5 * (bounds_y[1] - bounds_y[0]),
-            bounds_z[0] + (action_xyz_norm[2] + 1.0) * 0.5 * (bounds_z[1] - bounds_z[0]),
-        ])
-        
+        bounds_x = self.workspace_bounds["x"]
+        bounds_y = self.workspace_bounds["y"]
+        bounds_z = self.workspace_bounds["z"]
+
+        target_pos = np.array(
+            [
+                bounds_x[0]
+                + (action_xyz_norm[0] + 1.0) * 0.5 * (bounds_x[1] - bounds_x[0]),
+                bounds_y[0]
+                + (action_xyz_norm[1] + 1.0) * 0.5 * (bounds_y[1] - bounds_y[0]),
+                bounds_z[0]
+                + (action_xyz_norm[2] + 1.0) * 0.5 * (bounds_z[1] - bounds_z[0]),
+            ]
+        )
+
         # Normalize quaternion
         quat_norm = np.linalg.norm(target_quat)
         if quat_norm > 1e-6:
             target_quat = target_quat / quat_norm
         else:
             target_quat = np.array([0.0, 0.0, 0.0, 1.0])  # Default identity quaternion
-        
+
         # Solve IK to get target joint positions (7 arm joints)
         joint_indices = np.arange(7)  # 7 arm joints
         target_qpos = ik_solve_dm(
@@ -895,13 +902,13 @@ class KitchenMinimalEnv(MujocoEnv):
             joint_indices=joint_indices,
             inplace=False,
         )
-        
+
         # Apply solved joint positions to first 7 actuators
         self.data.ctrl[:7] = target_qpos[:7]
-        
+
         # Set gripper commands (two gripper actuators at indices 7 and 8)
         # Scale gripper value from [0, 1] to [0, open_val]
-        gripper_cmd = gripper_val * 0.015  # 0 = closed, 0.015 = open
+        gripper_cmd = gripper_val * 0.5  # 0 = open, 0.5 = closed
         self.data.ctrl[7] = gripper_cmd
         self.data.ctrl[8] = gripper_cmd
 
@@ -935,39 +942,36 @@ class KitchenMinimalEnv(MujocoEnv):
         if minimal:
             # plus normalized cup/water particle positions and their velocities
             task_space_obs = self._get_task_space_obs()  # 8D: xyz_norm + quat + gripper
-            
+
             # Normalize cup positions using workspace bounds
             cup0_pos_norm = self._normalize_position(qpos[30:33])
             cup1_pos_norm = self._normalize_position(qpos[37:40])
-            
+
             # Cup velocities (not normalized, use as-is)
             cup0_vel = qvel[29:32]
             cup1_vel = qvel[35:38]
-            
+
             # Water particle positions and velocities (qpos[44:] and qvel[41:])
             # Normalize water particle positions
             water_qpos_norm_list = []
-            num_particles = self.num_water_particles
+            num_particles = 10
             for i in range(num_particles):
                 water_pos_idx = 44 + (i * 7)
                 water_pos = qpos[water_pos_idx : water_pos_idx + 3]
                 water_pos_norm = self._normalize_position(water_pos)
                 water_qpos_norm_list.append(water_pos_norm)
             water_qpos_norm = np.concatenate(water_qpos_norm_list)
-            
-            # Water particle velocities (first 3 components are linear velocity)
-            water_qvel = qvel[41:]  # All water particle velocities
-            
-            obs = np.concatenate([
-                task_space_obs,  # 8D
-                cup0_pos_norm,   # 3D (normalized)
-                cup1_pos_norm,   # 3D (normalized)
-                cup0_vel,        # 3D
-                cup1_vel,        # 3D
-                water_qpos_norm, # num_particles * 3 (normalized)
-                water_qvel       # remaining velocities
-            ]).astype(np.float32    np.float32
-            )
+
+            obs = np.concatenate(
+                [
+                    task_space_obs,  # 8D
+                    cup0_pos_norm,  # 3D (normalized)
+                    cup1_pos_norm,  # 3D (normalized)
+                    cup0_vel,  # 3D
+                    cup1_vel,  # 3D
+                    water_qpos_norm,  # num_particles * 3 (normalized)
+                ]
+            ).astype(np.float32)
         return obs
 
     def _get_obs(self):  # not used I think
@@ -1000,142 +1004,13 @@ class KitchenMinimalEnv(MujocoEnv):
         for i, gid in enumerate(self._water_geom_ids):
             self.water_particle_positions[i, :] = geom_xpos[int(gid)]
 
-    def create_goal_state(
-        self, minimal=True, current_state=None, fixed_goal=False
-    ) -> np.ndarray:
-        """Takes the current state and moves the water particles into the target cup by getting their relative positions to the original cup and change it to the target cup.
-
-        Args:
-            minimal: If True, returns the minimal state representation like _get_observation
-            current_state: Optional current state to base goal on. If None, uses current env state
-
-        Returns:
-            np.ndarray: Goal state observation (minimal)
-        """
-        # Accept either a full state (qpos+qvel) or a minimal observation
-        current_state = current_state.copy() if current_state is not None else None
-        qpos_full = np.zeros(self.nq, dtype=np.float64)
-        qvel_full = np.zeros(self.nv, dtype=np.float64)
-        if fixed_goal:
-            current_state = GOAL_STATE
-        if current_state is None:
-            # use current full simulator state
-            qpos_local = np.array(self.data.qpos).reshape(-1)
-            qvel_local = np.array(self.data.qvel).reshape(-1)
-            qpos_full = qpos_local.copy()
-            qvel_full = qvel_local.copy()
-        else:
-            state = np.asarray(current_state).astype(np.float64).copy()
-            full_len = int(self.nq + self.nv)
-            minimal_len = 18 + (self.nq - 30) + 12
-
-            if state.size == full_len:
-                qpos_full = state[: self.nq].copy()
-                qvel_full = state[self.nq : self.nq + self.nv].copy()
-            elif state.size == minimal_len:
-                robot_qpos9 = state[0:9].copy()
-                robot_qvel9 = state[9:18].copy()
-                qpos_tail_len = self.nq - 30
-                qvel_tail_len = 12
-                qpos_tail = state[18 : 18 + qpos_tail_len].copy()
-                qvel_tail = state[
-                    18 + qpos_tail_len : 18 + qpos_tail_len + qvel_tail_len
-                ].copy()
-
-                qpos_full = np.zeros(self.nq, dtype=np.float64)
-                qvel_full = np.zeros(self.nv, dtype=np.float64)
-
-                qpos_full[:9] = robot_qpos9
-                qvel_full[:9] = robot_qvel9
-                qpos_full[30:] = qpos_tail
-                qvel_full[29:41] = qvel_tail
-        if not fixed_goal:
-            qpos_full[:9] = GOAL_JOINTS
-            qvel_full[:9] = 0
-
-        state_full = np.concatenate([qpos_full, qvel_full])
-
-        source_cup_pos = state_full[37:40]
-        target_cup_pos = state_full[30:33]
-        cup_offset = target_cup_pos - source_cup_pos
-
-        if not fixed_goal:
-            num_particles = 10
-            for i in range(num_particles):
-                particle_pos_start = 44 + (i * 7)
-                state_full[particle_pos_start : particle_pos_start + 3] += cup_offset
-
-        if minimal:
-            qpos_out = state_full[: self.nq]
-            qvel_out = state_full[self.nq : self.nq + self.nv]
-            return np.concatenate(
-                [qpos_out[:9], qvel_out[:9], qpos_out[30:], qvel_out[29:41]]
-            ).astype(np.float32)
-
-        return state_full.astype(np.float32)
+    def get_pouring_goal_state(self) -> np.ndarray:
+        return False
 
     def create_moving_goal_state(
-        self, minimal=True, current_state=None, fixed_goal=False
+        self,
     ) -> np.ndarray:
-        current_state = current_state.copy() if current_state is not None else None
-        # Accept either a full state (qpos+qvel) or a minimal observation
-        qpos_full = np.zeros(self.nq, dtype=np.float64)
-        qvel_full = np.zeros(self.nv, dtype=np.float64)
-        if fixed_goal:
-            current_state = MOVING_GOAL_STATE
-        if current_state is None:
-            # use current full simulator state
-            qpos_local = np.array(self.data.qpos).reshape(-1)
-            qvel_local = np.array(self.data.qvel).reshape(-1)
-            qpos_full = qpos_local.copy()
-            qvel_full = qvel_local.copy()
-        else:
-            state = np.asarray(current_state).astype(np.float64).copy()
-            full_len = int(self.nq + self.nv)
-            minimal_len = 18 + (self.nq - 30) + 12
-            if state.size == full_len:
-                qpos_full = state[: self.nq].copy()
-                qvel_full = state[self.nq : self.nq + self.nv].copy()
-            elif state.size == minimal_len:
-                robot_qpos9 = state[0:9].copy()
-                robot_qvel9 = state[9:18].copy()
-                qpos_tail_len = self.nq - 30
-                qvel_tail_len = 12
-                qpos_tail = state[18 : 18 + qpos_tail_len].copy()
-                qvel_tail = state[
-                    18 + qpos_tail_len : 18 + qpos_tail_len + qvel_tail_len
-                ].copy()
-
-                qpos_full = np.zeros(self.nq, dtype=np.float64)
-                qvel_full = np.zeros(self.nv, dtype=np.float64)
-
-                qpos_full[:9] = robot_qpos9
-                qvel_full[:9] = robot_qvel9
-                qpos_full[30:] = qpos_tail
-                qvel_full[29:41] = qvel_tail
-        if not fixed_goal:
-            qpos_full[:9] = GOAL_JOINTS
-            qvel_full[:9] = 0
-
-        state_full = np.concatenate([qpos_full, qvel_full])
-
-        source_cup_pos = state_full[37:40]
-        target_cup_pos = state_full[30:33]
-        cup_offset = target_cup_pos - source_cup_pos
-
-        if not fixed_goal:
-            num_particles = 10
-            for i in range(num_particles):
-                particle_pos_start = 44 + (i * 7)
-                state_full[particle_pos_start : particle_pos_start + 3] += cup_offset
-        if minimal:
-            qpos_out = state_full[: self.nq]
-            qvel_out = state_full[self.nq : self.nq + self.nv]
-            return np.concatenate(
-                [qpos_out[:9], qvel_out[:9], qpos_out[30:], qvel_out[29:41]]
-            ).astype(np.float32)
-
-        return state_full.astype(np.float32)
+        return False
 
     def check_moving_success(
         self, goal_state: np.ndarray, pos_tol: float = 0.03, rot_tol: float = 0.9
@@ -1152,7 +1027,9 @@ class KitchenMinimalEnv(MujocoEnv):
         curr_pos = self.data.qpos[30:33]
         curr_quat = self.data.qpos[33:37]
 
-        target_pos = goal_state[18:21]
+        # In the new minimal observation layout the target cup position is at
+        # indices 8:11 (task_space_obs 0:8, cup0_pos 8:11, cup1_pos 11:14, ...)
+        target_pos = goal_state[8:11]
 
         dist = np.linalg.norm(curr_pos - target_pos)
         pos_ok = dist < pos_tol
