@@ -65,9 +65,8 @@ def evaluate_agent(
         obs, _ = env.reset(options={"randomise_cup_position": False, "minimal": True})
         raw_obs = np.asarray(obs)
 
-        goal_arr = env.unwrapped.create_goal_state(
-            current_state=raw_obs, minimal=True, fixed_goal=True
-        )
+        # Create fixed goal (use env method; don't pass minimal observation)
+        goal_arr = env.unwrapped.create_goal_state(minimal=True, fixed_goal=True)
         normalized_goal = normalize(goal_arr, obs_mean, obs_std)
 
         current_frames = []
@@ -77,7 +76,7 @@ def evaluate_agent(
             normalized_obs = normalize(raw_obs, obs_mean, obs_std)
 
             action = agent.sample_actions(
-                observations=normalized_obs[None],  
+                observations=normalized_obs[None],
                 goals=normalized_goal[None],
                 temperature=0.0,
                 seed=jax.random.PRNGKey(i * 10000 + t),
@@ -134,7 +133,7 @@ def evaluate_agent(
         for t in range(steps):
             normalized_obs = normalize(raw_obs, obs_mean, obs_std)
             action = agent.sample_actions(
-                observations=normalized_obs[None],  
+                observations=normalized_obs[None],
                 goals=normalized_goal[None],
                 temperature=0.0,
                 seed=jax.random.PRNGKey(i * 10000 + t),
@@ -217,7 +216,7 @@ def evaluate_agent(
             normalized_obs = normalize(raw_obs, obs_mean, obs_std)
 
             action = agent.sample_actions(
-                observations=normalized_obs[None],  
+                observations=normalized_obs[None],
                 goals=normalized_goal[None],
                 temperature=0.0,
                 seed=jax.random.PRNGKey(i * 10000 + t),
@@ -295,11 +294,33 @@ def main(args):
 
     train_dataset_raw = load_dataset(train_path, compact_dataset=True)
 
-    # Normalize observations (but not actions - they're already in fixed normalized ranges)
+    # Normalize observations: only normalize velocity components.
     obs_data = train_dataset_raw["observations"]
-    obs_mean = np.mean(obs_data, axis=0)
-    obs_std = np.std(obs_data, axis=0)
-    obs_std[obs_std < 1e-3] = 1.0
+
+    # If using the new minimal observation layout, only normalize velocity indices
+    num_particles = None
+    try:
+        num_particles = int(val_env.unwrapped.num_water_particles)
+    except Exception:
+        num_particles = None
+
+    minimal_len = None
+    if num_particles is not None:
+        minimal_len = 20 + num_particles * 3
+
+    if obs_data.shape[1] == minimal_len:
+        obs_mean = np.zeros(obs_data.shape[1], dtype=np.float32)
+        obs_std = np.ones(obs_data.shape[1], dtype=np.float32)
+        # velocity indices in the new minimal observation: 14-19 (cup0_vel then cup1_vel)
+        vel_idx = np.arange(14, 20)
+        obs_mean[vel_idx] = np.mean(obs_data[:, vel_idx], axis=0)
+        obs_std[vel_idx] = np.std(obs_data[:, vel_idx], axis=0)
+        obs_std[obs_std < 1e-3] = 1.0
+    else:
+        # Fall back to normalizing all observation dims
+        obs_mean = np.mean(obs_data, axis=0)
+        obs_std = np.std(obs_data, axis=0)
+        obs_std[obs_std < 1e-3] = 1.0
 
     train_dataset_norm = dict(train_dataset_raw)
     train_dataset_norm["observations"] = normalize(
@@ -310,7 +331,6 @@ def main(args):
         train_dataset_norm["next_observations"] = normalize(
             train_dataset_raw["next_observations"], obs_mean, obs_std
         )
-    
 
     val_dataset_raw = load_dataset(val_path, compact_dataset=True, add_info=True)
     val_dataset_norm = dict(val_dataset_raw)
