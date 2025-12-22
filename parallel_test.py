@@ -476,18 +476,25 @@ def pour_policy_v2(env, obs) -> np.ndarray:
         if dot < 0.0:
             target_quat = -target_quat
             dot = -dot
+        
+        # Clip dot product to prevent arccos from returning NaN
+        dot = np.clip(dot, -1.0, 1.0)
 
         # If quaternions are very close, return the target
-        if dot > 0.9995:
+        if dot > 0.99:
             return target_quat
 
         # Calculate angle between quaternions
-        theta_0 = np.arccos(np.abs(dot))
+        theta_0 = np.arccos(dot)
         sin_theta_0 = np.sin(theta_0)
 
         # Calculate interpolation weights
         theta = theta_0 * factor
         sin_theta = np.sin(theta)
+        
+        # Check for sin_theta_0 being close to zero to avoid division by zero
+        if np.abs(sin_theta_0) < 1e-6:
+             return current_quat
 
         # Perform spherical linear interpolation
         s0 = np.cos(theta) - dot * sin_theta / sin_theta_0
@@ -807,7 +814,6 @@ def pour_policy_v2(env, obs) -> np.ndarray:
         rotation_matrix = data.site_xmat[grip_site_id].reshape(3, 3)
         current_quat = np.empty(4)
         mj.mju_mat2Quat(current_quat, rotation_matrix.flatten())
-        actual_quat = slow_down_quaternion(current_quat, target_quat, 0.5)
         actual_quat = slow_down_quaternion(current_quat, target_quat, 0.5)
 
         action = make_task_space_action(actual_pos, actual_quat, gripper_val=1.0)
