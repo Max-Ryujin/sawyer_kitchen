@@ -265,6 +265,46 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         ee_pos = utils.get_effector_pos(env)
         return np.linalg.norm(target_pos - ee_pos) < tol
 
+    def slow_down_position(ee_pos: np.ndarray, target_pos: np.ndarray) -> np.ndarray:
+        """Move halfway from current position to target to slow down movement."""
+        return ee_pos + 0.5 * (target_pos - ee_pos)
+
+    def slow_down_quaternion(
+        current_quat: np.ndarray, target_quat: np.ndarray, factor: float = 0.5
+    ) -> np.ndarray:
+        """Interpolate between current and target quaternion to slow down rotation."""
+        # Normalize both quaternions
+        current_quat = current_quat / np.linalg.norm(current_quat)
+        target_quat = target_quat / np.linalg.norm(target_quat)
+
+        # Calculate dot product
+        dot = np.dot(current_quat, target_quat)
+
+        # If dot product is negative, negate one quaternion to take shorter path
+        if dot < 0.0:
+            target_quat = -target_quat
+            dot = -dot
+
+        # If quaternions are very close, return the target
+        if dot > 0.9995:
+            return target_quat
+
+        # Calculate angle between quaternions
+        theta_0 = np.arccos(np.abs(dot))
+        sin_theta_0 = np.sin(theta_0)
+
+        # Calculate interpolation weights
+        theta = theta_0 * factor
+        sin_theta = np.sin(theta)
+
+        # Perform spherical linear interpolation
+        s0 = np.cos(theta) - dot * sin_theta / sin_theta_0
+        s1 = sin_theta / sin_theta_0
+
+        # Interpolate
+        result = (s0 * current_quat) + (s1 * target_quat)
+        return result / np.linalg.norm(result)
+
     state = env._automaton_state
 
     if state == "move_above":
