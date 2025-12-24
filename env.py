@@ -990,11 +990,11 @@ class KitchenMinimalEnv(MujocoEnv):
         )
 
         # Normalize quaternion
-        quat_norm = np.linalg.norm(target_quat)
-        if quat_norm > 1e-6:
-            target_quat = target_quat / quat_norm
-        else:
-            target_quat = np.array([0.0, 0.0, 0.0, 1.0])  # Default identity quaternion
+        #quat_norm = np.linalg.norm(target_quat)
+        #if quat_norm > 1e-6:
+        #   target_quat = target_quat / quat_norm
+        #else:
+        #    target_quat = np.array([0.0, 0.0, 0.0, 1.0])  # Default identity quaternion
 
         # Solve IK to get target joint positions (7 arm joints)
         joint_indices = np.arange(7)  # 7 arm joints
@@ -1012,10 +1012,8 @@ class KitchenMinimalEnv(MujocoEnv):
         self.data.ctrl[:7] = target_qpos[:7]
 
         # Set gripper commands (two gripper actuators at indices 7 and 8)
-        # Scale gripper value from [0, 1] to [0, open_val]
-        gripper_cmd = gripper_val * 0.5  # 0 = open, 0.5 = closed
-        self.data.ctrl[7] = gripper_cmd
-        self.data.ctrl[8] = gripper_cmd
+        self.data.ctrl[7] = gripper_val
+        self.data.ctrl[8] = gripper_val
 
         # Step the physics forward.
         mj.mj_step(self.model, self.data, nstep=self._n_steps)
