@@ -321,7 +321,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
                 data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
             )
             < 0.001
-        ) or env._state_counter > 110:
+        ) or env._state_counter > 105:
             env._automaton_state = "move_towards"
             env._state_counter = 0
             env._above_position = target_pos
@@ -364,7 +364,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
                 data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
             )
             < 0.001
-        ) or env._state_counter > 100:
+        ) or env._state_counter > 90:
             env._automaton_state = "close_gripper"
             env._state_counter = 0
             print("→ close_gripper")
@@ -863,7 +863,7 @@ def pour_policy_v2(env, obs) -> np.ndarray:
     # Final pour
     elif state == "pour":
         cup_pos = utils.get_object_pos(env, ("cup_freejoint0", "cup0"))
-        target_pos = cup_pos + np.array([-0.01, -0.022, 0.23])
+        target_pos = cup_pos + np.array([-0.01, -0.02, 0.21])
         target_quat = [0.12278783, -0.69636423, 0.69636423, 0.12278783]
         target_quat = rotate_quat_around_z(target_quat, env._quat_offset)
         # Compute target so that the `cup_top` site of cup1 will end up over cup0.
