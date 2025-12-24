@@ -38,7 +38,32 @@ import wandb
 
 
 def normalize(x, mean, std, eps=1e-5):
+    """Normalize all dimensions element-wise."""
     return (x - mean) / (std + eps)
+
+
+def normalize_observations_selective(x, obs_mean, obs_std, vel_indices, eps=1e-5):
+    """
+    Selectively normalize only velocity dimensions.
+    
+    Positions and water particles are already normalized by env.py using fixed bounds.
+    Only velocities (unbounded) need dataset-based normalization.
+    
+    Handles both single observations (1D) and batches (2D).
+    
+    Args:
+        x: observation array (1D or 2D batch, or list)
+        obs_mean: mean per dimension
+        obs_std: std per dimension
+        vel_indices: indices of velocity dimensions to normalize
+        eps: small constant for numerical stability
+    """
+    x_norm = np.asarray(x, dtype=np.float32).copy()
+    # Use ... (Ellipsis) to handle both 1D and 2D arrays
+    # For 1D: x[..., vel_indices] = x[vel_indices]
+    # For 2D: x[..., vel_indices] = x[:, vel_indices]
+    x_norm[..., vel_indices] = (x_norm[..., vel_indices] - obs_mean[vel_indices]) / (obs_std[vel_indices] + eps)
+    return x_norm.astype(np.float32)
 
 
 def evaluate_agent(
@@ -51,7 +76,11 @@ def evaluate_agent(
     video=False,
     save_file_prefix=None,
     env=None,
+    vel_idx=None,
 ):
+    if vel_idx is None:
+        vel_idx = np.arange(14, 20)
+    
     if env is None:
         env = gym.make(
             "KitchenMinimalEnv-v0", render_mode="rgb_array", width=1280, height=960
@@ -65,15 +94,16 @@ def evaluate_agent(
         obs, _ = env.reset(options={"randomise_cup_position": False, "minimal": True})
         raw_obs = np.asarray(obs)
 
-        # Create fixed goal (use env method; don't pass minimal observation)
-        goal_arr = env.unwrapped.create_goal_state(minimal=True, fixed_goal=True)
-        normalized_goal = normalize(goal_arr, obs_mean, obs_std)
+        # Get pouring goal from environment (positions already normalized, velocities are raw)
+        goal_arr = env.unwrapped.get_pouring_goal_state()
+        # Apply SAME normalization as training: only normalize velocities
+        normalized_goal = normalize_observations_selective(goal_arr, obs_mean, obs_std, vel_idx)
 
         current_frames = []
         is_success = False
 
         for t in range(steps):
-            normalized_obs = normalize(raw_obs, obs_mean, obs_std)
+            normalized_obs = normalize_observations_selective(raw_obs, obs_mean, obs_std, vel_idx)
 
             action = agent.sample_actions(
                 observations=normalized_obs[None],
@@ -123,15 +153,16 @@ def evaluate_agent(
         obs, _ = env.reset(options={"randomise_cup_position": False, "minimal": True})
         raw_obs = np.asarray(obs)
 
-        # Create moving goal state
-        goal_arr = env.unwrapped.create_moving_goal_state(minimal=True, fixed_goal=True)
-        normalized_goal = normalize(goal_arr, obs_mean, obs_std)
+        # Create moving goal state (positions already normalized, velocities are raw)
+        goal_arr = env.unwrapped.create_moving_goal_state()
+        # Apply SAME normalization as training: only normalize velocities
+        normalized_goal = normalize_observations_selective(goal_arr, obs_mean, obs_std, vel_idx)
 
         current_frames = []
         is_success = False
 
         for t in range(steps):
-            normalized_obs = normalize(raw_obs, obs_mean, obs_std)
+            normalized_obs = normalize_observations_selective(raw_obs, obs_mean, obs_std, vel_idx)
             action = agent.sample_actions(
                 observations=normalized_obs[None],
                 goals=normalized_goal[None],
@@ -198,9 +229,10 @@ def evaluate_agent(
 
         qpos = val_dataset["qpos"][start_idx]
         qvel = val_dataset["qvel"][start_idx]
+        # Goal from dataset is already in normalized format (from training preprocessing)
         goal_arr = val_dataset["observations"][end_idx]
-
-        normalized_goal = normalize(goal_arr, obs_mean, obs_std)
+        # Apply SAME normalization as training: only normalize velocities
+        normalized_goal = normalize_observations_selective(goal_arr, obs_mean, obs_std, vel_idx)
 
         obs, _ = env.reset(options={"randomise_cup_position": False, "minimal": True})
         env.unwrapped.set_state(qpos, qvel)
@@ -213,7 +245,7 @@ def evaluate_agent(
         is_success = False
 
         for t in range(steps):
-            normalized_obs = normalize(raw_obs, obs_mean, obs_std)
+            normalized_obs = normalize_observations_selective(raw_obs, obs_mean, obs_std, vel_idx)
 
             action = agent.sample_actions(
                 observations=normalized_obs[None],
@@ -295,6 +327,8 @@ def main(args):
     train_dataset_raw = load_dataset(train_path, compact_dataset=True)
 
     # Normalize observations: only normalize velocity components.
+    # Positions are already normalized by env.py using fixed workspace bounds.
+    # Velocities are unbounded, so we normalize using dataset statistics.
     obs_data = train_dataset_raw["observations"]
 
     # If using the new minimal observation layout, only normalize velocity indices
@@ -308,34 +342,38 @@ def main(args):
     if num_particles is not None:
         minimal_len = 20 + num_particles * 3
 
+    # Velocity indices in minimal observation: 14-19 (cup0_vel[14:17] and cup1_vel[17:20])
+    vel_idx = np.arange(14, 20)
+    
     if obs_data.shape[1] == minimal_len:
         obs_mean = np.zeros(obs_data.shape[1], dtype=np.float32)
         obs_std = np.ones(obs_data.shape[1], dtype=np.float32)
-        # velocity indices in the new minimal observation: 14-19 (cup0_vel then cup1_vel)
-        vel_idx = np.arange(14, 20)
+        # Only compute statistics for velocity dimensions
         obs_mean[vel_idx] = np.mean(obs_data[:, vel_idx], axis=0)
         obs_std[vel_idx] = np.std(obs_data[:, vel_idx], axis=0)
         obs_std[obs_std < 1e-3] = 1.0
+        print("Using selective normalization for minimal observation layout.")
     else:
         # Fall back to normalizing all observation dims
         obs_mean = np.mean(obs_data, axis=0)
         obs_std = np.std(obs_data, axis=0)
         obs_std[obs_std < 1e-3] = 1.0
+        print("Using full observation normalization.")
 
     train_dataset_norm = dict(train_dataset_raw)
-    train_dataset_norm["observations"] = normalize(
-        train_dataset_raw["observations"], obs_mean, obs_std
+    train_dataset_norm["observations"] = normalize_observations_selective(
+        train_dataset_raw["observations"], obs_mean, obs_std, vel_idx
     )
 
     if "next_observations" in train_dataset_norm:
-        train_dataset_norm["next_observations"] = normalize(
-            train_dataset_raw["next_observations"], obs_mean, obs_std
+        train_dataset_norm["next_observations"] = normalize_observations_selective(
+            train_dataset_raw["next_observations"], obs_mean, obs_std, vel_idx
         )
 
     val_dataset_raw = load_dataset(val_path, compact_dataset=True, add_info=True)
     val_dataset_norm = dict(val_dataset_raw)
-    val_dataset_norm["observations"] = normalize(
-        val_dataset_raw["observations"], obs_mean, obs_std
+    val_dataset_norm["observations"] = normalize_observations_selective(
+        val_dataset_raw["observations"], obs_mean, obs_std, vel_idx
     )
 
     base_train = Dataset.create(**train_dataset_norm)
@@ -467,6 +505,7 @@ def main(args):
                 video=True,
                 save_file_prefix=save_file_prefix,
                 env=val_env,
+                vel_idx=vel_idx,
             )
             info["eval/fixed_success_rate"] = eval_metrics["pouring_success_rate"]
             info["eval/moving_success_rate"] = eval_metrics["moving_success_rate"]
