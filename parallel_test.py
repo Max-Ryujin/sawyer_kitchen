@@ -316,12 +316,12 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         env._state_counter += 1
 
         if (
-            at_target(target_pos, tol=0.08)
+            at_target(target_pos, tol=0.085)
             and np.linalg.norm(
                 data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
             )
             < 0.001
-        ) or env._state_counter > 105:
+        ) or env._state_counter > 100:
             env._automaton_state = "move_towards"
             env._state_counter = 0
             env._above_position = target_pos
@@ -340,7 +340,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         target_pos = cup_pos + np.array([-0.015, 0.0, 0.15])
         target_quat = [0.64085639, -0.29883623, 0.29883623, 0.64085639]
         target_quat = rotate_quat_around_z(target_quat, env._quat_offset)
-        if at_target(target_pos, tol=0.07) or env._state_counter > 150:
+        if at_target(target_pos, tol=0.075) or env._state_counter > 100:
             env._automaton_state = "move_down"
             env._state_counter = 0
             print("→ move_down")
@@ -364,7 +364,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
                 data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
             )
             < 0.001
-        ) or env._state_counter > 90:
+        ) or env._state_counter > 80:
             env._automaton_state = "close_gripper"
             env._state_counter = 0
             print("→ close_gripper")
@@ -557,7 +557,7 @@ def pour_policy_v2(env, obs) -> np.ndarray:
         env._state_counter += 1
 
         if (
-            at_target(target_pos, tol=0.07)
+            at_target(target_pos, tol=0.075)
             and np.linalg.norm(
                 data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
             )
@@ -566,10 +566,13 @@ def pour_policy_v2(env, obs) -> np.ndarray:
             env._automaton_state = "move_towards"
             env._state_counter = 0
             env._above_position = target_pos
+            env._quat_offset = np.random.uniform(-0.3, 0.3)
             print("→ move_towards")
-        if env._state_counter > 110:
+        if env._state_counter > 100:
             env._state_counter = 0
             env._quat_offset = np.random.uniform(-0.3, 0.3)
+            env._automaton_state = "move_towards"
+            env._above_position = target_pos
 
         action = make_task_space_action(target_pos, target_quat, gripper_val=0.0)
         action[:3] += env._noise_generator.sample()
@@ -582,13 +585,15 @@ def pour_policy_v2(env, obs) -> np.ndarray:
         target_pos = cup_pos + np.array([-0.015, 0.0, 0.15])
         target_quat = [0.64085639, -0.29883623, 0.29883623, 0.64085639]
         target_quat = rotate_quat_around_z(target_quat, env._quat_offset)
-        if at_target(target_pos, tol=0.07):
+        if at_target(target_pos, tol=0.075):
             env._automaton_state = "move_down"
             env._state_counter = 0
             print("→ move_down")
-        if env._state_counter > 150:
+        if env._state_counter > 100:
             env._state_counter = 0
             env._quat_offset = np.random.uniform(-0.3, 0.3)
+            env._automaton_state = "move_down"
+            print("→ move_down")
 
         action = make_task_space_action(target_pos, target_quat, gripper_val=0.0)
         action[:3] += env._noise_generator.sample()
@@ -603,12 +608,12 @@ def pour_policy_v2(env, obs) -> np.ndarray:
         target_quat = rotate_quat_around_z(target_quat, env._quat_offset)
         if (
             np.abs(target_pos[2] - utils.get_effector_pos(env)[2]) < 0.0065
-            and np.abs(target_pos[1] - utils.get_effector_pos(env)[1]) < 0.006
+            and np.abs(target_pos[1] - utils.get_effector_pos(env)[1]) < 0.0064
             and np.linalg.norm(
                 data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
             )
-            < 0.002
-        ) or env._state_counter > 100:
+            < 0.0025
+        ) or env._state_counter > 90:
             env._automaton_state = "close_gripper"
             env._state_counter = 0
             print("→ close_gripper")
