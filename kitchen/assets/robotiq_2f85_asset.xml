@@ -1,0 +1,4 @@
+<?xml version="1.0" ?>
+<mujoco model="robotiq_2f85">
+  <include file="robotiq_2f85/2f85.xml"/>
+</mujoco>

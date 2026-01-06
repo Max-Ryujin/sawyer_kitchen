@@ -460,19 +460,19 @@ MODEL_XML_PATH = os.path.join(os.path.dirname(__file__), "kitchen", "kitchen.xml
 #    "lookat": np.array([-0.65, -0.65, 1.75]),
 # }
 
-DEFAULT_CAMERA_CONFIG = {
-    "distance": 1.8,
-    "azimuth": 350.0,
-    "elevation": -35.0,
-    "lookat": np.array([-0.65, -0.8, 1.75]),
-}
-
 # DEFAULT_CAMERA_CONFIG = {
-#     "distance": 4.6,
-#     "azimuth": 70.0,
+#     "distance": 1.8,
+#     "azimuth": 350.0,
 #     "elevation": -35.0,
-#     "lookat": np.array([-0.2, 0.5, 2.0]),
+#     "lookat": np.array([-0.65, -0.8, 1.75]),
 # }
+
+DEFAULT_CAMERA_CONFIG = {
+    "distance": 4.6,
+    "azimuth": 70.0,
+    "elevation": -35.0,
+    "lookat": np.array([-0.2, 0.5, 2.0]),
+}
 
 
 class KitchenMinimalEnv2(MujocoEnv):
@@ -1009,11 +1009,8 @@ class KitchenMinimalEnv2(MujocoEnv):
         )
 
         # Apply solved joint positions to first 7 actuators
-        self.data.ctrl[:7] = target_qpos[:7]
-
-        # Set gripper commands (two gripper actuators at indices 7 and 8)
-        self.data.ctrl[7] = gripper_val
-        self.data.ctrl[8] = gripper_val
+        self.data.ctrl[:6] = target_qpos[:6]
+        self.data.ctrl[6] = gripper_val
 
         # Step the physics forward.
         mj.mj_step(self.model, self.data, nstep=self._n_steps)
