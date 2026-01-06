@@ -912,9 +912,9 @@ def collect_policy_episode(
     random_action=False,
     policy_type="pouring",
 ):
-    gym.register(id="KitchenMinimalEnv-v0", entry_point="env:KitchenMinimalEnv")
+    gym.register(id="KitchenMinimalEnv2-v0", entry_point="env:KitchenMinimalEnv2")
     env = gym.make(
-        "KitchenMinimalEnv-v0", render_mode="rgb_array", width=640, height=480
+        "KitchenMinimalEnv2-v0", render_mode="rgb_array", width=640, height=480
     )
     obs, _ = env.reset(options={"randomise_cup_position": False, "minimal": True})
     frames = []

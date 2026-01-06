@@ -475,7 +475,7 @@ DEFAULT_CAMERA_CONFIG = {
 # }
 
 
-class KitchenMinimalEnv(MujocoEnv):
+class KitchenMinimalEnv2(MujocoEnv):
     metadata = {"render_modes": ["rgb_array"], "render_fps": 8}
 
     def __init__(
