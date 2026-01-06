@@ -115,9 +115,12 @@
     <mesh class="2f85" file="../assets/robotiq_2f85/assets/spring_link.stl"/>
   </asset>
     <worldbody>
-
-    <include file="../kitchen/assets/universal_robots_ur5e/ur5e.xml"/>
         <body name="kitchen" pos="0 0 0">
+            <body pos='-0.1 -0.85 1.7' euler='0 0 1.57'>
+                <geom type='cylinder' size='.120 .90' pos='-.04 0 -0.90'/>
+                <include file="../kitchen/assets/universal_robots_ur5e/ur5e.xml"/>
+            </body>
+
             <body name="counters1" pos="0 0 0">
                 <include file="../kitchen/assets/counters_chain.xml"/>
             </body>

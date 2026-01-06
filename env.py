@@ -460,19 +460,19 @@ MODEL_XML_PATH = os.path.join(os.path.dirname(__file__), "kitchen", "kitchen.xml
 #    "lookat": np.array([-0.65, -0.65, 1.75]),
 # }
 
-# DEFAULT_CAMERA_CONFIG = {
-#     "distance": 1.8,
-#     "azimuth": 350.0,
-#     "elevation": -35.0,
-#     "lookat": np.array([-0.65, -0.8, 1.75]),
-# }
-
 DEFAULT_CAMERA_CONFIG = {
-    "distance": 4.6,
-    "azimuth": 70.0,
+    "distance": 1.8,
+    "azimuth": 350.0,
     "elevation": -35.0,
-    "lookat": np.array([-0.2, 0.5, 2.0]),
+    "lookat": np.array([-0.65, -0.8, 1.75]),
 }
+
+# DEFAULT_CAMERA_CONFIG = {
+#     "distance": 4.6,
+#     "azimuth": 70.0,
+#     "elevation": -35.0,
+#     "lookat": np.array([-0.2, 0.5, 2.0]),
+# }
 
 
 class KitchenMinimalEnv2(MujocoEnv):
