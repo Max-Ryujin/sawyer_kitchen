@@ -1,14 +1,16 @@
 <mujocoinclude>
   <actuator>
-    <general class="size3" name="shoulder_pan" joint="shoulder_pan_joint"/>
-    <general class="size3" name="shoulder_lift" joint="shoulder_lift_joint"/>
-    <general class="size3_limited" name="elbow" joint="elbow_joint"/>
-    <general class="size1" name="wrist_1" joint="wrist_1_joint"/>
-    <general class="size1" name="wrist_2" joint="wrist_2_joint"/>
-    <general class="size1" name="wrist_3" joint="wrist_3_joint"/>
-    <general class="2f85" name="fingers_actuator" tendon="split" forcerange="-5 5" ctrlrange="0 255"
-      gainprm="0.3137255 0 0" biasprm="0 -100 -10"/>
-  </actuator>
+      <position name="shoulder_pan" joint="shoulder_pan_joint" ctrlrange="-6.28 6.28" kp="2000" kv="100"/>
+      <position name="shoulder_lift" joint="shoulder_lift_joint" ctrlrange="-6.28 6.28" kp="2000" kv="100"/>
+      <position name="elbow" joint="elbow_joint" ctrlrange="-3.14 3.14" kp="1000" kv="50"/>
+      <position name="wrist_1" joint="wrist_1_joint" ctrlrange="-6.28 6.28" kp="500" kv="30"/>
+      <position name="wrist_2" joint="wrist_2_joint" ctrlrange="-6.28 6.28" kp="500" kv="30"/>
+      <position name="wrist_3" joint="wrist_3_joint" ctrlrange="-6.28 6.28" kp="200" kv="10"/>
+
+      <!-- Gripper: Keep as general/2f85, this was correct -->
+      <general class="2f85" name="fingers_actuator" tendon="split" forcerange="-5 5" ctrlrange="0 255"
+        gainprm="0.3137255 0 0" biasprm="0 -100 -10"/>
+    </actuator>
 
   <tendon>
     <fixed name="split">

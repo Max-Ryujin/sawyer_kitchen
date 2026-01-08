@@ -1059,20 +1059,7 @@ class KitchenMinimalEnv2(MujocoEnv):
             inplace=False,
         )
 
-        # Current joint positions and velocities
-        qpos = self.data.qpos[joint_indices]
-        qvel = self.data.qvel[joint_indices]
-
-        kp = np.array([20, 20, 10, 5, 2, 2])
-        kd = 2.0 * np.sqrt(kp)
-
-        # Position error
-        q_err = target_qpos[:6] - qpos
-
-        # Torque command
-        tau = kp * q_err - kd * qvel
-
-        self.data.ctrl[:6] = tau
+        self.data.ctrl[:6] = target_qpos[:6]
 
         gripper_ctrl = np.clip(gripper_val, 0.0, 1.0) * 255.0
         self.data.ctrl[6] = gripper_ctrl
