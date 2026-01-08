@@ -107,8 +107,13 @@ INIT_QPOS = np.array(
         2.60252026e-01,
         7.12533105e-01,
         1.59515394e00,
-        0.05,
-        0.05,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
         -2.66279850e-04,
         -5.18043486e-05,
         3.12877220e-05,
@@ -751,6 +756,11 @@ class KitchenMinimalEnv2(MujocoEnv):
                 np.random.uniform(-0.2, 0.2),
                 0,
                 0,
+                0,
+                0,
+                0,
+                0,
+                0,
                 -2.66279850e-04,
                 -5.18043486e-05,
                 3.12877220e-05,
@@ -1037,15 +1047,8 @@ class KitchenMinimalEnv2(MujocoEnv):
             ]
         )
 
-        # Normalize quaternion
-        #quat_norm = np.linalg.norm(target_quat)
-        #if quat_norm > 1e-6:
-        #   target_quat = target_quat / quat_norm
-        #else:
-        #    target_quat = np.array([0.0, 0.0, 0.0, 1.0])  # Default identity quaternion
-
-        # Solve IK to get target joint positions (7 arm joints)
-        joint_indices = np.arange(7)  # 7 arm joints
+        # Solve IK to get target joint positions (6 arm joints)
+        joint_indices = np.arange(6)  # 6 arm joints
         target_qpos = ik_solve_dm(
             self.model,
             self.data,
@@ -1056,9 +1059,23 @@ class KitchenMinimalEnv2(MujocoEnv):
             inplace=False,
         )
 
-        # Apply solved joint positions to first 7 actuators
-        self.data.ctrl[:6] = target_qpos[:6]
-        self.data.ctrl[6] = gripper_val
+        # Current joint positions and velocities
+        qpos = self.data.qpos[joint_indices]
+        qvel = self.data.qvel[joint_indices]
+
+        kp = np.array([20, 20, 10, 5, 2, 2])
+        kd = 2.0 * np.sqrt(kp)
+
+        # Position error
+        q_err = target_qpos[:6] - qpos
+
+        # Torque command
+        tau = kp * q_err - kd * qvel
+
+        self.data.ctrl[:6] = tau
+
+        gripper_ctrl = np.clip(gripper_val, 0.0, 1.0) * 255.0
+        self.data.ctrl[6] = gripper_ctrl
 
         # Step the physics forward.
         mj.mj_step(self.model, self.data, nstep=self._n_steps)
