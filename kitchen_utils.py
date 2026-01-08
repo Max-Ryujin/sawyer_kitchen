@@ -224,6 +224,8 @@ def ik_solve_dm(
     progress_thresh: float = 20.0,
     max_steps: int = 100,
     inplace: bool = True,
+    q_min = None,
+    q_max = None,
 ) -> tuple[np.ndarray, float, int, bool]:
     """Iteratively solve IK for a target site pose. Returns (qpos, err_norm, steps, success)."""
     assert (
@@ -309,5 +311,10 @@ def ik_solve_dm(
         update[:] = 0.0
         update[joint_indices] = dq
         mj.mj_integratePos(model, qpos, update, 1)
+
+        if q_min is not None:
+            qpos[2] = np.maximum(qpos[2], q_min)
+        if q_max is not None:
+            qpos[2] = np.minimum(qpos[2], q_max)
 
     return qpos

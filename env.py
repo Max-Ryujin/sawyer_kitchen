@@ -1057,6 +1057,7 @@ class KitchenMinimalEnv2(MujocoEnv):
             target_quat=target_quat,
             joint_indices=joint_indices,
             inplace=False,
+            q_min=-1,
         )
 
         self.data.ctrl[:6] = target_qpos[:6]

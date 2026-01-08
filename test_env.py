@@ -584,6 +584,7 @@ def pour_policy_v2(env, obs) -> np.ndarray:
         if env._state_counter > 100:
             env._state_counter = 0
             env._quat_offset = np.random.uniform(-0.3, 0.3)
+            print(env._state_counter)
             env._automaton_state = "move_towards"
             env._above_position = target_pos
 
@@ -642,7 +643,7 @@ def pour_policy_v2(env, obs) -> np.ndarray:
         target_quat = [0.61237244, -0.35355338, 0.35355338, 0.61237244]
         target_quat = rotate_quat_around_z(target_quat, env._quat_offset)
 
-        if env._state_counter > 100:
+        if env._state_counter > 150:
             env._state_counter = 0
             env._automaton_state = "move_towards"
 
@@ -652,8 +653,9 @@ def pour_policy_v2(env, obs) -> np.ndarray:
             mj.mj_name2id(model, mj.mjtObj.mjOBJ_JOINT, "lc_close"),
         ]
         forces = np.array([data.qfrc_constraint[i] for i in gripper_joint_ids])
+        print(np.array([data.qfrc_constraint[i] for i in gripper_joint_ids]))
         if (
-            np.linalg.norm(forces) > 5.0
+            np.linalg.norm(forces) > 1.0
             and forces.all() > 0
             and at_target(target_pos, tol=0.05)
         ):
