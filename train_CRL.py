@@ -32,7 +32,7 @@ from agents.gcivl import get_config as get_gcivl_config
 from agents.hiql import HIQLAgent
 from agents.hiql import get_config as get_hiql_config
 from utils.flax_utils import save_agent
-from utils.datasets import GCDataset, Dataset
+from utils.datasets import GCDataset, Dataset, HGCDataset
 from ogbench import load_dataset
 import wandb
 
@@ -45,12 +45,12 @@ def normalize(x, mean, std, eps=1e-5):
 def normalize_observations_selective(x, obs_mean, obs_std, vel_indices, eps=1e-5):
     """
     Selectively normalize only velocity dimensions.
-    
+
     Positions and water particles are already normalized by env.py using fixed bounds.
     Only velocities (unbounded) need dataset-based normalization.
-    
+
     Handles both single observations (1D) and batches (2D).
-    
+
     Args:
         x: observation array (1D or 2D batch, or list)
         obs_mean: mean per dimension
@@ -62,7 +62,9 @@ def normalize_observations_selective(x, obs_mean, obs_std, vel_indices, eps=1e-5
     # Use ... (Ellipsis) to handle both 1D and 2D arrays
     # For 1D: x[..., vel_indices] = x[vel_indices]
     # For 2D: x[..., vel_indices] = x[:, vel_indices]
-    x_norm[..., vel_indices] = (x_norm[..., vel_indices] - obs_mean[vel_indices]) / (obs_std[vel_indices] + eps)
+    x_norm[..., vel_indices] = (x_norm[..., vel_indices] - obs_mean[vel_indices]) / (
+        obs_std[vel_indices] + eps
+    )
     return x_norm.astype(np.float32)
 
 
@@ -80,7 +82,7 @@ def evaluate_agent(
 ):
     if vel_idx is None:
         vel_idx = np.arange(14, 20)
-    
+
     if env is None:
         env = gym.make(
             "KitchenMinimalEnv-v0", render_mode="rgb_array", width=1280, height=960
@@ -97,13 +99,17 @@ def evaluate_agent(
         # Get pouring goal from environment (positions already normalized, velocities are raw)
         goal_arr = env.unwrapped.get_pouring_goal_state()
         # Apply SAME normalization as training: only normalize velocities
-        normalized_goal = normalize_observations_selective(goal_arr, obs_mean, obs_std, vel_idx)
+        normalized_goal = normalize_observations_selective(
+            goal_arr, obs_mean, obs_std, vel_idx
+        )
 
         current_frames = []
         is_success = False
 
         for t in range(steps):
-            normalized_obs = normalize_observations_selective(raw_obs, obs_mean, obs_std, vel_idx)
+            normalized_obs = normalize_observations_selective(
+                raw_obs, obs_mean, obs_std, vel_idx
+            )
 
             action = agent.sample_actions(
                 observations=normalized_obs[None],
@@ -156,13 +162,17 @@ def evaluate_agent(
         # Create moving goal state (positions already normalized, velocities are raw)
         goal_arr = env.unwrapped.create_moving_goal_state()
         # Apply SAME normalization as training: only normalize velocities
-        normalized_goal = normalize_observations_selective(goal_arr, obs_mean, obs_std, vel_idx)
+        normalized_goal = normalize_observations_selective(
+            goal_arr, obs_mean, obs_std, vel_idx
+        )
 
         current_frames = []
         is_success = False
 
         for t in range(steps):
-            normalized_obs = normalize_observations_selective(raw_obs, obs_mean, obs_std, vel_idx)
+            normalized_obs = normalize_observations_selective(
+                raw_obs, obs_mean, obs_std, vel_idx
+            )
             action = agent.sample_actions(
                 observations=normalized_obs[None],
                 goals=normalized_goal[None],
@@ -232,7 +242,9 @@ def evaluate_agent(
         # Goal from dataset is already in normalized format (from training preprocessing)
         goal_arr = val_dataset["observations"][end_idx]
         # Apply SAME normalization as training: only normalize velocities
-        normalized_goal = normalize_observations_selective(goal_arr, obs_mean, obs_std, vel_idx)
+        normalized_goal = normalize_observations_selective(
+            goal_arr, obs_mean, obs_std, vel_idx
+        )
 
         obs, _ = env.reset(options={"randomise_cup_position": False, "minimal": True})
         env.unwrapped.set_state(qpos, qvel)
@@ -245,7 +257,9 @@ def evaluate_agent(
         is_success = False
 
         for t in range(steps):
-            normalized_obs = normalize_observations_selective(raw_obs, obs_mean, obs_std, vel_idx)
+            normalized_obs = normalize_observations_selective(
+                raw_obs, obs_mean, obs_std, vel_idx
+            )
 
             action = agent.sample_actions(
                 observations=normalized_obs[None],
@@ -344,7 +358,7 @@ def main(args):
 
     # Velocity indices in minimal observation: 14-19 (cup0_vel[14:17] and cup1_vel[17:20])
     vel_idx = np.arange(14, 20)
-    
+
     if obs_data.shape[1] == minimal_len:
         obs_mean = np.zeros(obs_data.shape[1], dtype=np.float32)
         obs_std = np.ones(obs_data.shape[1], dtype=np.float32)
@@ -377,10 +391,16 @@ def main(args):
     )
 
     base_train = Dataset.create(**train_dataset_norm)
-    train_dataset = GCDataset(base_train, cfg)
+    if args.agent_type == "HIQL":
+        train_dataset = HGCDataset(base_train, cfg)
+    else:
+        train_dataset = GCDataset(base_train, cfg)
 
     base_val = Dataset.create(**val_dataset_norm)
-    val_dataset = GCDataset(base_val, cfg)
+    if args.agent_type == "HIQL":
+        val_dataset = HGCDataset(base_val, cfg)
+    else:
+        val_dataset = GCDataset(base_val, cfg)
 
     example_batch = train_dataset.sample(1)
 
@@ -417,7 +437,7 @@ def main(args):
             config=cfg,
         )
     elif args.agent_type == "HIQL":
-
+        #        cfg["subgoal_steps"] = 10
         agent = HIQLAgent.create(
             seed=3141,
             ex_observations=example_batch["observations"],
