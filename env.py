@@ -10,7 +10,7 @@ from kitchen_utils import ik_solve_dm
 
 
 """
-=== QPOS / QVEL OVERVIEW ===
+=== OLD QPOS / QVEL OVERVIEW ===
 joint right_j0             | HINGE     | qpos[0], qvel[0]
 joint right_j1             | HINGE     | qpos[1], qvel[1]
 joint right_j2             | HINGE     | qpos[2], qvel[2]
@@ -47,6 +47,54 @@ joint water_balls_freejoint06 | FREE      | qpos[86:93] (x,y,z,quat wxyz), qvel[
 joint water_balls_freejoint07 | FREE      | qpos[93:100] (x,y,z,quat wxyz), qvel[83:89] (lin+ang)
 joint water_balls_freejoint08 | FREE      | qpos[100:107] (x,y,z,quat wxyz), qvel[89:95] (lin+ang)
 joint water_balls_freejoint09 | FREE      | qpos[107:114] (x,y,z,quat wxyz), qvel[95:101] (lin+ang)
+=== END OVERVIEW ===
+"""
+
+
+
+"""
+=== NEW QPOS / QVEL OVERVIEW FOR THE NEW ROBOT ===
+joint shoulder_pan_joint       | HINGE     | qpos[0], qvel[0]
+joint shoulder_lift_joint      | HINGE     | qpos[1], qvel[1]
+joint elbow_joint              | HINGE     | qpos[2], qvel[2]
+joint wrist_1_joint            | HINGE     | qpos[3], qvel[3]
+joint wrist_2_joint            | HINGE     | qpos[4], qvel[4]
+joint wrist_3_joint            | HINGE     | qpos[5], qvel[5]
+joint robotiq_right_driver_joint | HINGE     | qpos[6], qvel[6]
+joint robotiq_right_coupler_joint | HINGE     | qpos[7], qvel[7]
+joint robotiq_right_spring_link_joint | HINGE     | qpos[8], qvel[8]
+joint robotiq_right_follower_joint | HINGE     | qpos[9], qvel[9]
+joint robotiq_left_driver_joint | HINGE     | qpos[10], qvel[10]
+joint robotiq_left_coupler_joint | HINGE     | qpos[11], qvel[11]
+joint robotiq_left_spring_link_joint | HINGE     | qpos[12], qvel[12]
+joint robotiq_left_follower_joint | HINGE     | qpos[13], qvel[13]
+joint knob_Joint_1             | HINGE     | qpos[14], qvel[14]
+joint burner_Joint_1           | SLIDE     | qpos[15], qvel[15]
+joint knob_Joint_2             | HINGE     | qpos[16], qvel[16]
+joint burner_Joint_2           | SLIDE     | qpos[17], qvel[17]
+joint knob_Joint_3             | HINGE     | qpos[18], qvel[18]
+joint burner_Joint_3           | SLIDE     | qpos[19], qvel[19]
+joint knob_Joint_4             | HINGE     | qpos[20], qvel[20]
+joint burner_Joint_4           | SLIDE     | qpos[21], qvel[21]
+joint lightswitch_joint        | HINGE     | qpos[22], qvel[22]
+joint light_joint              | SLIDE     | qpos[23], qvel[23]
+joint slidedoor_joint          | SLIDE     | qpos[24], qvel[24]
+joint leftdoorhinge            | HINGE     | qpos[25], qvel[25]
+joint rightdoorhinge           | HINGE     | qpos[26], qvel[26]
+joint microjoint               | HINGE     | qpos[27], qvel[27]
+joint kettle_freejoint         | FREE      | qpos[28:35] (x,y,z,quat wxyz), qvel[28:34] (lin+ang)
+joint cup_freejoint0           | FREE      | qpos[35:42] (x,y,z,quat wxyz), qvel[34:40] (lin+ang)
+joint cup_freejoint1           | FREE      | qpos[42:49] (x,y,z,quat wxyz), qvel[40:46] (lin+ang)
+joint water_balls_freejoint00  | FREE      | qpos[49:56] (x,y,z,quat wxyz), qvel[46:52] (lin+ang)
+joint water_balls_freejoint01  | FREE      | qpos[56:63] (x,y,z,quat wxyz), qvel[52:58] (lin+ang)
+joint water_balls_freejoint02  | FREE      | qpos[63:70] (x,y,z,quat wxyz), qvel[58:64] (lin+ang)
+joint water_balls_freejoint03  | FREE      | qpos[70:77] (x,y,z,quat wxyz), qvel[64:70] (lin+ang)
+joint water_balls_freejoint04  | FREE      | qpos[77:84] (x,y,z,quat wxyz), qvel[70:76] (lin+ang)
+joint water_balls_freejoint05  | FREE      | qpos[84:91] (x,y,z,quat wxyz), qvel[76:82] (lin+ang)
+joint water_balls_freejoint06  | FREE      | qpos[91:98] (x,y,z,quat wxyz), qvel[82:88] (lin+ang)
+joint water_balls_freejoint07  | FREE      | qpos[98:105] (x,y,z,quat wxyz), qvel[88:94] (lin+ang)
+joint water_balls_freejoint08  | FREE      | qpos[105:112] (x,y,z,quat wxyz), qvel[94:100] (lin+ang)
+joint water_balls_freejoint09  | FREE      | qpos[112:119] (x,y,z,quat wxyz), qvel[100:106] (lin+ang)
 === END OVERVIEW ===
 """
 
@@ -1044,19 +1092,19 @@ class KitchenMinimalEnv2(MujocoEnv):
             task_space_obs = self._get_task_space_obs()  # 8D: xyz_norm + quat + gripper
 
             # Normalize cup positions using workspace bounds
-            cup0_pos_norm = self._normalize_position(qpos[30:33])
-            cup1_pos_norm = self._normalize_position(qpos[37:40])
+            cup0_pos_norm = self._normalize_position(qpos[35:38])
+            cup1_pos_norm = self._normalize_position(qpos[42:45])
 
             # Cup velocities (not normalized, use as-is)
-            cup0_vel = qvel[29:32]
-            cup1_vel = qvel[35:38]
+            cup0_vel = qvel[34:37]
+            cup1_vel = qvel[40:43]
 
             # Water particle positions and velocities (qpos[44:] and qvel[41:])
             # Normalize water particle positions
             water_qpos_norm_list = []
             num_particles = 10
             for i in range(num_particles):
-                water_pos_idx = 44 + (i * 7)
+                water_pos_idx = 49 + (i * 7)
                 water_pos = qpos[water_pos_idx : water_pos_idx + 3]
                 water_pos_norm = self._normalize_position(water_pos)
                 water_qpos_norm_list.append(water_pos_norm)
@@ -1124,8 +1172,8 @@ class KitchenMinimalEnv2(MujocoEnv):
             pos_tol: Euclidean distance tolerance for position.
             rot_tol: Tolerance for upright orientation (1.0 = perfect, 0.0 = 90 deg tilt).
         """
-        curr_pos = self.data.qpos[30:33]
-        curr_quat = self.data.qpos[33:37]
+        curr_pos = self.data.qpos[35:38]
+        curr_quat = self.data.qpos[38:42]
 
         # In the new minimal observation layout the target cup position is at
         # indices 8:11 (task_space_obs 0:8, cup0_pos 8:11, cup1_pos 11:14, ...)
