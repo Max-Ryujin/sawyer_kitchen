@@ -516,7 +516,7 @@ def pour_policy_v2(env, obs) -> np.ndarray:
         if dot < 0.0:
             target_quat = -target_quat
             dot = -dot
-        
+
         # Clip dot product to prevent arccos from returning NaN
         dot = np.clip(dot, -1.0, 1.0)
 
@@ -531,10 +531,10 @@ def pour_policy_v2(env, obs) -> np.ndarray:
         # Calculate interpolation weights
         theta = theta_0 * factor
         sin_theta = np.sin(theta)
-        
+
         # Check for sin_theta_0 being close to zero to avoid division by zero
         if np.abs(sin_theta_0) < 1e-6:
-             return current_quat
+            return current_quat
 
         # Perform spherical linear interpolation
         s0 = np.cos(theta) - dot * sin_theta / sin_theta_0
@@ -1004,6 +1004,8 @@ def run_single_episode(
 
     moves_completed = 0
     policy_mode = "moving" if move_operations > 0 else "pouring"
+    # For testing:
+    policy_mode = "moving"
     done2 = False
     cup = np.random.choice(np.array([0, 1]))
 
@@ -1024,7 +1026,8 @@ def run_single_episode(
                 moves_completed += 1
                 if moves_completed == move_operations:
                     if perform_pouring:
-                        policy_mode = "pouring"
+                        #   policy_mode = "pouring"  (For testing)
+                        done2 = True
                     else:
                         done2 = True
                 else:

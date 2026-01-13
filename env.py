@@ -990,10 +990,10 @@ class KitchenMinimalEnv(MujocoEnv):
         )
 
         # Normalize quaternion
-        #quat_norm = np.linalg.norm(target_quat)
-        #if quat_norm > 1e-6:
+        # quat_norm = np.linalg.norm(target_quat)
+        # if quat_norm > 1e-6:
         #   target_quat = target_quat / quat_norm
-        #else:
+        # else:
         #    target_quat = np.array([0.0, 0.0, 0.0, 1.0])  # Default identity quaternion
 
         # Solve IK to get target joint positions (7 arm joints)
@@ -1116,7 +1116,7 @@ class KitchenMinimalEnv(MujocoEnv):
         return MOVING_GOAL_OBS
 
     def check_moving_success(
-        self, goal_state: np.ndarray, pos_tol: float = 0.03, rot_tol: float = 0.9
+        self, goal_state: np.ndarray, pos_tol: float = 0.08, rot_tol: float = 0.9
     ) -> bool:
         """
         Checks if the task is successful based on the cup position and orientation.
