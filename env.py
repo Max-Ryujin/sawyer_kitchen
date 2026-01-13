@@ -519,8 +519,8 @@ class KitchenMinimalEnv(MujocoEnv):
                 self.nu, 2
             )
 
-        # Task-space action: [x, y, z, qx, qy, qz, qw, gripper]
-        # All normalized to [-1, 1]: xyz position, quaternion (4D), and gripper [0, 1]
+        # Task-space action simplified: [x, y, z, gripper]
+        # All normalized to [-1, 1]: xyz position,and gripper [0, 1]
         # Workspace bounds for denormalization: x: [-1.5, 0], y: [-2.5, 0], z: [1.5, 3]
         self.workspace_bounds = {
             "x": np.array([-1.5, 0.0]),
@@ -532,11 +532,9 @@ class KitchenMinimalEnv(MujocoEnv):
         self._normalize_position = self._make_position_normalizer()
 
         self.action_space = spaces.Box(
-            low=np.array(
-                [-1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, 0.0], dtype=np.float32
-            ),
-            high=np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], dtype=np.float32),
-            shape=(8,),
+            low=np.array([-1.0, -1.0, -1.0, 0.0], dtype=np.float32),
+            high=np.array([1.0, 1.0, 1.0, 1.0], dtype=np.float32),
+            shape=(4,),
             dtype=np.float32,
         )
 
@@ -628,9 +626,9 @@ class KitchenMinimalEnv(MujocoEnv):
         return normalize_position
 
     def _get_task_space_obs(self):
-        """Get current task-space representation as 8D action-like observation.
+        """Get current task-space representation as 4D action-like observation.
 
-        Returns 8D array: [x_norm, y_norm, z_norm, qx, qy, qz, qw, gripper]
+        Returns 4D array: [x_norm, y_norm, z_norm, gripper]
         where positions are normalized to [-1, 1] and gripper is in [0, 1].
         """
         # Get current end-effector position and orientation from grip_site
@@ -638,12 +636,8 @@ class KitchenMinimalEnv(MujocoEnv):
         if grip_site_id == -1:
             # Fallback: use last 7 joint forward kinematics
             ee_pos = np.array([0.0, 0.0, 0.0])
-            ee_quat = np.array([0.0, 0.0, 0.0, 1.0])
         else:
             ee_pos = self.data.site_xpos[grip_site_id].copy()
-            ee_quat = self.data.site_xmat[grip_site_id].reshape(3, 3)
-            # Convert rotation matrix to quaternion (wxyz)
-            ee_quat = self._rot_matrix_to_quat(ee_quat)
 
         # Normalize position using workspace bounds
         pos_norm = self._normalize_position(ee_pos)
@@ -652,43 +646,9 @@ class KitchenMinimalEnv(MujocoEnv):
         gripper_pos = (self.data.qpos[7] + self.data.qpos[8]) / 2.0
         gripper_norm = np.clip(gripper_pos / 0.015, 0.0, 1.0)
 
-        task_space_obs = np.concatenate([pos_norm, ee_quat, [gripper_norm]]).astype(
-            np.float32
-        )
+        task_space_obs = np.concatenate([pos_norm, [gripper_norm]]).astype(np.float32)
 
         return task_space_obs
-
-    def _rot_matrix_to_quat(self, rot_mat):
-        """Convert 3x3 rotation matrix to quaternion (wxyz format)."""
-        # Compute quaternion from rotation matrix using Shepperd's method
-        trace = np.trace(rot_mat)
-
-        if trace > 0:
-            s = 0.5 / np.sqrt(trace + 1.0)
-            w = 0.25 / s
-            x = (rot_mat[2, 1] - rot_mat[1, 2]) * s
-            y = (rot_mat[0, 2] - rot_mat[2, 0]) * s
-            z = (rot_mat[1, 0] - rot_mat[0, 1]) * s
-        elif rot_mat[0, 0] > rot_mat[1, 1] and rot_mat[0, 0] > rot_mat[2, 2]:
-            s = 2.0 * np.sqrt(1.0 + rot_mat[0, 0] - rot_mat[1, 1] - rot_mat[2, 2])
-            w = (rot_mat[2, 1] - rot_mat[1, 2]) / s
-            x = 0.25 * s
-            y = (rot_mat[0, 1] + rot_mat[1, 0]) / s
-            z = (rot_mat[0, 2] + rot_mat[2, 0]) / s
-        elif rot_mat[1, 1] > rot_mat[2, 2]:
-            s = 2.0 * np.sqrt(1.0 + rot_mat[1, 1] - rot_mat[0, 0] - rot_mat[2, 2])
-            w = (rot_mat[0, 2] - rot_mat[2, 0]) / s
-            x = (rot_mat[0, 1] + rot_mat[1, 0]) / s
-            y = 0.25 * s
-            z = (rot_mat[1, 2] + rot_mat[2, 1]) / s
-        else:
-            s = 2.0 * np.sqrt(1.0 + rot_mat[2, 2] - rot_mat[0, 0] - rot_mat[1, 1])
-            w = (rot_mat[1, 0] - rot_mat[0, 1]) / s
-            x = (rot_mat[0, 2] + rot_mat[2, 0]) / s
-            y = (rot_mat[1, 2] + rot_mat[2, 1]) / s
-            z = 0.25 * s
-
-        return np.array([w, x, y, z], dtype=np.float32)
 
     def get_random_robot_qpos(self):
         """Sample a random robot qpos within joint limits."""
@@ -970,8 +930,7 @@ class KitchenMinimalEnv(MujocoEnv):
         # Parse task-space action: [x, y, z, qx, qy, qz, qw, gripper]
         # Note: xyz are normalized to [-1, 1], denormalize using workspace bounds
         action_xyz_norm = action[:3]
-        target_quat = action[3:7]
-        gripper_val = action[7]
+        gripper_val = action[3]
 
         # Denormalize xyz from [-1, 1] to workspace bounds
         bounds_x = self.workspace_bounds["x"]
@@ -989,13 +948,6 @@ class KitchenMinimalEnv(MujocoEnv):
             ]
         )
 
-        # Normalize quaternion
-        # quat_norm = np.linalg.norm(target_quat)
-        # if quat_norm > 1e-6:
-        #   target_quat = target_quat / quat_norm
-        # else:
-        #    target_quat = np.array([0.0, 0.0, 0.0, 1.0])  # Default identity quaternion
-
         # Solve IK to get target joint positions (7 arm joints)
         joint_indices = np.arange(7)  # 7 arm joints
         target_qpos = ik_solve_dm(
@@ -1003,7 +955,7 @@ class KitchenMinimalEnv(MujocoEnv):
             self.data,
             site_name="grip_site",
             target_pos=target_pos,
-            target_quat=target_quat,
+            target_quat=[1, 0, 0, 1],
             joint_indices=joint_indices,
             inplace=False,
         )
@@ -1044,7 +996,7 @@ class KitchenMinimalEnv(MujocoEnv):
 
         if minimal:
             # plus normalized cup/water particle positions and their velocities
-            task_space_obs = self._get_task_space_obs()  # 8D: xyz_norm + quat + gripper
+            task_space_obs = self._get_task_space_obs()  # 8D: xyz_norm + gripper
 
             # Normalize cup positions using workspace bounds
             cup0_pos_norm = self._normalize_position(qpos[30:33])
@@ -1054,17 +1006,6 @@ class KitchenMinimalEnv(MujocoEnv):
             cup0_vel = qvel[29:32]
             cup1_vel = qvel[35:38]
 
-            # Water particle positions and velocities (qpos[44:] and qvel[41:])
-            # Normalize water particle positions
-            water_qpos_norm_list = []
-            num_particles = 10
-            for i in range(num_particles):
-                water_pos_idx = 44 + (i * 7)
-                water_pos = qpos[water_pos_idx : water_pos_idx + 3]
-                water_pos_norm = self._normalize_position(water_pos)
-                water_qpos_norm_list.append(water_pos_norm)
-            water_qpos_norm = np.concatenate(water_qpos_norm_list)
-
             obs = np.concatenate(
                 [
                     task_space_obs,  # 8D
@@ -1072,7 +1013,6 @@ class KitchenMinimalEnv(MujocoEnv):
                     cup1_pos_norm,  # 3D (normalized)
                     cup0_vel,  # 3D
                     cup1_vel,  # 3D
-                    water_qpos_norm,  # num_particles * 3 (normalized)
                 ]
             ).astype(np.float32)
         return obs
