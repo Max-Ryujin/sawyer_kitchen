@@ -1004,8 +1004,6 @@ def run_single_episode(
 
     moves_completed = 0
     policy_mode = "moving" if move_operations > 0 else "pouring"
-    # For testing:
-    policy_mode = "moving"
     done2 = False
     cup = np.random.choice(np.array([0, 1]))
 
@@ -1026,8 +1024,7 @@ def run_single_episode(
                 moves_completed += 1
                 if moves_completed == move_operations:
                     if perform_pouring:
-                        #   policy_mode = "pouring"  (For testing)
-                        done2 = True
+                        policy_mode = "pouring"
                     else:
                         done2 = True
                 else:
