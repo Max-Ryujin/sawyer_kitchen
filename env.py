@@ -99,140 +99,25 @@ INIT_QPOS = np.array(
     ]
 )
 
-GOAL_JOINTS = [
-    1.0328614711761475,
-    -0.30165818333625793,
-    2.068722724914551,
-    -1.1879557371139526,
-    1.174445629119873,
-    -2.5215463638305664,
-    -1.2182813882827759,
-    0.01867654360830784,
-    0.018937133252620697,
-]
-
-GOAL_STATE = [
-    1.07545805e00,
-    -3.45810235e-01,
-    2.12984538e00,
-    -1.11880410e00,
-    1.32228053e00,
-    -2.49284577e00,
-    -9.52631652e-01,
-    1.86824538e-02,
-    1.89980175e-02,
-    -5.04269898e-02,
-    -1.70732401e-02,
-    1.31066039e-01,
-    -1.31743038e-02,
-    3.54583524e-02,
-    -1.72494531e-01,
-    9.97730568e-02,
-    1.51158994e-04,
-    -1.77415219e-04,
-    -5.99206924e-01,
-    -7.99567699e-01,
-    1.58896220e00,
-    9.99796391e-01,
-    8.91402306e-04,
-    -6.78929791e-05,
-    2.01592017e-02,
-    -5.94504178e-01,
-    -9.06082630e-01,
-    1.72596216e00,
-    6.02466166e-01,
-    -7.95019090e-01,
-    -1.67549141e-02,
-    -6.85448870e-02,
-    -6.01585090e-01,
-    -8.22981358e-01,
-    1.68080163e00,
-    6.86983585e-01,
-    -7.16947675e-01,
-    -7.16830939e-02,
-    9.43460166e-02,
-    -5.96832573e-01,
-    -7.94919491e-01,
-    1.61637115e00,
-    2.40278896e-02,
-    -3.01388592e-01,
-    -1.10549189e-01,
-    -9.46766317e-01,
-    -5.93187511e-01,
-    -7.83918083e-01,
-    1.61267149e00,
-    -2.74654448e-01,
-    -2.81748533e-01,
-    1.48824334e-01,
-    9.07212198e-01,
-    -5.92452705e-01,
-    -8.11384082e-01,
-    1.66036189e00,
-    -1.69055730e-01,
-    7.95042813e-01,
-    -5.18276691e-01,
-    2.65925527e-01,
-    -6.01209283e-01,
-    -8.58185172e-01,
-    1.69537389e00,
-    3.89461875e-01,
-    -5.64100325e-01,
-    5.33016622e-01,
-    -4.95987475e-01,
-    -5.96812725e-01,
-    -8.03222537e-01,
-    1.64823198e00,
-    9.07635242e-02,
-    7.68257141e-01,
-    -2.59039879e-01,
-    5.78309000e-01,
-    -6.10493064e-01,
-    -7.84668565e-01,
-    1.61266506e00,
-    -8.65852475e-01,
-    -1.72842279e-01,
-    -3.19054574e-01,
-    -3.44425917e-01,
-    -5.84101558e-01,
-    -7.88053215e-01,
-    1.61259270e00,
-    7.25094259e-01,
-    2.09179133e-01,
-    6.55796170e-01,
-    2.03413237e-02,
-    -6.15491152e-01,
-    -8.02469015e-01,
-    1.61277854e00,
-    -1.81121320e-01,
-    8.22195351e-01,
-    5.08990586e-01,
-    -1.79216087e-01,
-    -6.02438390e-01,
-    -8.12050045e-01,
-    1.66211891e00,
-    -2.57646907e-02,
-    4.36448872e-01,
-    1.97745025e-01,
-    8.77351403e-01,
-    -1.41050527e-03,
-    -7.47250393e-04,
-    2.47015897e-03,
-    -2.67232396e-02,
-    4.03264761e-02,
-    2.43832730e-03,
-    -1.15214223e-02,
-    -3.21231522e-02,
-    4.17195596e-02,
-    -2.77386099e-01,
-    -3.38911787e-02,
-    -3.19476947e-02,
-]
 
 MOVING_GOAL_OBS = [
-    -6.2172598e-01, -1.0324105e+00,  1.6803766e+00,  6.3820744e-01,
- -6.0000002e-01, -8.0000001e-01,  1.5888259e+00, -6.1558366e-01,
- -1.0116936e+00,  1.5836903e+00,  0.0000000e+00,  0.0000000e+00,
-  3.2276634e-14, -4.0823035e-03, -3.4727168e-03,  8.1561260e-02]
+    -6.2172598e-01,
+    -1.0324105e00,
+    1.6803766e00,
+    6.3820744e-01,
+    -6.0000002e-01,
+    -8.0000001e-01,
+    1.5888259e00,
+    -6.1558366e-01,
+    -1.0116936e00,
+    1.5836903e00,
+    0.0000000e00,
+    0.0000000e00,
+    3.2276634e-14,
+    -4.0823035e-03,
+    -3.4727168e-03,
+    8.1561260e-02,
+]
 
 
 POUR_GOAL_OBS = [
@@ -288,131 +173,7 @@ POUR_GOAL_OBS = [
     -7.5649911e-01,
 ]
 
-MOVING_GOAL_STATE = [
-    2.159642457962036,
-    -0.10995837301015854,
-    1.5188195705413818,
-    -1.471531629562378,
-    1.076535701751709,
-    -1.3156180381774902,
-    -0.697909951210022,
-    0.009322389028966427,
-    0.009459411725401878,
-    0.07799883186817169,
-    0.2097632884979248,
-    0.24370022118091583,
-    -0.2910488545894623,
-    0.14127174019813538,
-    0.1319103240966797,
-    0.25795871019363403,
-    -0.05900793522596359,
-    -0.059946853667497635,
-    -0.5267668962478638,
-    -0.9562153816223145,
-    1.5801501274108887,
-    0.9984312057495117,
-    -0.03856143355369568,
-    0.03994974493980408,
-    -0.007226120680570602,
-    -0.8000472187995911,
-    -1.1000237464904785,
-    1.5889480113983154,
-    0.9999995231628418,
-    8.086483285296708e-05,
-    -0.0009184352238662541,
-    0.00028437477885745466,
-    -0.8119636178016663,
-    -1.1021802425384521,
-    1.6126853227615356,
-    0.7789384722709656,
-    0.6046792268753052,
-    -0.013668391853570938,
-    -0.16562329232692719,
-    -0.7986109256744385,
-    -1.1152387857437134,
-    1.6127070188522339,
-    0.5592268705368042,
-    0.5389202833175659,
-    -0.627842366695404,
-    -0.05142202600836754,
-    -0.7848583459854126,
-    -1.101852297782898,
-    1.6127344369888306,
-    0.5282660126686096,
-    0.4182727038860321,
-    0.7361798286437988,
-    0.0634213536977768,
-    -0.8054980039596558,
-    -1.0851140022277832,
-    1.6127002239227295,
-    0.4111011028289795,
-    -0.5848034620285034,
-    -0.6529611349105835,
-    0.25028496980667114,
-    -0.8140132427215576,
-    -1.091016411781311,
-    1.6126837730407715,
-    0.9921442270278931,
-    -0.10417235642671585,
-    0.0673166811466217,
-    0.016321102157235146,
-    -0.8085049986839294,
-    -1.1137375831604004,
-    1.61268949508667,
-    -0.38063672184944153,
-    0.7345278263092041,
-    -0.39539316296577454,
-    -0.39905986189842224,
-    -0.7901497483253479,
-    -1.0851787328720093,
-    1.6127279996871948,
-    -0.14813897013664246,
-    -0.9648413062095642,
-    0.21688757836818695,
-    -0.00979399774223566,
-    -0.7937706112861633,
-    -1.1064852476119995,
-    1.6127175092697144,
-    -0.03492381051182747,
-    0.7362642288208008,
-    0.599088191986084,
-    -0.3127117156982422,
-    -0.7922301292419434,
-    -1.0949842929840088,
-    1.612722396850586,
-    0.7833766937255859,
-    -0.35952121019363403,
-    0.5008659958839417,
-    -0.0787319466471672,
-    -0.7862828373908997,
-    -1.1147964000701904,
-    1.6127294301986694,
-    0.9410353899002075,
-    0.23408016562461853,
-    0.24400077760219574,
-    0.011068851687014103,
-    0.016990942880511284,
-    0.018744247034192085,
-    0.08126810193061829,
-    1.2619215250015259,
-    -1.1199562549591064,
-    0.007560721132904291,
-    8.360292122233659e-05,
-    -0.0003339182585477829,
-    0.0005906213191337883,
-    -0.023027963936328888,
-    -0.010386912152171135,
-    0.0009183932561427355,
-]
-
 MODEL_XML_PATH = os.path.join(os.path.dirname(__file__), "kitchen", "kitchen.xml")
-
-# DEFAULT_CAMERA_CONFIG = {
-#    "distance": 2.2,
-#    "azimuth": 200.0,
-#    "elevation": -35.0,
-#    "lookat": np.array([-0.65, -0.65, 1.75]),
-# }
 
 DEFAULT_CAMERA_CONFIG = {
     "distance": 1.8,
@@ -662,6 +423,17 @@ class KitchenMinimalEnv(MujocoEnv):
         seed: Optional[int] = None,
         options: Optional[dict] = None,
     ) -> Tuple[np.ndarray, Dict]:
+        """
+        Reset the environment to a starting state.
+
+        Args:
+            seed: RNG seed.
+            options: Dictionary containing 'randomise_cup_position' (bool)
+                     and 'minimal' (bool) flags.
+
+        Returns:
+            Tuple[np.ndarray, Dict]: Initial observation and info dictionary.
+        """
         super().reset(seed=seed)
 
         randomise_cup_position = (
@@ -689,50 +461,56 @@ class KitchenMinimalEnv(MujocoEnv):
         if randomise_cup_position:
             self.randomise_cup_position()
         else:
-            cup_joint_ids = []
-            for j in range(int(self.model.njnt)):
-                name = mj.mj_id2name(self.model, mj.mjtObj.mjOBJ_JOINT, j)
-                if name and "cup_freejoint" in name:
-                    cup_joint_ids.append(int(j))
-            qpos = np.array(self.data.qpos).reshape(-1)
-            qvel = np.array(self.data.qvel).reshape(-1)
-            cup_jid_for_water = cup_joint_ids[1]
-            cup_qpos_addr = int(self.model.jnt_qposadr[cup_jid_for_water])
-            cup_pos = np.copy(self.data.qpos[cup_qpos_addr : cup_qpos_addr + 3])
-            water_joint_ids = []
-            for j in range(int(self.model.njnt)):
-                name = mj.mj_id2name(self.model, mj.mjtObj.mjOBJ_JOINT, j)
-                if name and "water_balls_freejoint" in name:
-                    water_joint_ids.append(int(j))
-
-            for i, jid in enumerate(water_joint_ids):
-                qpos_addr = int(self.model.jnt_qposadr[jid])
-                x = cup_pos[0] + self.np_random.uniform(-0.01, 0.01)
-                y = cup_pos[1] + self.np_random.uniform(-0.01, 0.01)
-                z = cup_pos[2] + 0.02 + i * 0.02 + self.np_random.uniform(0.01, 0.015)
-
-                qpos[qpos_addr : qpos_addr + 3] = np.array([x, y, z])
-
-                if qpos_addr + 7 <= qpos.shape[0]:
-                    qpos[qpos_addr + 3 : qpos_addr + 7] = np.array([1.0, 0.0, 0.0, 0.0])
-
-                if jid < int(self.model.njnt):
-                    vel_addr = int(self.model.jnt_dofadr[jid])
-                    # freejoint has 6 dofs (3 lin, 3 ang)
-                    qvel[vel_addr : vel_addr + 6] = 0.0
-                    # give some initial downward velocity
-                    qvel[vel_addr + 2] = self.np_random.uniform(-0.2, -0.15)
-
-            # Apply state and forward simulate so data.geom_xpos update
-            self.set_state(qpos, qvel)
-            mj.mj_forward(self.model, self.data)
-            self._update_water_particle_positions()
+            self._reset_water_in_cups()
 
         obs = self.compute_observation(minimal=minimal)
-        info = {}
-        return obs, info
+        return obs, {}
+
+    def _reset_water_in_cups(self):
+        """Helper to reset water particles into the cups."""
+        cup_joint_ids = []
+        for j in range(int(self.model.njnt)):
+            name = mj.mj_id2name(self.model, mj.mjtObj.mjOBJ_JOINT, j)
+            if name and "cup_freejoint" in name:
+                cup_joint_ids.append(int(j))
+
+        qpos = np.array(self.data.qpos).reshape(-1)
+        qvel = np.array(self.data.qvel).reshape(-1)
+
+        # Use the second cup for water initialization
+        cup_jid_for_water = cup_joint_ids[1]
+        cup_qpos_addr = int(self.model.jnt_qposadr[cup_jid_for_water])
+        cup_pos = np.copy(self.data.qpos[cup_qpos_addr : cup_qpos_addr + 3])
+
+        water_joint_ids = [
+            j
+            for j in range(int(self.model.njnt))
+            if "water_balls_freejoint"
+            in mj.mj_id2name(self.model, mj.mjtObj.mjOBJ_JOINT, j)
+        ]
+
+        for i, jid in enumerate(water_joint_ids):
+            qpos_addr = int(self.model.jnt_qposadr[jid])
+            x = cup_pos[0] + self.np_random.uniform(-0.01, 0.01)
+            y = cup_pos[1] + self.np_random.uniform(-0.01, 0.01)
+            z = cup_pos[2] + 0.02 + i * 0.02 + self.np_random.uniform(0.01, 0.015)
+
+            qpos[qpos_addr : qpos_addr + 3] = np.array([x, y, z])
+
+            if qpos_addr + 7 <= qpos.shape[0]:
+                qpos[qpos_addr + 3 : qpos_addr + 7] = np.array([1.0, 0.0, 0.0, 0.0])
+
+            if jid < int(self.model.njnt):
+                vel_addr = int(self.model.jnt_dofadr[jid])
+                qvel[vel_addr : vel_addr + 6] = 0.0
+                qvel[vel_addr + 2] = self.np_random.uniform(-0.2, -0.15)
+
+        self.set_state(qpos, qvel)
+        mj.mj_forward(self.model, self.data)
+        self._update_water_particle_positions()
 
     def randomise_cup_position(self):
+        """Randomize the positions of the cups and place water particles accordingly."""
         qpos = np.array(self.data.qpos).reshape(-1)
         qvel = np.array(self.data.qvel).reshape(-1)
 
@@ -752,40 +530,7 @@ class KitchenMinimalEnv(MujocoEnv):
 
         # Apply full state so MuJoCo updates positions
         self.set_state(qpos, qvel)
-
-        cup_jid_for_water = cup_joint_ids[1]
-        cup_qpos_addr = int(self.model.jnt_qposadr[cup_jid_for_water])
-        cup_pos = np.copy(self.data.qpos[cup_qpos_addr : cup_qpos_addr + 3])
-
-        water_joint_ids = []
-        for j in range(int(self.model.njnt)):
-            name = mj.mj_id2name(self.model, mj.mjtObj.mjOBJ_JOINT, j)
-            if name and "water_balls_freejoint" in name:
-                water_joint_ids.append(int(j))
-
-        for i, jid in enumerate(water_joint_ids):
-            qpos_addr = int(self.model.jnt_qposadr[jid])
-            x = cup_pos[0] + self.np_random.uniform(-0.01, 0.01)
-            y = cup_pos[1] + self.np_random.uniform(-0.01, 0.01)
-            z = cup_pos[2] + 0.02 + i * 0.02 + self.np_random.uniform(0.01, 0.015)
-
-            qpos[qpos_addr : qpos_addr + 3] = np.array([x, y, z])
-
-            if qpos_addr + 7 <= qpos.shape[0]:
-                qpos[qpos_addr + 3 : qpos_addr + 7] = np.array([1.0, 0.0, 0.0, 0.0])
-
-            if jid < int(self.model.njnt):
-                vel_addr = int(self.model.jnt_dofadr[jid])
-                # freejoint has 6 dofs (3 lin, 3 ang)
-                qvel[vel_addr : vel_addr + 6] = 0.0
-                # give some initial downward velocity
-                qvel[vel_addr + 2] = self.np_random.uniform(-0.2, -0.15)
-
-        # Apply state and forward simulate so data.geom_xpos update
-        self.set_state(qpos, qvel)
-        mj.mj_forward(self.model, self.data)
-        # update tracked water particle world positions now
-        self._update_water_particle_positions()
+        self._reset_water_in_cups()
 
     def reset_model(self):
         qpos = self.init_qpos
@@ -799,7 +544,7 @@ class KitchenMinimalEnv(MujocoEnv):
         """Set the physics and control timesteps for the environment.
 
         The physics timestep will be assigned to the MjModel during compilation. The control timestep is used to
-        determine the number of physics steps to take per control step.
+        determine the number of physics steps to take per control step. (Taken from ogbench env)
         """
         # Check timesteps divisible.
         n_steps = control_timestep / physics_timestep
@@ -818,6 +563,7 @@ class KitchenMinimalEnv(MujocoEnv):
     def get_particles_in_cups(self) -> Tuple[int, int]:
         """
         Track how many water particles are in each cup, accounting for cup rotation.
+        Used for goal check.
 
         Returns:
             Tuple[int, int]: Number of particles in both cups (cup0, cup1)
@@ -970,16 +716,18 @@ class KitchenMinimalEnv(MujocoEnv):
             ).astype(np.float32)
         return obs
 
-    def _get_obs(self):  # not used I think
+    def _get_obs(self):  # not used
         qpos = np.array(self.data.qpos).reshape(-1)
         qvel = np.array(self.data.qvel).reshape(-1)
         obs = np.concatenate([qpos, qvel]).astype(np.float32)
         return obs
 
     def _compute_reward(self, obs: np.ndarray, action: np.ndarray) -> float:
+        # not needed for current RL
         return 1.0 if self.get_particles_in_cups()[0] == 10 else 0.0
 
     def _is_terminated(self, obs: np.ndarray) -> bool:
+        # change condition to make dataset generation faster
         return True if self.get_particles_in_cups()[0] >= 5 else False
 
     def close(self):
