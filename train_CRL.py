@@ -42,30 +42,6 @@ def normalize(x, mean, std, eps=1e-5):
     return (x - mean) / (std + eps)
 
 
-def normalize_observations_selective(x, obs_mean, obs_std, vel_indices, eps=1e-5):
-    """
-    Selectively normalize only velocity dimensions.
-
-    Positions and water particles are already normalized by env.py using fixed bounds.
-    Only velocities (unbounded) need dataset-based normalization.
-
-    Handles both single observations (1D) and batches (2D).
-
-    Args:
-        x: observation array (1D or 2D batch, or list)
-        obs_mean: mean per dimension
-        obs_std: std per dimension
-        vel_indices: indices of velocity dimensions to normalize
-        eps: small constant for numerical stability
-    """
-    x_norm = np.asarray(x, dtype=np.float32).copy()
-    # Use ... (Ellipsis) to handle both 1D and 2D arrays
-    # For 1D: x[..., vel_indices] = x[vel_indices]
-    # For 2D: x[..., vel_indices] = x[:, vel_indices]
-    x_norm[..., vel_indices] = (x_norm[..., vel_indices] - obs_mean[vel_indices]) / (
-        obs_std[vel_indices] + eps
-    )
-    return x_norm.astype(np.float32)
 
 
 def evaluate_agent(
@@ -99,21 +75,16 @@ def evaluate_agent(
         # Get pouring goal from environment (positions already normalized, velocities are raw)
         goal_arr = env.unwrapped.get_pouring_goal_state()
         # Apply SAME normalization as training: only normalize velocities
-        normalized_goal = normalize_observations_selective(
-            goal_arr, obs_mean, obs_std, vel_idx
-        )
+
 
         current_frames = []
         is_success = False
 
         for t in range(steps):
-            normalized_obs = normalize_observations_selective(
-                raw_obs, obs_mean, obs_std, vel_idx
-            )
 
             action = agent.sample_actions(
-                observations=normalized_obs[None],
-                goals=normalized_goal[None],
+                observations=raw_obs[None],
+                goals=goal_arr[None],
                 temperature=0.0,
                 seed=jax.random.PRNGKey(i * 10000 + t),
             )
@@ -161,21 +132,15 @@ def evaluate_agent(
 
         # Create moving goal state (positions already normalized, velocities are raw)
         goal_arr = env.unwrapped.create_moving_goal_state()
-        # Apply SAME normalization as training: only normalize velocities
-        normalized_goal = normalize_observations_selective(
-            goal_arr, obs_mean, obs_std, vel_idx
-        )
 
         current_frames = []
         is_success = False
 
         for t in range(steps):
-            normalized_obs = normalize_observations_selective(
-                raw_obs, obs_mean, obs_std, vel_idx
-            )
+
             action = agent.sample_actions(
-                observations=normalized_obs[None],
-                goals=normalized_goal[None],
+                observations=raw_obs[None],
+                goals=goal_arr[None],
                 temperature=0.0,
                 seed=jax.random.PRNGKey(i * 10000 + t),
             )
@@ -241,11 +206,6 @@ def evaluate_agent(
         qvel = val_dataset["qvel"][start_idx]
         # Goal from dataset is already in normalized format (from training preprocessing)
         goal_arr = val_dataset["observations"][end_idx]
-        # Apply SAME normalization as training: only normalize velocities
-        normalized_goal = normalize_observations_selective(
-            goal_arr, obs_mean, obs_std, vel_idx
-        )
-
         obs, _ = env.reset(options={"randomise_cup_position": False, "minimal": True})
         env.unwrapped.set_state(qpos, qvel)
         if hasattr(env.unwrapped, "sim"):
@@ -257,13 +217,11 @@ def evaluate_agent(
         is_success = False
 
         for t in range(steps):
-            normalized_obs = normalize_observations_selective(
-                raw_obs, obs_mean, obs_std, vel_idx
-            )
+
 
             action = agent.sample_actions(
-                observations=normalized_obs[None],
-                goals=normalized_goal[None],
+                observations=raw_obs[None],
+                goals=goal_arr[None],
                 temperature=0.0,
                 seed=jax.random.PRNGKey(i * 10000 + t),
             )
@@ -352,43 +310,16 @@ def main(args):
     except Exception:
         num_particles = None
 
-    minimal_len = None
-    if num_particles is not None:
-        minimal_len = 20 + num_particles * 3
 
-    # Velocity indices in minimal observation: 14-19 (cup0_vel[14:17] and cup1_vel[17:20])
-    vel_idx = np.arange(14, 20)
 
-    if obs_data.shape[1] == minimal_len:
-        obs_mean = np.zeros(obs_data.shape[1], dtype=np.float32)
-        obs_std = np.ones(obs_data.shape[1], dtype=np.float32)
-        # Only compute statistics for velocity dimensions
-        obs_mean[vel_idx] = np.mean(obs_data[:, vel_idx], axis=0)
-        obs_std[vel_idx] = np.std(obs_data[:, vel_idx], axis=0)
-        obs_std[obs_std < 1e-3] = 1.0
-        print("Using selective normalization for minimal observation layout.")
-    else:
-        # Fall back to normalizing all observation dims
-        obs_mean = np.mean(obs_data, axis=0)
-        obs_std = np.std(obs_data, axis=0)
-        obs_std[obs_std < 1e-3] = 1.0
-        print("Using full observation normalization.")
 
     train_dataset_norm = dict(train_dataset_raw)
-    train_dataset_norm["observations"] = normalize_observations_selective(
-        train_dataset_raw["observations"], obs_mean, obs_std, vel_idx
-    )
 
-    if "next_observations" in train_dataset_norm:
-        train_dataset_norm["next_observations"] = normalize_observations_selective(
-            train_dataset_raw["next_observations"], obs_mean, obs_std, vel_idx
-        )
+
 
     val_dataset_raw = load_dataset(val_path, compact_dataset=True, add_info=True)
     val_dataset_norm = dict(val_dataset_raw)
-    val_dataset_norm["observations"] = normalize_observations_selective(
-        val_dataset_raw["observations"], obs_mean, obs_std, vel_idx
-    )
+
 
     base_train = Dataset.create(**train_dataset_norm)
     if args.agent_type == "HIQL":
@@ -518,14 +449,11 @@ def main(args):
             save_file_prefix = os.path.join(save_dir, f"eval_step_{step}")
             eval_metrics = evaluate_agent(
                 agent,
-                obs_mean,
-                obs_std,
                 val_dataset=val_dataset_raw,
                 num_episodes=5,
                 video=True,
                 save_file_prefix=save_file_prefix,
                 env=val_env,
-                vel_idx=vel_idx,
             )
             info["eval/fixed_success_rate"] = eval_metrics["pouring_success_rate"]
             info["eval/moving_success_rate"] = eval_metrics["moving_success_rate"]
