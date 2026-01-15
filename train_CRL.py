@@ -158,15 +158,19 @@ def evaluate_agent(
 
         # Create moving goal state (positions already normalized, velocities are raw)
         goal_arr = env.unwrapped.create_moving_goal_state()
-
+        normalized_goal = normalize_observations_selective(
+            goal_arr, obs_mean, obs_std, vel_idx
+        )
         current_frames = []
         is_success = False
 
         for t in range(steps):
-
+            normalized_obs = normalize_observations_selective(
+                raw_obs, obs_mean, obs_std, vel_idx
+            )
             action = agent.sample_actions(
-                observations=raw_obs[None],
-                goals=goal_arr[None],
+                observations=normalized_obs[None],
+                goals=normalized_goal[None],
                 temperature=0.0,
                 seed=jax.random.PRNGKey(i * 10000 + t),
             )
@@ -232,6 +236,9 @@ def evaluate_agent(
         qvel = val_dataset["qvel"][start_idx]
         # Goal from dataset is already in normalized format (from training preprocessing)
         goal_arr = val_dataset["observations"][end_idx]
+        normalized_goal = normalize_observations_selective(
+            goal_arr, obs_mean, obs_std, vel_idx
+        )
         obs, _ = env.reset(options={"randomise_cup_position": False, "minimal": True})
         env.unwrapped.set_state(qpos, qvel)
         if hasattr(env.unwrapped, "sim"):
@@ -244,10 +251,12 @@ def evaluate_agent(
 
         for t in range(steps):
 
+            normalized_obs = normalize_observations_selective(
+                raw_obs, obs_mean, obs_std, vel_idx)
 
             action = agent.sample_actions(
-                observations=raw_obs[None],
-                goals=goal_arr[None],
+                observations=normalized_obs[None],
+                goals=normalized_goal[None],
                 temperature=0.0,
                 seed=jax.random.PRNGKey(i * 10000 + t),
             )
@@ -323,29 +332,35 @@ def main(args):
     val_path = os.path.join(args.dataset_dir, "val_dataset.npz")
 
     train_dataset_raw = load_dataset(train_path, compact_dataset=True)
-
+    val_dataset_raw = load_dataset(val_path, compact_dataset=True, add_info=True)
     # Normalize observations: only normalize velocity components.
     # Positions are already normalized by env.py using fixed workspace bounds.
     # Velocities are unbounded, so we normalize using dataset statistics.
     obs_data = train_dataset_raw["observations"]
 
-    # If using the new minimal observation layout, only normalize velocity indices
-    num_particles = None
-    try:
-        num_particles = int(val_env.unwrapped.num_water_particles)
-    except Exception:
-        num_particles = None
+    # Velocity indices in minimal observation: 10-14
+    vel_idx = np.arange(10, 16)
 
 
+    obs_mean = np.zeros(obs_data.shape[1], dtype=np.float32)
+    obs_std = np.ones(obs_data.shape[1], dtype=np.float32)
+    # Only compute statistics for velocity dimensions
+    obs_mean[vel_idx] = np.mean(obs_data[:, vel_idx], axis=0)
+    obs_std[vel_idx] = np.std(obs_data[:, vel_idx], axis=0)
+    obs_std[obs_std < 1e-3] = 1.0
+    print("Using selective normalization for minimal observation layout.")
 
 
     train_dataset_norm = dict(train_dataset_raw)
+    train_dataset_norm["observations"] = normalize_observations_selective(
+        train_dataset_raw["observations"], obs_mean, obs_std, vel_idx
+    )
 
-
-
-    val_dataset_raw = load_dataset(val_path, compact_dataset=True, add_info=True)
+    
     val_dataset_norm = dict(val_dataset_raw)
-
+    val_dataset_norm["observations"] = normalize_observations_selective(
+        val_dataset_raw["observations"], obs_mean, obs_std, vel_idx
+    )
 
     base_train = Dataset.create(**train_dataset_norm)
     if args.agent_type == "HIQL":
@@ -474,11 +489,14 @@ def main(args):
             save_file_prefix = os.path.join(save_dir, f"eval_step_{step}")
             eval_metrics = evaluate_agent(
                 agent,
+                obs_mean,
+                obs_std,
                 val_dataset=val_dataset_raw,
                 num_episodes=5,
                 video=True,
                 save_file_prefix=save_file_prefix,
                 env=val_env,
+                vel_idx=vel_idx,
             )
             info["eval/fixed_success_rate"] = eval_metrics["pouring_success_rate"]
             info["eval/moving_success_rate"] = eval_metrics["moving_success_rate"]
