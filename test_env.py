@@ -143,7 +143,7 @@ class OUNoise:
         x = self.state
         dx = self.theta * (self.mu - x) + self.sigma * np.random.randn(len(x))
         self.state = x + dx
-        return self.state
+        return x
 
     def reset(self):
         self.state = np.copy(self.mu)
@@ -246,7 +246,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         cup_pos = utils.get_object_pos(
             env, (f"cup_freejoint{cup_number}", f"cup{cup_number}")
         )
-        target_pos = cup_pos + np.array([-0.015, 0.0, 0.3])
+        target_pos = cup_pos + np.array([-0.01, 0.0, 0.3])
         env._state_counter += 1
 
         if (
@@ -271,7 +271,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         cup_pos = utils.get_object_pos(
             env, (f"cup_freejoint{cup_number}", f"cup{cup_number}")
         )
-        target_pos = cup_pos + np.array([-0.015, 0.0, 0.15])
+        target_pos = cup_pos + np.array([-0.0, 0.0, 0.15])
         if at_target(target_pos, tol=0.075) or env._state_counter > 100:
             env._automaton_state = "move_down"
             env._state_counter = 0
@@ -286,7 +286,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         cup_pos = utils.get_object_pos(
             env, (f"cup_freejoint{cup_number}", f"cup{cup_number}")
         )
-        target_pos = cup_pos + np.array([-0.01, 0.0, 0.075])
+        target_pos = cup_pos + np.array([-0.00, 0.01, 0.08])
         if (
             np.abs(target_pos[2] - utils.get_effector_pos(env)[2]) < 0.006
             and np.abs(target_pos[1] - utils.get_effector_pos(env)[1]) < 0.005
@@ -307,11 +307,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         cup_pos = utils.get_object_pos(
             env, (f"cup_freejoint{cup_number}", f"cup{cup_number}")
         )
-        target_pos = cup_pos + np.array([-0.01, 0.0, 0.075])
-
-        if env._state_counter > 50:
-            env._state_counter = 0
-            env._automaton_state = "move_towards"
+        target_pos = cup_pos + np.array([-0.00, 0.01, 0.075])
 
         gripper_joint_ids = [
             mj.mj_name2id(model, mj.mjtObj.mjOBJ_JOINT, "rc_close"),
@@ -824,6 +820,7 @@ def collect_policy_episode(
     obs, _ = env.reset(options={"randomise_cup_position": False, "minimal": True})
     frames = []
     env._automaton_state = "move_above"
+    noise = False
     env._state_counter = 0
     env._noise_generator = OUNoise(3)
     cup = np.random.choice(np.array([0, 1]))

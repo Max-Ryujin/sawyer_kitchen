@@ -41,7 +41,30 @@ def normalize(x, mean, std, eps=1e-5):
     """Normalize all dimensions element-wise."""
     return (x - mean) / (std + eps)
 
+def normalize_observations_selective(x, obs_mean, obs_std, vel_indices, eps=1e-5):
+    """
+    Selectively normalize only velocity dimensions.
 
+    Positions and water particles are already normalized by env.py using fixed bounds.
+    Only velocities (unbounded) need dataset-based normalization.
+
+    Handles both single observations (1D) and batches (2D).
+
+    Args:
+        x: observation array (1D or 2D batch, or list)
+        obs_mean: mean per dimension
+        obs_std: std per dimension
+        vel_indices: indices of velocity dimensions to normalize
+        eps: small constant for numerical stability
+    """
+    x_norm = np.asarray(x, dtype=np.float32).copy()
+    # Use ... (Ellipsis) to handle both 1D and 2D arrays
+    # For 1D: x[..., vel_indices] = x[vel_indices]
+    # For 2D: x[..., vel_indices] = x[:, vel_indices]
+    x_norm[..., vel_indices] = (x_norm[..., vel_indices] - obs_mean[vel_indices]) / (
+        obs_std[vel_indices] + eps
+    )
+    return x_norm.astype(np.float32)
 
 
 def evaluate_agent(
@@ -57,7 +80,7 @@ def evaluate_agent(
     vel_idx=None,
 ):
     if vel_idx is None:
-        vel_idx = np.arange(14, 20)
+        vel_idx = np.arange(10, 15)
 
     if env is None:
         env = gym.make(
@@ -68,59 +91,62 @@ def evaluate_agent(
     fixed_frames = []
     fixed_success_frames_list = []
 
-    for i in range(num_episodes):
-        obs, _ = env.reset(options={"randomise_cup_position": False, "minimal": True})
-        raw_obs = np.asarray(obs)
+    # for i in range(num_episodes):
+    #     obs, _ = env.reset(options={"randomise_cup_position": False, "minimal": True})
+    #     raw_obs = np.asarray(obs)
 
-        # Get pouring goal from environment (positions already normalized, velocities are raw)
-        goal_arr = env.unwrapped.get_pouring_goal_state()
-        # Apply SAME normalization as training: only normalize velocities
+    #     # Get pouring goal from environment (positions already normalized, velocities are raw)
+    #     goal_arr = env.unwrapped.get_pouring_goal_state()
+    #     # normalized_goal = normalize_observations_selective(
+    #         # goal_arr, obs_mean, obs_std, vel_idx
+    #     # )
 
+    #     current_frames = []
+    #     is_success = False
 
-        current_frames = []
-        is_success = False
+    #     for t in range(steps):
+    #         # normalized_obs = normalize_observations_selective(
+    #         #     raw_obs, obs_mean, obs_std, vel_idx
+    #         # )
+    #         action = agent.sample_actions(
+    #             observations=raw_obs[None],
+    #             goals=goal_arr[None],
+    #             temperature=0.0,
+    #             seed=jax.random.PRNGKey(i * 10000 + t),
+    #         )
+    #         # Flatten action back to [Dim]
+    #         action = np.array(action).flatten()
+    #         action = np.clip(action, -1, 1)
+    #         obs, _, term, trunc, _ = env.unwrapped.step(action, minimal=True)
+    #         raw_obs = np.asarray(obs)
 
-        for t in range(steps):
+    #         if video:
+    #             current_frames.append(env.render())
 
-            action = agent.sample_actions(
-                observations=raw_obs[None],
-                goals=goal_arr[None],
-                temperature=0.0,
-                seed=jax.random.PRNGKey(i * 10000 + t),
-            )
-            # Flatten action back to [Dim]
-            action = np.array(action).flatten()
-            action = np.clip(action, -1, 1)
-            obs, _, term, trunc, _ = env.unwrapped.step(action, minimal=True)
-            raw_obs = np.asarray(obs)
+    #         if term or trunc:
+    #             fixed_success_count += 1
+    #             is_success = True
+    #             break
 
-            if video:
-                current_frames.append(env.render())
+    #     if video:
+    #         if i == 0:
+    #             fixed_frames = current_frames
+    #         if is_success:
+    #             fixed_success_frames_list.append(current_frames)
 
-            if term or trunc:
-                fixed_success_count += 1
-                is_success = True
-                break
-
-        if video:
-            if i == 0:
-                fixed_frames = current_frames
-            if is_success:
-                fixed_success_frames_list.append(current_frames)
-
-    if video and save_file_prefix:
-        imageio.mimwrite(
-            f"{save_file_prefix}_pour.mp4",
-            fixed_frames,
-            fps=env.metadata.get("render_fps", 24),
-        )
-        # Save all successful attempts
-        for idx, frames in enumerate(fixed_success_frames_list):
-            imageio.mimwrite(
-                f"{save_file_prefix}_pour_success_{idx}.mp4",
-                frames,
-                fps=env.metadata.get("render_fps", 24),
-            )
+    # if video and save_file_prefix:
+    #     imageio.mimwrite(
+    #         f"{save_file_prefix}_pour.mp4",
+    #         fixed_frames,
+    #         fps=env.metadata.get("render_fps", 24),
+    #     )
+    #     # Save all successful attempts
+    #     for idx, frames in enumerate(fixed_success_frames_list):
+    #         imageio.mimwrite(
+    #             f"{save_file_prefix}_pour_success_{idx}.mp4",
+    #             frames,
+    #             fps=env.metadata.get("render_fps", 24),
+    #         )
 
     moving_success_count = 0
     moving_frames = []
