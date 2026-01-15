@@ -1,8 +1,6 @@
 import os
 import json
-from xml.parsers.expat import model
 import imageio
-from tqdm import trange
 import numpy as np
 from collections import defaultdict
 import gymnasium as gym
@@ -22,11 +20,62 @@ def multiply_quaternions(q1, q2):
     return np.array([w, x, y, z])
 
 
+def slow_down_position(ee_pos: np.ndarray, target_pos: np.ndarray) -> np.ndarray:
+    """Move halfway from current position to target to slow down movement."""
+    return ee_pos + 0.5 * (target_pos - ee_pos)
+
+
 def rotate_quat_around_z(base_quat, angle_rad):
     w = np.cos(angle_rad / 2)
     z = np.sin(angle_rad / 2)
     q_rot = np.array([w, 0.0, 0.0, z])
     return multiply_quaternions(q_rot, base_quat)
+
+
+def slow_down_quaternion(
+    current_quat: np.ndarray, target_quat: np.ndarray, factor: float = 0.5
+) -> np.ndarray:
+    """Interpolate between current and target quaternion to slow down rotation.
+    Not need in this branch.
+    """
+    # Normalize both quaternions
+    current_quat = current_quat / np.linalg.norm(current_quat)
+    target_quat = target_quat / np.linalg.norm(target_quat)
+
+    # Calculate dot product
+    dot = np.dot(current_quat, target_quat)
+
+    # If dot product is negative, negate one quaternion to take shorter path
+    if dot < 0.0:
+        target_quat = -target_quat
+        dot = -dot
+
+    # Clip dot product to prevent arccos from returning NaN
+    dot = np.clip(dot, -1.0, 1.0)
+
+    # If quaternions are very close, return the target
+    if dot > 0.99:
+        return target_quat
+
+    # Calculate angle between quaternions
+    theta_0 = np.arccos(dot)
+    sin_theta_0 = np.sin(theta_0)
+
+    # Calculate interpolation weights
+    theta = theta_0 * factor
+    sin_theta = np.sin(theta)
+
+    # Check for sin_theta_0 being close to zero to avoid division by zero
+    if np.abs(sin_theta_0) < 1e-6:
+        return current_quat
+
+    # Perform spherical linear interpolation
+    s0 = np.cos(theta) - dot * sin_theta / sin_theta_0
+    s1 = sin_theta / sin_theta_0
+
+    # Interpolate
+    result = (s0 * current_quat) + (s1 * target_quat)
+    return result / np.linalg.norm(result)
 
 
 class OUNoise:
@@ -254,53 +303,6 @@ def pour_policy_v2(env, obs) -> np.ndarray:
     def at_target(target_pos: np.ndarray, tol=0.04) -> bool:
         ee_pos = utils.get_effector_pos(env)
         return np.linalg.norm(target_pos - ee_pos) < tol
-
-    def slow_down_position(ee_pos: np.ndarray, target_pos: np.ndarray) -> np.ndarray:
-        """Move halfway from current position to target to slow down movement."""
-        return ee_pos + 0.5 * (target_pos - ee_pos)
-
-    def slow_down_quaternion(
-        current_quat: np.ndarray, target_quat: np.ndarray, factor: float = 0.5
-    ) -> np.ndarray:
-        """Interpolate between current and target quaternion to slow down rotation."""
-        # Normalize both quaternions
-        current_quat = current_quat / np.linalg.norm(current_quat)
-        target_quat = target_quat / np.linalg.norm(target_quat)
-
-        # Calculate dot product
-        dot = np.dot(current_quat, target_quat)
-
-        # If dot product is negative, negate one quaternion to take shorter path
-        if dot < 0.0:
-            target_quat = -target_quat
-            dot = -dot
-
-        # Clip dot product to prevent arccos from returning NaN
-        dot = np.clip(dot, -1.0, 1.0)
-
-        # If quaternions are very close, return the target
-        if dot > 0.99:
-            return target_quat
-
-        # Calculate angle between quaternions
-        theta_0 = np.arccos(dot)
-        sin_theta_0 = np.sin(theta_0)
-
-        # Calculate interpolation weights
-        theta = theta_0 * factor
-        sin_theta = np.sin(theta)
-
-        # Check for sin_theta_0 being close to zero to avoid division by zero
-        if np.abs(sin_theta_0) < 1e-6:
-            return current_quat
-
-        # Perform spherical linear interpolation
-        s0 = np.cos(theta) - dot * sin_theta / sin_theta_0
-        s1 = sin_theta / sin_theta_0
-
-        # Interpolate
-        result = (s0 * current_quat) + (s1 * target_quat)
-        return result / np.linalg.norm(result)
 
     state = env._automaton_state
 
@@ -903,8 +905,8 @@ def collect_moving_policy_dataset(
         pixel_observations: Capture pixel inputs.
         random_action: Inject random actions (never actually used).
         minimal_observations: Use low-dim observations. (This is old and is always true. Full observation was never used)
-        save_failed_episodes: Keep data from episodes that time out.
-        pouring_prob: Probability of executing a pour after moving cups.
+        save_failed_episodes: Keep data from episodes that do not reach goal.
+        pouring_prob: Probability of executing a pour after moving cups. This is to control the data distribution.
     """
     os.makedirs(save_root, exist_ok=True)
 
@@ -1085,26 +1087,15 @@ if __name__ == "__main__":
     if args.mode == "policy":
         collect_policy_episode(steps=args.steps, policy_type=args.policy_type)
     elif args.mode == "dataset":
-        # Use --out as a directory for the dataset
-        save_root = args.out
-        if args.pixel_observations:
-
-            collect_moving_policy_dataset(
-                save_root=save_root,
-                episodes=args.episodes,
-                max_steps=args.steps,
-                minimal_observations=args.minimal,
-                save_failed_episodes=args.save_failed_episodes,
-                pixel_observations=True,
-                pouring_prob=args.pouring_prob,
-            )
-        else:
-            collect_moving_policy_dataset(
-                save_root=save_root,
-                episodes=args.episodes,
-                max_steps=args.steps,
-                noise=True,
-                minimal_observations=args.minimal,
-                save_failed_episodes=args.save_failed_episodes,
-                pouring_prob=args.pouring_prob,
-            )
+        collect_moving_policy_dataset(
+            save_root=args.out,
+            episodes=args.episodes,
+            max_steps=args.steps,
+            width=320,
+            height=240,
+            noise=True,
+            pixel_observations=args.pixel_observations,
+            minimal_observations=args.minimal,
+            save_failed_episodes=args.save_failed_episodes,
+            pouring_prob=args.pouring_prob,
+        )
