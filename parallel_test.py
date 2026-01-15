@@ -210,7 +210,9 @@ def is_cup_grasped(env, cup_id: int, tol=0.06) -> bool:
     return is_between and (perp_dist < tol)
 
 
-def make_task_space_action(target_pos: np.ndarray, env, gripper_val: float, speed=0.1) -> np.ndarray:
+def make_task_space_action(
+    target_pos: np.ndarray, env, gripper_val: float, speed=0.1
+) -> np.ndarray:
     """
     Build 8D task-space action [x, y, z, gripper]
     with normalized xyz to [-1, 1] and gripper to [0, 1].
@@ -220,12 +222,12 @@ def make_task_space_action(target_pos: np.ndarray, env, gripper_val: float, spee
         gripper_val: scalar in [0, 1] where 0=closed, 1=open
 
     Returns:
-        4D action array 
+        4D action array
     """
     ee_pos = utils.get_effector_pos(env)
     delta = target_pos - ee_pos
 
-    [x,y,z] = ee_pos + (delta * speed)
+    [x, y, z] = ee_pos + (delta * speed)
 
     # Clamp gripper to [0, 1]
     gripper = np.clip(float(gripper_val), 0.0, 1.0)
@@ -243,7 +245,6 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
     def at_target(target_pos: np.ndarray, tol=0.04) -> bool:
         ee_pos = utils.get_effector_pos(env)
         return np.linalg.norm(target_pos - ee_pos) < tol
-
 
     state = env._automaton_state
 
@@ -358,7 +359,9 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
                     break
             print("→ move_cup")
 
-        return make_task_space_action(env._above_position, env, gripper_val=1.0, speed=0.9)
+        return make_task_space_action(
+            env._above_position, env, gripper_val=1.0, speed=0.9
+        )
 
     elif state == "move_cup":
         target_pos = env._cup_destination.copy()
@@ -405,7 +408,8 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
             env._automaton_state = "done"
         action = make_task_space_action(target_pos, env, gripper_val=0.0, speed=0.9)
         action[:3] += env._noise_generator.sample()
-        return acti
+        return action
+
 
 def pour_policy_v2(env, obs) -> np.ndarray:
 
@@ -610,7 +614,9 @@ def pour_policy_v2(env, obs) -> np.ndarray:
             print("Lost grip on cup, moving back to move_above")
             env._automaton_state = "move_above"
             env._state_counter = 0
-            action = make_task_space_action(target_pos, env, target_quat, gripper_val=1.0)
+            action = make_task_space_action(
+                target_pos, env, target_quat, gripper_val=1.0
+            )
             action[:3] += env._noise_generator.sample()
             return action
 
@@ -652,7 +658,9 @@ def pour_policy_v2(env, obs) -> np.ndarray:
             print("Lost grip on cup, moving back to move_above")
             env._automaton_state = "move_above"
             env._state_counter = 0
-            action = make_task_space_action(target_pos, env, target_quat, gripper_val=1.0)
+            action = make_task_space_action(
+                target_pos, env, target_quat, gripper_val=1.0
+            )
             action[:3] += env._noise_generator.sample()
             return action
 
