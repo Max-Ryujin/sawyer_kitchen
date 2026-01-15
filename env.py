@@ -925,9 +925,9 @@ class KitchenMinimalEnv(MujocoEnv):
     def step(
         self, action: np.ndarray, minimal=True
     ) -> Tuple[np.ndarray, float, bool, bool, Dict]:
-        action = np.asarray(action, dtype=np.float32).reshape(8)
+        action = np.asarray(action, dtype=np.float32).reshape(4)
 
-        # Parse task-space action: [x, y, z, qx, qy, qz, qw, gripper]
+        # Parse task-space action: [x, y, z, gripper]
         # Note: xyz are normalized to [-1, 1], denormalize using workspace bounds
         action_xyz_norm = action[:3]
         gripper_val = action[3]
@@ -955,7 +955,7 @@ class KitchenMinimalEnv(MujocoEnv):
             self.data,
             site_name="grip_site",
             target_pos=target_pos,
-            target_quat=[1, 0, 0, 1],
+            target_quat=[0.5, 0.5, 0.5, -0.5],
             joint_indices=joint_indices,
             inplace=False,
         )
