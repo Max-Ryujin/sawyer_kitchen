@@ -225,9 +225,6 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         ee_pos = utils.get_effector_pos(env)
         return np.linalg.norm(target_pos - ee_pos) < tol
 
-    def slow_down_position(ee_pos: np.ndarray, target_pos: np.ndarray) -> np.ndarray:
-        """Move halfway from current position to target to slow down movement."""
-        return ee_pos + 0.5 * (target_pos - ee_pos)
 
     state = env._automaton_state
 
@@ -235,16 +232,16 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         cup_pos = utils.get_object_pos(
             env, (f"cup_freejoint{cup_number}", f"cup{cup_number}")
         )
-        target_pos = cup_pos + np.array([-0.015, 0.02, 0.3])
+        target_pos = cup_pos + np.array([-0.051, 0.031, 0.3])
         env._state_counter += 1
 
         if (
-            at_target(target_pos, tol=0.085)
+            at_target(target_pos, tol=0.02)
             and np.linalg.norm(
                 data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
             )
             < 0.001
-        ) or env._state_counter > 100:
+        ) or env._state_counter > 110:
             env._automaton_state = "move_towards"
             env._state_counter = 0
             env._above_position = target_pos
@@ -259,8 +256,8 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         cup_pos = utils.get_object_pos(
             env, (f"cup_freejoint{cup_number}", f"cup{cup_number}")
         )
-        target_pos = cup_pos + np.array([-0.015, 0.02, 0.15])
-        if at_target(target_pos, tol=0.075) or env._state_counter > 100:
+        target_pos = cup_pos + np.array([-0.03, 0.03, 0.15])
+        if at_target(target_pos, tol=0.02) or env._state_counter > 110:
             env._automaton_state = "move_down"
             env._state_counter = 0
             print("→ move_down")
@@ -274,7 +271,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         cup_pos = utils.get_object_pos(
             env, (f"cup_freejoint{cup_number}", f"cup{cup_number}")
         )
-        target_pos = cup_pos + np.array([-0.01, 0.02, 0.077])
+        target_pos = cup_pos + np.array([-0.025, 0.03, 0.077])
         if (
             np.abs(target_pos[2] - utils.get_effector_pos(env)[2]) < 0.006
             and np.abs(target_pos[1] - utils.get_effector_pos(env)[1]) < 0.005
@@ -295,7 +292,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         cup_pos = utils.get_object_pos(
             env, (f"cup_freejoint{cup_number}", f"cup{cup_number}")
         )
-        target_pos = cup_pos + np.array([-0.01, 0.01, 0.075])
+        target_pos = cup_pos + np.array([-0.02, 0.03, 0.075])
 
         gripper_joint_ids = [
             mj.mj_name2id(model, mj.mjtObj.mjOBJ_JOINT, "rc_close"),
@@ -330,10 +327,11 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
             )
             while True:
                 # randomise xy position
+                # Fixed value to collect a good example for evaluation
                 env._cup_destination = np.array(
                     [
-                        np.random.uniform(-0.93, -0.45),
-                        np.random.uniform(-1.1, -0.4),
+                        -0.66,
+                        -1,
                         1.71,
                     ]
                 )
@@ -377,7 +375,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         env._state_counter += 1
         if env._state_counter > 20:
             env._automaton_state = "move_up_after_release"
-        action = make_task_space_action(target_pos, env, gripper_val=0.0, speed=0.6)
+        action = make_task_space_action(target_pos, env, gripper_val=0.0, speed=0.7)
         action[:3] += env._noise_generator.sample()
         return action
 

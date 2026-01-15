@@ -244,9 +244,6 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         ee_pos = utils.get_effector_pos(env)
         return np.linalg.norm(target_pos - ee_pos) < tol
 
-    def slow_down_position(ee_pos: np.ndarray, target_pos: np.ndarray) -> np.ndarray:
-        """Move halfway from current position to target to slow down movement."""
-        return ee_pos + 0.5 * (target_pos - ee_pos)
 
     state = env._automaton_state
 
@@ -254,22 +251,22 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         cup_pos = utils.get_object_pos(
             env, (f"cup_freejoint{cup_number}", f"cup{cup_number}")
         )
-        target_pos = cup_pos + np.array([-0.015, 0.0, 0.3])
+        target_pos = cup_pos + np.array([-0.051, 0.031, 0.3])
         env._state_counter += 1
 
         if (
-            at_target(target_pos, tol=0.085)
+            at_target(target_pos, tol=0.02)
             and np.linalg.norm(
                 data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
             )
             < 0.001
-        ) or env._state_counter > 100:
+        ) or env._state_counter > 110:
             env._automaton_state = "move_towards"
             env._state_counter = 0
             env._above_position = target_pos
             print("→ move_towards")
 
-        action = make_task_space_action(target_pos, env, gripper_val=0.0)
+        action = make_task_space_action(target_pos, env, gripper_val=0.0, speed=0.5)
         action[:3] += env._noise_generator.sample()
         return action
 
@@ -278,13 +275,13 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         cup_pos = utils.get_object_pos(
             env, (f"cup_freejoint{cup_number}", f"cup{cup_number}")
         )
-        target_pos = cup_pos + np.array([-0.015, 0.0, 0.15])
-        if at_target(target_pos, tol=0.075) or env._state_counter > 100:
+        target_pos = cup_pos + np.array([-0.03, 0.03, 0.15])
+        if at_target(target_pos, tol=0.02) or env._state_counter > 110:
             env._automaton_state = "move_down"
             env._state_counter = 0
             print("→ move_down")
 
-        action = make_task_space_action(target_pos, env, gripper_val=0.0)
+        action = make_task_space_action(target_pos, env, gripper_val=0.0, speed=0.5)
         action[:3] += env._noise_generator.sample()
         return action
 
@@ -293,7 +290,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         cup_pos = utils.get_object_pos(
             env, (f"cup_freejoint{cup_number}", f"cup{cup_number}")
         )
-        target_pos = cup_pos + np.array([-0.01, 0.0, 0.075])
+        target_pos = cup_pos + np.array([-0.025, 0.03, 0.077])
         if (
             np.abs(target_pos[2] - utils.get_effector_pos(env)[2]) < 0.006
             and np.abs(target_pos[1] - utils.get_effector_pos(env)[1]) < 0.005
@@ -305,7 +302,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
             env._automaton_state = "close_gripper"
             env._state_counter = 0
             print("→ close_gripper")
-        action = make_task_space_action(target_pos, env, gripper_val=0.0)
+        action = make_task_space_action(target_pos, env, gripper_val=0.0, speed=0.5)
         action[:3] += env._noise_generator.sample()
         return action
 
@@ -314,11 +311,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         cup_pos = utils.get_object_pos(
             env, (f"cup_freejoint{cup_number}", f"cup{cup_number}")
         )
-        target_pos = cup_pos + np.array([-0.01, 0.0, 0.075])
-
-        if env._state_counter > 50:
-            env._state_counter = 0
-            env._automaton_state = "move_towards"
+        target_pos = cup_pos + np.array([-0.02, 0.03, 0.075])
 
         gripper_joint_ids = [
             mj.mj_name2id(model, mj.mjtObj.mjOBJ_JOINT, "rc_close"),
@@ -334,7 +327,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
             env._state_counter = 0
             print("→ go up")
 
-        action = make_task_space_action(target_pos, env, gripper_val=1.0)
+        action = make_task_space_action(target_pos, env, gripper_val=1.0, speed=0.5)
         action[:3] += env._noise_generator.sample()
         return action
 
@@ -353,10 +346,11 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
             )
             while True:
                 # randomise xy position
+                # Fixed value to collect a good example for evaluation
                 env._cup_destination = np.array(
                     [
-                        np.random.uniform(-0.93, -0.45),
-                        np.random.uniform(-1.1, -0.4),
+                        -0.66,
+                        -1,
                         1.71,
                     ]
                 )
@@ -364,7 +358,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
                     break
             print("→ move_cup")
 
-        return make_task_space_action(env._above_position, gripper_val=1.0)
+        return make_task_space_action(env._above_position, env, gripper_val=1.0, speed=0.9)
 
     elif state == "move_cup":
         target_pos = env._cup_destination.copy()
@@ -380,18 +374,18 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
             env._automaton_state = "place_cup"
             print("→ place_cup")
 
-        action = make_task_space_action(target_pos, env, gripper_val=1.0)
+        action = make_task_space_action(target_pos, env, gripper_val=1.0, speed=0.7)
         action[:3] += env._noise_generator.sample()
         return action
 
     elif state == "place_cup":
         target_pos = env._cup_destination.copy()
         target_pos[2] += 0.01
-        if at_target(target_pos, tol=0.035):
+        if at_target(target_pos, tol=0.04):
             env._automaton_state = "open_gripper"
             print("→ open_gripper")
 
-        action = make_task_space_action(target_pos, env, gripper_val=1.0)
+        action = make_task_space_action(target_pos, env, gripper_val=1.0, speed=0.9)
         action[:3] += env._noise_generator.sample()
         return action
 
@@ -400,7 +394,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         env._state_counter += 1
         if env._state_counter > 20:
             env._automaton_state = "move_up_after_release"
-        action = make_task_space_action(target_pos, env, gripper_val=0.0)
+        action = make_task_space_action(target_pos, env, gripper_val=0.0, speed=0.7)
         action[:3] += env._noise_generator.sample()
         return action
 
@@ -409,10 +403,9 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         target_pos[2] += 0.35  # move up
         if at_target(target_pos, tol=0.4):
             env._automaton_state = "done"
-        action = make_task_space_action(target_pos, env, gripper_val=0.0)
+        action = make_task_space_action(target_pos, env, gripper_val=0.0, speed=0.9)
         action[:3] += env._noise_generator.sample()
-        return action
-
+        return acti
 
 def pour_policy_v2(env, obs) -> np.ndarray:
 
@@ -930,7 +923,7 @@ def run_single_episode(
     moves_completed = 0
     policy_mode = "moving" if move_operations > 0 else "pouring"
     # For testing:
-    policy_mode = "moving"
+    policy_mode = "moving"  # For testing moving only
     done2 = False
     cup = np.random.choice(np.array([0, 1]))
 
@@ -952,6 +945,7 @@ def run_single_episode(
                 if moves_completed == move_operations:
                     if perform_pouring:
                         #   policy_mode = "pouring"  (For testing)
+                        # THis is just for moving only
                         done2 = True
                     else:
                         done2 = True
