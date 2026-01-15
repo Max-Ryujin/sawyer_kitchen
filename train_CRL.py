@@ -3,43 +3,45 @@ Minimal training script that wires OGBench's CRL agent to the local kitchen traj
 """
 
 import os
-
-os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
 import sys
 import argparse
-import pickle
+import multiprocessing as mp
+from typing import Dict, Optional, Tuple, Any
+
+# Environment configuration
+os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
+
 import jax
 import numpy as np
 import gymnasium as gym
 import imageio
-import multiprocessing as mp
+import wandb
 
+# --- Path Setup ---
 THIS_DIR = os.path.dirname(__file__)
 OG_IMPLS = os.path.abspath(os.path.join(THIS_DIR, "..", "ogbench", "ogbench", "impls"))
 OG_IMPLS_BASE = os.path.abspath(os.path.join(THIS_DIR, "..", "ogbench", "ogbench"))
 sys.path.insert(0, OG_IMPLS)
 sys.path.insert(0, OG_IMPLS_BASE)
 
-from agents.crl import CRLAgent, get_config
-from agents.qrl import QRLAgent
-from agents.qrl import get_config as get_qrl_config
-from agents.tmd import TMDAgent
-from agents.tmd import get_config as get_tmd_config
-from agents.gciql import GCIQLAgent
-from agents.gciql import get_config as get_gciql_config
-from agents.gcivl import GCIVLAgent
-from agents.gcivl import get_config as get_gcivl_config
-from agents.hiql import HIQLAgent
-from agents.hiql import get_config as get_hiql_config
+# --- Agent Imports ---
+from agents.crl import CRLAgent, get_config as get_crl_config
+from agents.qrl import QRLAgent, get_config as get_qrl_config
+from agents.tmd import TMDAgent, get_config as get_tmd_config
+from agents.gciql import GCIQLAgent, get_config as get_gciql_config
+from agents.gcivl import GCIVLAgent, get_config as get_gcivl_config
+from agents.hiql import HIQLAgent, get_config as get_hiql_config
+
+# --- Utils ---
 from utils.flax_utils import save_agent
 from utils.datasets import GCDataset, Dataset, HGCDataset
 from ogbench import load_dataset
-import wandb
 
 
 def normalize(x, mean, std, eps=1e-5):
     """Normalize all dimensions element-wise."""
     return (x - mean) / (std + eps)
+
 
 def normalize_observations_selective(x, obs_mean, obs_std, vel_indices, eps=1e-5):
     """
@@ -80,7 +82,7 @@ def evaluate_agent(
     vel_idx=None,
 ):
     if vel_idx is None:
-        vel_idx = np.arange(10, 15)
+        vel_idx = np.arange(10, 16)
 
     if env is None:
         env = gym.make(
@@ -252,7 +254,8 @@ def evaluate_agent(
         for t in range(steps):
 
             normalized_obs = normalize_observations_selective(
-                raw_obs, obs_mean, obs_std, vel_idx)
+                raw_obs, obs_mean, obs_std, vel_idx
+            )
 
             action = agent.sample_actions(
                 observations=normalized_obs[None],
@@ -305,7 +308,7 @@ def evaluate_agent(
 
 def main(args):
     if args.agent_type == "CRL":
-        cfg = get_config()
+        cfg = get_crl_config()
     elif args.agent_type == "QRL":
         cfg = get_qrl_config()
     elif args.agent_type == "TMD":
@@ -341,7 +344,6 @@ def main(args):
     # Velocity indices in minimal observation: 10-14
     vel_idx = np.arange(10, 16)
 
-
     obs_mean = np.zeros(obs_data.shape[1], dtype=np.float32)
     obs_std = np.ones(obs_data.shape[1], dtype=np.float32)
     # Only compute statistics for velocity dimensions
@@ -350,13 +352,11 @@ def main(args):
     obs_std[obs_std < 1e-3] = 1.0
     print("Using selective normalization for minimal observation layout.")
 
-
     train_dataset_norm = dict(train_dataset_raw)
     train_dataset_norm["observations"] = normalize_observations_selective(
         train_dataset_raw["observations"], obs_mean, obs_std, vel_idx
     )
 
-    
     val_dataset_norm = dict(val_dataset_raw)
     val_dataset_norm["observations"] = normalize_observations_selective(
         val_dataset_raw["observations"], obs_mean, obs_std, vel_idx
@@ -484,7 +484,6 @@ def main(args):
                 else:
                     vv = float(np.array(v).mean())
                 print(f"  {k}: {vv}")
-
 
             save_file_prefix = os.path.join(save_dir, f"eval_step_{step}")
             eval_metrics = evaluate_agent(
