@@ -452,6 +452,14 @@ def main(args):
 
         agent, info = agent.update(batch)
 
+        if step % 10 == 0 and val_batch is not None:
+            val_loss, val_info = agent.total_loss(val_batch, agent.network.params)
+            for k in sorted(val_info.keys()):
+                v = val_info[k]
+                vv = _to_scalar(v)
+                print(f"  val_{k}: {vv}")
+            info.update({"val_" + k: v for k, v in val_info.items()})
+
         if step % print_every == 0:
             print(f"Step {step}/{steps} — info keys: {list(info.keys())}")
             for k in sorted(info.keys()):
@@ -462,15 +470,6 @@ def main(args):
                     vv = float(np.array(v).mean())
                 print(f"  {k}: {vv}")
 
-            if val_batch is not None:
-                val_loss, val_info = agent.total_loss(val_batch, agent.network.params)
-                print(f"  Validation info keys: {list(val_info.keys())}")
-
-                for k in sorted(val_info.keys()):
-                    v = val_info[k]
-                    vv = _to_scalar(v)
-                    print(f"  val_{k}: {vv}")
-                info.update({"val_" + k: v for k, v in val_info.items()})
 
             save_file_prefix = os.path.join(save_dir, f"eval_step_{step}")
             eval_metrics = evaluate_agent(
