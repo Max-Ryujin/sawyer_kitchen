@@ -232,11 +232,10 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
             )
             while True:
                 # randomise xy position
-                # Fixed value to collect a good example for evaluation
                 env._cup_destination = np.array(
                     [
-                        -0.66,
-                        -1,
+                        np.random.uniform(-0.93, -0.45),
+                        np.random.uniform(-1.1, -0.4),
                         1.71,
                     ]
                 )
