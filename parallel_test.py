@@ -932,7 +932,7 @@ def collect_moving_policy_dataset(
     if pixel_observations:
         print("Ensure 'export MUJOCO_GL=egl' is set for GPU rendering.")
 
-    results = Parallel(n_jobs=20, verbose=10)(
+    results = Parallel(n_jobs=-1, verbose=10)(
         delayed(run_single_episode)(
             seed=i,
             max_steps=max_steps,
