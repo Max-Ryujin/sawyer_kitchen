@@ -771,8 +771,9 @@ def run_single_episode(
     # For testing:
     policy_mode = "moving"  # For testing moving only
     done2 = False
-    cup = np.random.choice(np.array([0, 1]))
-
+    #cup = np.random.choice(np.array([0, 1]))
+    # I am fixing the cup and remove the other cup from the observation data to prevent the critic from cheating
+    cup = 0
     steps_run = 0
 
     # --- State timing instrumentation ---
@@ -796,7 +797,8 @@ def run_single_episode(
                     else:
                         done2 = True
                 else:
-                    cup = np.random.choice(np.array([0, 1]))
+                   # cup = np.random.choice(np.array([0, 1]))
+                   cup = 0
                 env._automaton_state = "move_above"
         elif policy_mode == "pouring":
             action = pour_policy_v2(env, obs)

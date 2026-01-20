@@ -695,9 +695,9 @@ class KitchenMinimalEnv(MujocoEnv):
                 [
                     task_space_obs,  # 4D
                     cup0_pos_norm,  # 3D
-                    cup1_pos_norm,  # 3D
+                   # cup1_pos_norm,  # 3D
                     cup0_vel,  # 3D
-                    cup1_vel,  # 3D
+                   # cup1_vel,  # 3D
                 ]
             ).astype(np.float32)
         return obs
@@ -709,9 +709,8 @@ class KitchenMinimalEnv(MujocoEnv):
         return obs
 
     def _compute_reward(self, obs: np.ndarray, action: np.ndarray) -> float:
-        # not needed for current RL
-        return 1.0 if self.get_particles_in_cups()[0] == 10 else 0.0
-
+        #return 1.0 if self.get_particles_in_cups()[0] >= 4 else 0.0
+        return 1 if self.check_moving_success(MOVING_GOAL_OBS) else 0.0
     def _is_terminated(self, obs: np.ndarray) -> bool:
         # change condition to make dataset generation faster
         return True if self.get_particles_in_cups()[0] >= 5 else False
@@ -758,8 +757,8 @@ class KitchenMinimalEnv(MujocoEnv):
         curr_quat = self.data.qpos[33:37]
 
         # In the new minimal observation layout the target cup position is at
-        # indices 8:11 (task_space_obs 0:8, cup0_pos 8:11, cup1_pos 11:14, ...)
-        target_pos = goal_state[8:11]
+        # indices 8:11 (task_space_obs 0:3, cup0_pos 4:7,)
+        target_pos = goal_state[4:7]
 
         dist = np.linalg.norm(curr_pos - target_pos)
         pos_ok = dist < pos_tol
