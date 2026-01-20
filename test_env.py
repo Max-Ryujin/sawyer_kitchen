@@ -204,16 +204,31 @@ def make_task_space_action(target_pos: np.ndarray, env, gripper_val: float, spee
     Returns:
         4D action array 
     """
-    ee_pos = utils.get_effector_pos(env)
-    delta = target_pos - ee_pos
 
-    [x,y,z] = ee_pos + (delta * speed)
+    bounds_x = np.array([-1.5, 0.0])
+    bounds_y = np.array([-2.5, 0.0])
+    bounds_z = np.array([1.5, 3.0])
+
+    # Normalize xyz from workspace bounds to [-1, 1]
+    x_norm = 2.0 * (target_pos[0] - bounds_x[0]) / (bounds_x[1] - bounds_x[0]) - 1.0
+    y_norm = 2.0 * (target_pos[1] - bounds_y[0]) / (bounds_y[1] - bounds_y[0]) - 1.0
+    z_norm = 2.0 * (target_pos[2] - bounds_z[0]) / (bounds_z[1] - bounds_z[0]) - 1.0
+
+    # Clamp to [-1, 1] to be safe
+    x_norm = np.clip(x_norm, -1.0, 1.0)
+    y_norm = np.clip(y_norm, -1.0, 1.0)
+    z_norm = np.clip(z_norm, -1.0, 1.0)
+
+    # ee_pos = utils.get_effector_pos(env)
+    # delta = target_pos - ee_pos
+
+    # [x,y,z] = ee_pos + (delta * speed)
 
     # Clamp gripper to [0, 1]
     gripper = np.clip(float(gripper_val), 0.0, 1.0)
 
     action = np.array(
-        [x, y, z, gripper],
+        [x_norm, y_norm, z_norm, gripper],
         dtype=np.float32,
     )
     return action
@@ -342,17 +357,20 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         return make_task_space_action(env._above_position, env, gripper_val=1.0, speed=0.9)
 
     elif state == "move_cup":
+        env._state_counter += 1
         target_pos = env._cup_destination.copy()
         target_pos[2] += 0.15  # move above place position
 
         if (
-            at_target(target_pos, tol=0.09)
+            (np.abs(target_pos[2] - utils.get_effector_pos(env)[2]) < 0.01
+            and np.abs(target_pos[1] - utils.get_effector_pos(env)[1]) < 0.01)
             and np.linalg.norm(
                 data.qvel[mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "grip_site")]
             )
-            < 0.002
+            < 0.05 or env._state_counter > 80
         ):
             env._automaton_state = "place_cup"
+            env._state_counter = 0
             print("→ place_cup")
 
         action = make_task_space_action(target_pos, env, gripper_val=1.0, speed=0.7)
