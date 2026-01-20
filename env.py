@@ -234,21 +234,21 @@ class KitchenMinimalEnv(MujocoEnv):
                 self.nu, 2
             )
 
-        # Task-space action simplified: [x, y, z, gripper]
-        # All normalized to [-1, 1]: xyz position,and gripper [0, 1]
-        # Workspace bounds for denormalization: x: [-1.5, 0], y: [-2.5, 0], z: [1.5, 3]
-        # self.workspace_bounds = {
-        #     "x": np.array([-1.5, 0.0]),
-        #     "y": np.array([-2.5, 0.0]),
-        #     "z": np.array([1.5, 3.0]),
-        # }
+        #Task-space action simplified: [x, y, z, gripper]
+        #All normalized to [-1, 1]: xyz position,and gripper [0, 1]
+        #Workspace bounds for denormalization: x: [-1.5, 0], y: [-2.5, 0], z: [1.5, 3]
+        self.workspace_bounds = {
+            "x": np.array([-1.5, 0.0]),
+            "y": np.array([-2.5, 0.0]),
+            "z": np.array([1.5, 3.0]),
+        }
 
-        # Helper method to normalize position to [-1, 1] using workspace bounds
-        # self._normalize_position = self._make_position_normalizer()
+        #Helper method to normalize position to [-1, 1] using workspace bounds
+        self._normalize_position = self._make_position_normalizer()
 
         self.action_space = spaces.Box(
-            low=np.array([-3.0, -3.0, -3.0, 0.0], dtype=np.float32),
-            high=np.array([3.0, 3.0, 3.0, 1.0], dtype=np.float32),
+            low=np.array([0.0, 0.0, 0.0, 0.0], dtype=np.float32),
+            high=np.array([1.0, 1.0, 1.0, 1.0], dtype=np.float32),
             shape=(4,),
             dtype=np.float32,
         )
@@ -319,26 +319,26 @@ class KitchenMinimalEnv(MujocoEnv):
             },
         )
 
-    # def _make_position_normalizer(self):
-    #     """Create a function that normalizes 3D positions using workspace bounds."""
-    #     bounds_x = self.workspace_bounds["x"]
-    #     bounds_y = self.workspace_bounds["y"]
-    #     bounds_z = self.workspace_bounds["z"]
+    def _make_position_normalizer(self):
+        """Create a function that normalizes 3D positions using workspace bounds."""
+        bounds_x = self.workspace_bounds["x"]
+        bounds_y = self.workspace_bounds["y"]
+        bounds_z = self.workspace_bounds["z"]
 
-    #     def normalize_position(pos_3d):
-    #         """Normalize a 3D position to [-1, 1] range using workspace bounds."""
-    #         pos = np.asarray(pos_3d, dtype=np.float32)
-    #         normalized = np.array(
-    #             [
-    #                 2.0 * (pos[0] - bounds_x[0]) / (bounds_x[1] - bounds_x[0]) - 1.0,
-    #                 2.0 * (pos[1] - bounds_y[0]) / (bounds_y[1] - bounds_y[0]) - 1.0,
-    #                 2.0 * (pos[2] - bounds_z[0]) / (bounds_z[1] - bounds_z[0]) - 1.0,
-    #             ],
-    #             dtype=np.float32,
-    #         )
-    #         return np.clip(normalized, -1.0, 1.0)
+        def normalize_position(pos_3d):
+            """Normalize a 3D position to [-1, 1] range using workspace bounds."""
+            pos = np.asarray(pos_3d, dtype=np.float32)
+            normalized = np.array(
+                [
+                    2.0 * (pos[0] - bounds_x[0]) / (bounds_x[1] - bounds_x[0]) - 1.0,
+                    2.0 * (pos[1] - bounds_y[0]) / (bounds_y[1] - bounds_y[0]) - 1.0,
+                    2.0 * (pos[2] - bounds_z[0]) / (bounds_z[1] - bounds_z[0]) - 1.0,
+                ],
+                dtype=np.float32,
+            )
+            return np.clip(normalized, -1.0, 1.0)
 
-    #     return normalize_position
+        return normalize_position
 
     def _get_task_space_obs(self):
         """Get current task-space representation as 4D action-like observation.
@@ -355,13 +355,13 @@ class KitchenMinimalEnv(MujocoEnv):
             ee_pos = self.data.site_xpos[grip_site_id].copy()
 
         # Normalize position using workspace bounds
-        # pos_norm = self._normalize_position(ee_pos)
+        pos_norm = self._normalize_position(ee_pos)
 
         # Gripper state: average of two gripper joint positions, scaled from [0, 0.015] to [0, 1]
         gripper_pos = (self.data.qpos[7] + self.data.qpos[8]) / 2.0
         gripper_norm = np.clip(gripper_pos / 0.015, 0.0, 1.0)
 
-        task_space_obs = np.concatenate([ee_pos, [gripper_norm]]).astype(np.float32)
+        task_space_obs = np.concatenate([pos_norm, [gripper_norm]]).astype(np.float32)
 
         return task_space_obs
 
@@ -633,20 +633,20 @@ class KitchenMinimalEnv(MujocoEnv):
         gripper_val = action[3]
 
         # Denormalize xyz from [-1, 1] to workspace bounds
-        # bounds_x = self.workspace_bounds["x"]
-        # bounds_y = self.workspace_bounds["y"]
-        # bounds_z = self.workspace_bounds["z"]
+        bounds_x = self.workspace_bounds["x"]
+        bounds_y = self.workspace_bounds["y"]
+        bounds_z = self.workspace_bounds["z"]
 
-        # target_pos = np.array(
-        #     [
-        #         bounds_x[0]
-        #         + (action_xyz_norm[0] + 1.0) * 0.5 * (bounds_x[1] - bounds_x[0]),
-        #         bounds_y[0]
-        #         + (action_xyz_norm[1] + 1.0) * 0.5 * (bounds_y[1] - bounds_y[0]),
-        #         bounds_z[0]
-        #         + (action_xyz_norm[2] + 1.0) * 0.5 * (bounds_z[1] - bounds_z[0]),
-        #     ]
-        # )
+        target_pos = np.array(
+            [
+                bounds_x[0]
+                + (action_xyz[0] + 1.0) * 0.5 * (bounds_x[1] - bounds_x[0]),
+                bounds_y[0]
+                + (action_xyz[1] + 1.0) * 0.5 * (bounds_y[1] - bounds_y[0]),
+                bounds_z[0]
+                + (action_xyz[2] + 1.0) * 0.5 * (bounds_z[1] - bounds_z[0]),
+            ]
+        )
 
         # Solve IK to get target joint positions (7 arm joints)
         joint_indices = np.arange(7)  # 7 arm joints
@@ -654,7 +654,7 @@ class KitchenMinimalEnv(MujocoEnv):
             self.model,
             self.data,
             site_name="grip_site",
-            target_pos=action_xyz,
+            target_pos=target_pos,
             target_quat=[0.5, 0.5, 0.5, -0.5],
             joint_indices=joint_indices,
             inplace=False,
@@ -698,8 +698,8 @@ class KitchenMinimalEnv(MujocoEnv):
             task_space_obs = self._get_task_space_obs()  # 4D: xyz_norm + gripper
 
             # Normalize cup positions using workspace bounds
-            # cup0_pos_norm = self._normalize_position(qpos[30:33])
-            # cup1_pos_norm = self._normalize_position(qpos[37:40])
+            cup0_pos_norm = self._normalize_position(qpos[30:33])
+            cup1_pos_norm = self._normalize_position(qpos[37:40])
 
             # Cup velocities (not normalized, use as-is)
             cup0_vel = qvel[29:32]
@@ -708,8 +708,8 @@ class KitchenMinimalEnv(MujocoEnv):
             obs = np.concatenate(
                 [
                     task_space_obs,  # 4D
-                    qpos[30:33],  # 3D
-                    qpos[37:40],  # 3D
+                    cup0_pos_norm,  # 3D
+                    cup1_pos_norm,  # 3D
                     cup0_vel,  # 3D
                     cup1_vel,  # 3D
                 ]

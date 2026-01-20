@@ -170,6 +170,7 @@ def evaluate_agent(
             normalized_obs = normalize_observations_selective(
                 raw_obs, obs_mean, obs_std, vel_idx
             )
+            print(normalized_obs[None].shape, normalized_goal[None].shape)
             action = agent.sample_actions(
                 observations=normalized_obs[None],
                 goals=normalized_goal[None],
@@ -345,12 +346,14 @@ def main(args):
     vel_idx = np.arange(10, 16)
 
     obs_mean = np.zeros(obs_data.shape[1], dtype=np.float32)
+    print(obs_mean.shape)
     obs_std = np.ones(obs_data.shape[1], dtype=np.float32)
     # Only compute statistics for velocity dimensions
     obs_mean[vel_idx] = np.mean(obs_data[:, vel_idx], axis=0)
     obs_std[vel_idx] = np.std(obs_data[:, vel_idx], axis=0)
     obs_std[obs_std < 1e-3] = 1.0
-    print("Using selective normalization for minimal observation layout.")
+    print("Observation mean:", obs_mean)
+    print("Observation std:", obs_std)
 
     train_dataset_norm = dict(train_dataset_raw)
     train_dataset_norm["observations"] = normalize_observations_selective(
