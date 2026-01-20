@@ -100,9 +100,18 @@ INIT_QPOS = np.array(
 )
 
 
-MOVING_GOAL_OBS = [ 1.6178124e-01,  1.9007425e-01, -7.5001746e-01,  6.4330596e-01,
-  1.9999997e-01,  3.5999998e-01, -8.8156539e-01, 0.0000000e+00,  0.0000000e+00,
-  3.2277627e-14]
+MOVING_GOAL_OBS = [
+    1.6178124e-01,
+    1.9007425e-01,
+    -7.5001746e-01,
+    6.4330596e-01,
+    1.9999997e-01,
+    3.5999998e-01,
+    -8.8156539e-01,
+    0.0000000e00,
+    0.0000000e00,
+    3.2277627e-14,
+]
 
 
 POUR_GOAL_OBS = [
@@ -219,16 +228,16 @@ class KitchenMinimalEnv(MujocoEnv):
                 self.nu, 2
             )
 
-        #Task-space action simplified: [x, y, z, gripper]
-        #All normalized to [-1, 1]: xyz position,and gripper [0, 1]
-        #Workspace bounds for denormalization: x: [-1.5, 0], y: [-2.5, 0], z: [1.5, 3]
+        # Task-space action simplified: [x, y, z, gripper]
+        # All normalized to [-1, 1]: xyz position,and gripper [0, 1]
+        # Workspace bounds for denormalization: x: [-1.5, 0], y: [-2.5, 0], z: [1.5, 3]
         self.workspace_bounds = {
             "x": np.array([-1.5, 0.0]),
             "y": np.array([-2.5, 0.0]),
             "z": np.array([1.5, 3.0]),
         }
 
-        #Helper method to normalize position to [-1, 1] using workspace bounds
+        # Helper method to normalize position to [-1, 1] using workspace bounds
         self._normalize_position = self._make_position_normalizer()
 
         self.action_space = spaces.Box(
@@ -624,12 +633,9 @@ class KitchenMinimalEnv(MujocoEnv):
 
         target_pos = np.array(
             [
-                bounds_x[0]
-                + (action_xyz[0] + 1.0) * 0.5 * (bounds_x[1] - bounds_x[0]),
-                bounds_y[0]
-                + (action_xyz[1] + 1.0) * 0.5 * (bounds_y[1] - bounds_y[0]),
-                bounds_z[0]
-                + (action_xyz[2] + 1.0) * 0.5 * (bounds_z[1] - bounds_z[0]),
+                bounds_x[0] + (action_xyz[0] + 1.0) * 0.5 * (bounds_x[1] - bounds_x[0]),
+                bounds_y[0] + (action_xyz[1] + 1.0) * 0.5 * (bounds_y[1] - bounds_y[0]),
+                bounds_z[0] + (action_xyz[2] + 1.0) * 0.5 * (bounds_z[1] - bounds_z[0]),
             ]
         )
 
@@ -694,9 +700,9 @@ class KitchenMinimalEnv(MujocoEnv):
                 [
                     task_space_obs,  # 4D
                     cup0_pos_norm,  # 3D
-                   # cup1_pos_norm,  # 3D
+                    # cup1_pos_norm,  # 3D
                     cup0_vel,  # 3D
-                   # cup1_vel,  # 3D
+                    # cup1_vel,  # 3D
                 ]
             ).astype(np.float32)
         return obs
@@ -708,8 +714,9 @@ class KitchenMinimalEnv(MujocoEnv):
         return obs
 
     def _compute_reward(self, obs: np.ndarray, action: np.ndarray) -> float:
-        #return 1.0 if self.get_particles_in_cups()[0] >= 4 else 0.0
+        # return 1.0 if self.get_particles_in_cups()[0] >= 4 else 0.0
         return 1 if self.check_moving_success(MOVING_GOAL_OBS) else 0.0
+
     def _is_terminated(self, obs: np.ndarray) -> bool:
         # change condition to make dataset generation faster
         return True if self.get_particles_in_cups()[0] >= 5 else False
@@ -755,11 +762,13 @@ class KitchenMinimalEnv(MujocoEnv):
         curr_pos = self.data.qpos[30:33]
         curr_quat = self.data.qpos[33:37]
 
+        curr_pos_norm = self._normalize_position(curr_pos)
+
         # In the new minimal observation layout the target cup position is at
         # indices 8:11 (task_space_obs 0:3, cup0_pos 4:7,)
         target_pos = goal_state[4:7]
 
-        dist = np.linalg.norm(curr_pos - target_pos)
+        dist = np.linalg.norm(curr_pos_norm - target_pos)
         pos_ok = dist < pos_tol
 
         w, x, y, z = curr_quat
