@@ -617,7 +617,10 @@ class KitchenMinimalEnv(MujocoEnv):
         return tuple(particles_in_cups)
 
     def step(
-        self, action: np.ndarray, minimal=True
+        self,
+        action: np.ndarray,
+        minimal=True,
+        goal=None,
     ) -> Tuple[np.ndarray, float, bool, bool, Dict]:
         action = np.asarray(action, dtype=np.float32).reshape(4)
 
@@ -669,6 +672,9 @@ class KitchenMinimalEnv(MujocoEnv):
         reward = self._compute_reward(obs, action)
         Goal, Start = self.get_particles_in_cups()
         terminated = True if Goal >= 5 else False
+
+        if goal != None:
+            terminated = self.check_moving_success(goal)
         truncated = terminated
         info = {}
 
@@ -748,7 +754,7 @@ class KitchenMinimalEnv(MujocoEnv):
         return MOVING_GOAL_OBS
 
     def check_moving_success(
-        self, goal_state: np.ndarray, pos_tol: float = 0.08, rot_tol: float = 0.9
+        self, goal_state: np.ndarray, pos_tol: float = 0.02, rot_tol: float = 0.9
     ) -> bool:
         """
         Checks if the task is successful based on the cup position and orientation.

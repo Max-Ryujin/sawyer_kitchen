@@ -268,7 +268,9 @@ def evaluate_agent(
             action = np.array(action).flatten()
             action = np.clip(action, -1, 1)
 
-            obs, _, term, trunc, _ = env.unwrapped.step(action, minimal=True)
+            obs, _, term, trunc, _ = env.unwrapped.step(
+                action, minimal=True, goal=goal_arr
+            )
             raw_obs = np.asarray(obs)
 
             if term or trunc:
