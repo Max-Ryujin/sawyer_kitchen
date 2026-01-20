@@ -672,8 +672,8 @@ class KitchenMinimalEnv(MujocoEnv):
         reward = self._compute_reward(obs, action)
         Goal, Start = self.get_particles_in_cups()
         terminated = True if Goal >= 5 else False
-
-        if goal != None:
+        # check if goal is assigned
+        if goal is not None:
             terminated = self.check_moving_success(goal)
         truncated = terminated
         info = {}
