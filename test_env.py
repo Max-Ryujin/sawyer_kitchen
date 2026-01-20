@@ -826,7 +826,7 @@ def collect_policy_episode(
     noise = False
     env._state_counter = 0
     env._noise_generator = OUNoise(3)
-    cup = 1
+    cup = 0
     for t in range(steps):
         if policy_type == "moving":
             action = moving_policy(env, obs, cup_number=cup)
@@ -1181,7 +1181,8 @@ def collect_moving_policy_dataset(
         moves_completed = 0
         policy_mode = "moving" if move_operations > 0 else "pouring"
         done2 = False
-        cup = np.random.choice(np.array([0, 1]))
+        #cup = np.random.choice(np.array([0, 1]))
+        0
         for t in range(max_steps):
             action = None
             if policy_mode == "moving":

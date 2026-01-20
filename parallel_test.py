@@ -95,30 +95,43 @@ class OUNoise:
         self.state = np.copy(self.mu)
 
 
-def make_task_space_action(
-    target_pos: np.ndarray, env, gripper_val: float, speed=0.1
-) -> np.ndarray:
+def make_task_space_action(target_pos: np.ndarray, env, gripper_val: float, speed=0.1) -> np.ndarray:
     """
-    Build 8D task-space action [x, y, z, gripper]
-    with normalized xyz to [-1, 1] and gripper to [0, 1].
+    Build 4D task-space action [x, y, z, gripper]
+    with xyz and gripper to [0, 1].
 
     Args:
         target_pos: 3D world position in workspace bounds
         gripper_val: scalar in [0, 1] where 0=closed, 1=open
 
     Returns:
-        4D action array
+        4D action array 
     """
-    ee_pos = utils.get_effector_pos(env)
-    delta = target_pos - ee_pos
 
-    [x, y, z] = ee_pos + (delta * speed)
+    bounds_x = np.array([-1.5, 0.0])
+    bounds_y = np.array([-2.5, 0.0])
+    bounds_z = np.array([1.5, 3.0])
+
+    # Normalize xyz from workspace bounds to [-1, 1]
+    x_norm = 2.0 * (target_pos[0] - bounds_x[0]) / (bounds_x[1] - bounds_x[0]) - 1.0
+    y_norm = 2.0 * (target_pos[1] - bounds_y[0]) / (bounds_y[1] - bounds_y[0]) - 1.0
+    z_norm = 2.0 * (target_pos[2] - bounds_z[0]) / (bounds_z[1] - bounds_z[0]) - 1.0
+
+    # Clamp to [-1, 1] to be safe
+    x_norm = np.clip(x_norm, -1.0, 1.0)
+    y_norm = np.clip(y_norm, -1.0, 1.0)
+    z_norm = np.clip(z_norm, -1.0, 1.0)
+
+    # ee_pos = utils.get_effector_pos(env)
+    # delta = target_pos - ee_pos
+
+    # [x,y,z] = ee_pos + (delta * speed)
 
     # Clamp gripper to [0, 1]
     gripper = np.clip(float(gripper_val), 0.0, 1.0)
 
     action = np.array(
-        [x, y, z, gripper],
+        [x_norm, y_norm, z_norm, gripper],
         dtype=np.float32,
     )
     return action
@@ -681,7 +694,8 @@ def collect_policy_episode(
     frames = []
     env._automaton_state = "move_above"
     env._state_counter = 0
-    cup = np.random.choice(np.array([0, 1]))
+    #cup = np.random.choice(np.array([0, 1]))
+    cup = 0
     for t in range(steps):
         if policy_type == "moving":
             action = moving_policy(env, obs, cup_number=cup)
@@ -918,7 +932,7 @@ def collect_moving_policy_dataset(
     if pixel_observations:
         print("Ensure 'export MUJOCO_GL=egl' is set for GPU rendering.")
 
-    results = Parallel(n_jobs=-1, verbose=10)(
+    results = Parallel(n_jobs=20, verbose=10)(
         delayed(run_single_episode)(
             seed=i,
             max_steps=max_steps,
