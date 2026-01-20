@@ -170,7 +170,11 @@ def evaluate_agent(
             normalized_obs = normalize_observations_selective(
                 raw_obs, obs_mean, obs_std, vel_idx
             )
-            print(normalized_obs[None].shape, normalized_goal[None].shape)
+            print(
+                "obs, goal shapes: ",
+                normalized_obs[None].shape,
+                normalized_goal[None].shape,
+            )
             action = agent.sample_actions(
                 observations=normalized_obs[None],
                 goals=normalized_goal[None],

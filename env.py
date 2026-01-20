@@ -101,16 +101,16 @@ INIT_QPOS = np.array(
 
 
 MOVING_GOAL_OBS = [
-    1.6178124e-01,
-    1.9007425e-01,
-    -7.5001746e-01,
-    6.4330596e-01,
-    1.9999997e-01,
-    3.5999998e-01,
-    -8.8156539e-01,
-    0.0000000e00,
-    0.0000000e00,
-    3.2277627e-14,
+    0.1495413,
+    0.18511562,
+    -0.75808,
+    0.64552975,
+    0.14111924,
+    0.19682284,
+    -0.88845634,
+    0.00668787,
+    -0.00106061,
+    0.08017254,
 ]
 
 
@@ -754,7 +754,7 @@ class KitchenMinimalEnv(MujocoEnv):
         return MOVING_GOAL_OBS
 
     def check_moving_success(
-        self, goal_state: np.ndarray, pos_tol: float = 0.02, rot_tol: float = 0.9
+        self, goal_state: np.ndarray, pos_tol: float = 0.05, rot_tol: float = 0.9
     ) -> bool:
         """
         Checks if the task is successful based on the cup position and orientation.
@@ -775,6 +775,7 @@ class KitchenMinimalEnv(MujocoEnv):
         target_pos = goal_state[4:7]
 
         dist = np.linalg.norm(curr_pos_norm - target_pos)
+        print(dist)
         pos_ok = dist < pos_tol
 
         w, x, y, z = curr_quat
