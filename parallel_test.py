@@ -95,7 +95,9 @@ class OUNoise:
         self.state = np.copy(self.mu)
 
 
-def make_task_space_action(target_pos: np.ndarray, env, gripper_val: float, speed=0.1) -> np.ndarray:
+def make_task_space_action(
+    target_pos: np.ndarray, env, gripper_val: float, speed=0.1
+) -> np.ndarray:
     """
     Build 4D task-space action [x, y, z, gripper]
     with xyz and gripper to [0, 1].
@@ -105,7 +107,7 @@ def make_task_space_action(target_pos: np.ndarray, env, gripper_val: float, spee
         gripper_val: scalar in [0, 1] where 0=closed, 1=open
 
     Returns:
-        4D action array 
+        4D action array
     """
 
     bounds_x = np.array([-1.5, 0.0])
@@ -694,7 +696,7 @@ def collect_policy_episode(
     frames = []
     env._automaton_state = "move_above"
     env._state_counter = 0
-    #cup = np.random.choice(np.array([0, 1]))
+    # cup = np.random.choice(np.array([0, 1]))
     cup = 0
     for t in range(steps):
         if policy_type == "moving":
@@ -729,7 +731,6 @@ def run_single_episode(
     height,
     noise,
     pixel_observations,
-    random_action,
     minimal_observations,
     save_failed_episodes,
     pouring_prob,
@@ -785,7 +786,7 @@ def run_single_episode(
     # For testing:
     policy_mode = "moving"  # For testing moving only
     done2 = False
-    #cup = np.random.choice(np.array([0, 1]))
+    # cup = np.random.choice(np.array([0, 1]))
     # I am fixing the cup and remove the other cup from the observation data to prevent the critic from cheating
     cup = 0
     steps_run = 0
@@ -811,8 +812,8 @@ def run_single_episode(
                     else:
                         done2 = True
                 else:
-                   # cup = np.random.choice(np.array([0, 1]))
-                   cup = 0
+                    # cup = np.random.choice(np.array([0, 1]))
+                    cup = 0
                 env._automaton_state = "move_above"
         elif policy_mode == "pouring":
             action = pour_policy_v2(env, obs)
