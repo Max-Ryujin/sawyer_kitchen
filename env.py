@@ -228,8 +228,11 @@ class KitchenMinimalEnv(MujocoEnv):
                 self.nu, 2
             )
 
-        # Task-space action simplified: [x, y, z, gripper]
-        # All normalized to [-1, 1]: xyz position,and gripper [0, 1]
+        # Task-space action simplified: [x, y, z, gripper, rot_z, rot_xy]
+        # x, y, z normalized to [0, 1] (workspace bounds)
+        # gripper: [0, 1]
+        # rot_z: [0, 1] rotation angle around z-axis (0 to 0.6 radians)
+        # rot_xy: [0, 1] rotation from sideways to top-down (0=sideways, 1=top-down)
         # Workspace bounds for denormalization: x: [-1.5, 0], y: [-2.5, 0], z: [1.5, 3]
         self.workspace_bounds = {
             "x": np.array([-1.5, 0.0]),
@@ -239,13 +242,6 @@ class KitchenMinimalEnv(MujocoEnv):
 
         # Helper method to normalize position to [-1, 1] using workspace bounds
         self._normalize_position = self._make_position_normalizer()
-
-        self.action_space = spaces.Box(
-            low=np.array([0.0, 0.0, 0.0, 0.0], dtype=np.float32),
-            high=np.array([1.0, 1.0, 1.0, 1.0], dtype=np.float32),
-            shape=(4,),
-            dtype=np.float32,
-        )
 
         if self._ob_type == "pixels":
 
@@ -270,6 +266,14 @@ class KitchenMinimalEnv(MujocoEnv):
             default_camera_config=DEFAULT_CAMERA_CONFIG,
             render_mode=render_mode,
             **kwargs,
+        )
+
+        # Action: [x, y, z, gripper, rot_z, rot_xy] all in [0, 1]
+        self.action_space = spaces.Box(
+            low=np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32),
+            high=np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0], dtype=np.float32),
+            shape=(6,),
+            dtype=np.float32,
         )
 
         self.init_qpos = self.data.qpos
@@ -320,17 +324,17 @@ class KitchenMinimalEnv(MujocoEnv):
         bounds_z = self.workspace_bounds["z"]
 
         def normalize_position(pos_3d):
-            """Normalize a 3D position to [-1, 1] range using workspace bounds."""
+            """Normalize a 3D position to [0, 1] range using workspace bounds."""
             pos = np.asarray(pos_3d, dtype=np.float32)
             normalized = np.array(
                 [
-                    2.0 * (pos[0] - bounds_x[0]) / (bounds_x[1] - bounds_x[0]) - 1.0,
-                    2.0 * (pos[1] - bounds_y[0]) / (bounds_y[1] - bounds_y[0]) - 1.0,
-                    2.0 * (pos[2] - bounds_z[0]) / (bounds_z[1] - bounds_z[0]) - 1.0,
+                    (pos[0] - bounds_x[0]) / (bounds_x[1] - bounds_x[0]),
+                    (pos[1] - bounds_y[0]) / (bounds_y[1] - bounds_y[0]),
+                    (pos[2] - bounds_z[0]) / (bounds_z[1] - bounds_z[0]),
                 ],
                 dtype=np.float32,
             )
-            return np.clip(normalized, -1.0, 1.0)
+            return np.clip(normalized, 0.0, 1.0)
 
         return normalize_position
 
@@ -433,7 +437,7 @@ class KitchenMinimalEnv(MujocoEnv):
         randomise_cup_position = (
             options.get("randomise_cup_position", False) if options else False
         )
-        minimal = options.get("minimal", False)
+        minimal = options.get("minimal", False) if options else False
 
         # Reset simulation state
         if self.model.nv:
@@ -616,31 +620,103 @@ class KitchenMinimalEnv(MujocoEnv):
 
         return tuple(particles_in_cups)
 
+    def _action_rotations_to_quaternion(
+        self, rot_z: float, rot_xy: float
+    ) -> np.ndarray:
+        """
+        Convert normalized rotation parameters to a quaternion.
+
+        Args:
+            rot_z: [0, 1] rotation angle around z-axis (mapped to -0.3 to 0.3 radians)
+            rot_xy: [0, 1] rotation from sideways to top-down
+                   0 = completely sideways parallel to table
+                   1 = top-down (vertical)
+
+        Returns:
+            Quaternion [w, x, y, z] representing the desired end-effector orientation
+        """
+        # Map rot_z from [0, 1] to angle around z-axis
+        angle_z = (rot_z - 0.5) * 0.6
+
+        # Map rot_xy from [0, 1] to rotation between sideways and top-down
+        # We interpolate between two quaternions:
+        # 0 = completely sideways
+        # 1 = top-down
+        q_sideways = np.array([0.7071, 0.0, 0.0, 0.7071], dtype=np.float32)
+        q_topdown = np.array([0.5, 0.5, 0.5, -0.5], dtype=np.float32)
+
+        dot = np.dot(q_sideways, q_topdown)
+        if dot < 0:
+            q_topdown = -q_topdown
+            dot = -dot
+
+        dot = np.clip(dot, -1.0, 1.0)
+        theta_0 = np.arccos(dot)
+        sin_theta_0 = np.sin(theta_0)
+
+        if sin_theta_0 < 1e-6:
+            q_interpolated = q_sideways
+        else:
+            t = rot_xy
+            sin_theta = np.sin(theta_0 * t)
+            sin_theta_1_minus_t = np.sin(theta_0 * (1 - t))
+
+            q_interpolated = (
+                sin_theta_1_minus_t * q_sideways + sin_theta * q_topdown
+            ) / sin_theta_0
+
+        w_z = np.cos(angle_z / 2)
+        z_z = np.sin(angle_z / 2)
+        q_z_rot = np.array([w_z, 0.0, 0.0, z_z], dtype=np.float32)
+
+        w1, x1, y1, z1 = q_z_rot
+        w2, x2, y2, z2 = q_interpolated
+
+        result = np.array(
+            [
+                w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2,
+                w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2,
+                w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2,
+                w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2,
+            ],
+            dtype=np.float32,
+        )
+
+        return result
+
     def step(
         self,
         action: np.ndarray,
         minimal=True,
         goal=None,
     ) -> Tuple[np.ndarray, float, bool, bool, Dict]:
-        action = np.asarray(action, dtype=np.float32).reshape(4)
+        action = np.asarray(action, dtype=np.float32)
 
-        # Parse task-space action: [x, y, z, gripper]
-        # Note: xyz are normalized to [-1, 1], denormalize using workspace bounds
+        if action.shape[0] == 4:
+            action = np.concatenate([action, np.array([0.5, 1.0], dtype=np.float32)])
+
+        action = action.reshape(6)
+
+        # Parse task-space action: [x, y, z, gripper, rot_z, rot_xy]
         action_xyz = action[:3]
         gripper_val = action[3]
+        rot_z = action[4]
+        rot_xy = action[5]
 
-        # Denormalize xyz from [-1, 1] to workspace bounds
+        # Denormalize xyz from [0, 1] to workspace bounds
         bounds_x = self.workspace_bounds["x"]
         bounds_y = self.workspace_bounds["y"]
         bounds_z = self.workspace_bounds["z"]
 
         target_pos = np.array(
             [
-                bounds_x[0] + (action_xyz[0] + 1.0) * 0.5 * (bounds_x[1] - bounds_x[0]),
-                bounds_y[0] + (action_xyz[1] + 1.0) * 0.5 * (bounds_y[1] - bounds_y[0]),
-                bounds_z[0] + (action_xyz[2] + 1.0) * 0.5 * (bounds_z[1] - bounds_z[0]),
+                bounds_x[0] + action_xyz[0] * (bounds_x[1] - bounds_x[0]),
+                bounds_y[0] + action_xyz[1] * (bounds_y[1] - bounds_y[0]),
+                bounds_z[0] + action_xyz[2] * (bounds_z[1] - bounds_z[0]),
             ]
         )
+
+        target_quat = self._action_rotations_to_quaternion(rot_z, rot_xy)
 
         # Solve IK to get target joint positions (7 arm joints)
         joint_indices = np.arange(7)  # 7 arm joints
@@ -649,7 +725,7 @@ class KitchenMinimalEnv(MujocoEnv):
             self.data,
             site_name="grip_site",
             target_pos=target_pos,
-            target_quat=[0.5, 0.5, 0.5, -0.5],
+            target_quat=target_quat,
             joint_indices=joint_indices,
             inplace=False,
         )
