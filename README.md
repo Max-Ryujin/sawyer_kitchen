@@ -38,3 +38,9 @@ Here are the changes that I did to get the agents to work:
 - added back normalisation
 - fixed a bug in the sucess check for moving the cup.
 
+
+### commit  8033948
+- moved policy code from test_env.py and parallel_test.py to policies.py
+- added rotation around z and xy axis to the action space of the moving policy
+- made the action range consistent between 0 and 1 for all dimensions to have similar scaling
+- (need to add rotations to the policy to be able to generate a new dataset)
