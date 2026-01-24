@@ -100,18 +100,9 @@ INIT_QPOS = np.array(
 )
 
 
-MOVING_GOAL_OBS = [
-    0.1495413,
-    0.18511562,
-    -0.75808,
-    0.64552975,
-    0.14111924,
-    0.19682284,
-    -0.88845634,
-    0.00668787,
-    -0.00106061,
-    0.08017254,
-]
+MOVING_GOAL_OBS =  [ 4.89397049e-01,  6.99088395e-01,  1.09285988e-01,  5.59332013e-01,
+  0.00000000e+00,  8.94294798e-01,  4.86384898e-01,  6.89639926e-01,
+  5.58079071e-02,  1.22513585e-02, -7.65149947e-04,  8.50012451e-02]
 
 
 POUR_GOAL_OBS = [
@@ -339,18 +330,19 @@ class KitchenMinimalEnv(MujocoEnv):
         return normalize_position
 
     def _get_task_space_obs(self):
-        """Get current task-space representation as 4D action-like observation.
+        """Get current task-space representation as 6D action-like observation.
 
-        Returns 4D array: [x_norm, y_norm, z_norm, gripper]
-        where positions are normalized to [-1, 1] and gripper is in [0, 1].
+        Returns 6D array: [x_norm, y_norm, z_norm, gripper, rot_z, rot_xy]
+        where positions are normalized to [0, 1], gripper is in [0, 1], and rotations are in [0, 1].
         """
         # Get current end-effector position and orientation from grip_site
         grip_site_id = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_SITE, "grip_site")
         if grip_site_id == -1:
-            # Fallback: use last 7 joint forward kinematics
             ee_pos = np.array([0.0, 0.0, 0.0])
         else:
             ee_pos = self.data.site_xpos[grip_site_id].copy()
+            ee_xmat = self.data.site_xmat[grip_site_id].reshape(3, 3)
+            ee_quat = self._rotation_matrix_to_quaternion(ee_xmat)
 
         # Normalize position using workspace bounds
         pos_norm = self._normalize_position(ee_pos)
@@ -359,7 +351,10 @@ class KitchenMinimalEnv(MujocoEnv):
         gripper_pos = (self.data.qpos[7] + self.data.qpos[8]) / 2.0
         gripper_norm = np.clip(gripper_pos / 0.015, 0.0, 1.0)
 
-        task_space_obs = np.concatenate([pos_norm, [gripper_norm]]).astype(np.float32)
+        # Extract rot_z and rot_xy from the current quaternion
+       # rot_z, rot_xy = self._quaternion_to_rotation_params(ee_quat)
+
+        task_space_obs = np.concatenate([pos_norm, [gripper_norm, rot_z, rot_xy]]).astype(np.float32)
 
         return task_space_obs
 
@@ -642,7 +637,7 @@ class KitchenMinimalEnv(MujocoEnv):
         # We interpolate between two quaternions:
         # 0 = completely sideways
         # 1 = top-down
-        q_sideways = np.array([0.7071, 0.0, 0.0, 0.7071], dtype=np.float32)
+        q_sideways = np.array([0.7071, 0.0, 0.0, -0.707], dtype=np.float32)
         q_topdown = np.array([0.5, 0.5, 0.5, -0.5], dtype=np.float32)
 
         dot = np.dot(q_sideways, q_topdown)
@@ -768,7 +763,7 @@ class KitchenMinimalEnv(MujocoEnv):
         obs = np.concatenate([qpos, qvel]).astype(np.float32)
 
         if minimal:
-            task_space_obs = self._get_task_space_obs()  # 4D: xyz_norm + gripper
+            task_space_obs = self._get_task_space_obs()  # 6D: xyz_norm + gripper
 
             # Normalize cup positions using workspace bounds
             cup0_pos_norm = self._normalize_position(qpos[30:33])
@@ -780,7 +775,7 @@ class KitchenMinimalEnv(MujocoEnv):
 
             obs = np.concatenate(
                 [
-                    task_space_obs,  # 4D
+                    task_space_obs,  # 6D
                     cup0_pos_norm,  # 3D
                     # cup1_pos_norm,  # 3D
                     cup0_vel,  # 3D
@@ -847,8 +842,8 @@ class KitchenMinimalEnv(MujocoEnv):
         curr_pos_norm = self._normalize_position(curr_pos)
 
         # In the new minimal observation layout the target cup position is at
-        # indices 8:11 (task_space_obs 0:3, cup0_pos 4:7,)
-        target_pos = goal_state[4:7]
+        # indices 8:11 (task_space_obs 0:5, cup0_pos 6:9,)
+        target_pos = goal_state[6:9]
 
         dist = np.linalg.norm(curr_pos_norm - target_pos)
         print(dist)
