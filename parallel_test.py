@@ -166,8 +166,8 @@ def run_single_episode(
             action = pour_policy_v2(env, obs)
         # --------------------
 
-        if noise:
-            action = action + np.random.normal(0, 0.01, action.shape)
+      #  if noise:
+            #action = action + np.random.normal(0, 0.01, action.shape)
 
         episode_data["qpos"].append(env.unwrapped.data.qpos.copy())
         episode_data["qvel"].append(env.unwrapped.data.qvel.copy())
@@ -209,8 +209,10 @@ def run_single_episode(
                 state_stats_local[last_state]["total_steps"] += state_step_counter
                 state_stats_local[last_state]["count"] += 1
                 state_step_counter = 0
-            success = True
-            failure_reason = None
+            # Only mark as successful if terminated or trunc from environment
+            if terminated or trunc:
+                success = True
+                failure_reason = None
             env._noise_generator.reset()
             break
 
@@ -288,7 +290,6 @@ def collect_moving_policy_dataset(
             height=height,
             noise=noise,
             pixel_observations=pixel_observations,
-            random_action=random_action,
             minimal_observations=minimal_observations,
             save_failed_episodes=save_failed_episodes,
             pouring_prob=pouring_prob,
