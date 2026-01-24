@@ -44,3 +44,9 @@ Here are the changes that I did to get the agents to work:
 - added rotation around z and xy axis to the action space of the moving policy
 - made the action range consistent between 0 and 1 for all dimensions to have similar scaling
 - (need to add rotations to the policy to be able to generate a new dataset)
+
+### commit 9b1a4e3
+- added relative rotations to the action space in the policies.
+- Since the rotations are relative to a fixed quaternion and applied one after the other, it is quite hard to calculate the correct values for the action space in the observations.
+- Still need to implement a function that takes the current quaternion and extracts the rot_z and rot_xy values relative to a set of fixed quaternions.
+- Need to remember to update the GOAL_OBS once I am able to generate correct observations with rotations.
