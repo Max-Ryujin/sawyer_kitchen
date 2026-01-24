@@ -50,3 +50,11 @@ Here are the changes that I did to get the agents to work:
 - Since the rotations are relative to a fixed quaternion and applied one after the other, it is quite hard to calculate the correct values for the action space in the observations.
 - Still need to implement a function that takes the current quaternion and extracts the rot_z and rot_xy values relative to a set of fixed quaternions.
 - Need to remember to update the GOAL_OBS once I am able to generate correct observations with rotations.
+
+
+### notes on rotation representation
+- currently using two values rot_z and rot_xy to represent rotation around the z axis and rotation around the x and y axis.
+- the advantage is that this representation is quite compact and easy to normalise between 0 and 1.
+- the disadvantage is that it is quite hard to convert between quaternions and this representation. I need to do a gridserach over possible quaternions to find the best matching rot_z and rot_xy values. This is not very efficient but works and I am concerned about gradinents as well.
+- another option would be to use euler angles, but they have singularities and other issues.
+- In the long term it might be worth checking out https://arxiv.org/abs/1812.07035 for better rotation representations for RL.
