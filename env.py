@@ -100,9 +100,9 @@ INIT_QPOS = np.array(
 )
 
 
-MOVING_GOAL_OBS =  [ 4.89397049e-01,  6.99088395e-01,  1.09285988e-01,  5.59332013e-01,
-  0.00000000e+00,  8.94294798e-01,  4.86384898e-01,  6.89639926e-01,
-  5.58079071e-02,  1.22513585e-02, -7.65149947e-04,  8.50012451e-02]
+MOVING_GOAL_OBS = [ 4.2959806e-01,  7.6935011e-01,  1.0436400e-01,  5.5324817e-01,
+  7.0102924e-01,  4.3643507e-01,  7.7704358e-01,  5.8516264e-02,
+ -1.8274069e-03,  3.3441608e-04,  2.5202857e-02]
 
 
 POUR_GOAL_OBS = [
@@ -219,11 +219,11 @@ class KitchenMinimalEnv(MujocoEnv):
                 self.nu, 2
             )
 
-        # Task-space action simplified: [x, y, z, gripper, rot_z, rot_xy]
+        # Task-space action simplified: [x, y, z, gripper, rot]
         # x, y, z normalized to [0, 1] (workspace bounds)
         # gripper: [0, 1]
-        # rot_z: [0, 1] rotation angle around z-axis (0 to 0.6 radians)
-        # rot_xy: [0, 1] rotation from sideways to top-down (0=sideways, 1=top-down)
+        # rot: [0, 1] rotation angle
+
         # Workspace bounds for denormalization: x: [-1.5, 0], y: [-2.5, 0], z: [1.5, 3]
         self.workspace_bounds = {
             "x": np.array([-1.5, 0.0]),
@@ -261,9 +261,9 @@ class KitchenMinimalEnv(MujocoEnv):
 
         # Action: [x, y, z, gripper, rot_z, rot_xy] all in [0, 1]
         self.action_space = spaces.Box(
-            low=np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32),
-            high=np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0], dtype=np.float32),
-            shape=(6,),
+            low=np.array([0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32),
+            high=np.array([1.0, 1.0, 1.0, 1.0, 1.0], dtype=np.float32),
+            shape=(5,),
             dtype=np.float32,
         )
 
@@ -329,32 +329,117 @@ class KitchenMinimalEnv(MujocoEnv):
 
         return normalize_position
 
-    def _get_task_space_obs(self):
-        """Get current task-space representation as 6D action-like observation.
-
-        Returns 6D array: [x_norm, y_norm, z_norm, gripper, rot_z, rot_xy]
-        where positions are normalized to [0, 1], gripper is in [0, 1], and rotations are in [0, 1].
+    def _action_rotations_to_quaternion(self, rot: float) -> np.ndarray:
         """
-        # Get current end-effector position and orientation from grip_site
+        Convert normalized rotation parameter to a quaternion.
+        
+        This defines a 180-degree arc around the X-axis starting from 'sideways'.
+        
+        Args:
+            rot: [0, 1] scalar.
+                 0.0 = Sideways (Parallel to table)
+                 0.5 = Top-down (Vertical)
+                 1.0 = Sideways (Opposite side 180 deg)
+
+        Returns:
+            Quaternion [w, x, y, z]
+        """
+        # 1. Base quaternion (Sideways) [0.707, 0, 0, -0.707]
+        q_sideways = np.array([0.70710678, 0.0, 0.0, -0.70710678], dtype=np.float32)
+
+        angle = rot * np.pi
+        
+        # q_rot = [cos(angle/2), sin(angle/2), 0, 0]
+        half_angle = angle / 2.0
+        sin_a = np.sin(half_angle)
+        cos_a = np.cos(half_angle)
+        
+
+        # q_x_rot   = [cos_a, sin_a, 0, 0]
+        # q_sideways = [w_s,   0,     0, z_s]
+        
+        w_s = q_sideways[0]
+        z_s = q_sideways[3]
+
+        
+        new_w = cos_a * w_s
+        new_x = sin_a * w_s
+        new_y = -sin_a * z_s
+        new_z = cos_a * z_s
+        
+        return np.array([new_w, new_x, new_y, new_z], dtype=np.float32)
+
+    def _quaternion_to_rotation_params(self, quat: np.ndarray) -> float:
+        """
+        Inverse of _action_rotations_to_quaternion.
+        Analytically projects a quaternion onto the specific X-rotation arc defined above.
+
+        Args:
+            quat: array-like quaternion [w, x, y, z]
+
+        Returns:
+            rot: float in [0, 1]
+        """
+        q = np.asarray(quat, dtype=np.float64)
+        norm = np.linalg.norm(q)
+        if norm == 0: 
+            return 0.0
+        q = q / norm
+
+
+        # q_side = [0.707, 0, 0, -0.707] -> inverse = [0.707, 0, 0, 0.707]
+        q_side_inv = np.array([0.70710678, 0.0, 0.0, 0.70710678], dtype=np.float64)
+
+        # Calculate relative rotation: q_rel = q_current * q_base_inverse
+        w1, x1, y1, z1 = q
+        w2, x2, y2, z2 = q_side_inv
+        
+        # Hamilton product q * q_inv
+        rel_w = w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2
+        rel_x = w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2
+
+
+        # Handle Double Cover (q == -q):
+        if rel_w < 0:
+            rel_w = -rel_w
+            rel_x = -rel_x
+        
+
+        angle = 2.0 * np.arctan2(rel_x, rel_w)
+        
+        # Map angle from [0, pi] to [0, 1]
+        rot = angle / np.pi
+        
+        return float(np.clip(rot, 0.0, 1.0))
+
+    def _get_task_space_obs(self):
+        """Get current task-space representation.
+        
+        Returns 5D array: [x, y, z, gripper, rot]
+        """
         grip_site_id = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_SITE, "grip_site")
+        
         if grip_site_id == -1:
             ee_pos = np.array([0.0, 0.0, 0.0])
+            gripper_quat = np.array([1.0, 0.0, 0.0, 0.0])
         else:
             ee_pos = self.data.site_xpos[grip_site_id].copy()
-            ee_xmat = self.data.site_xmat[grip_site_id].reshape(3, 3)
-            ee_quat = self._rotation_matrix_to_quaternion(ee_xmat)
+            mat = self.data.site_xmat[grip_site_id].reshape(9)
+            gripper_quat = np.empty(4)
+            mj.mju_mat2Quat(gripper_quat, mat)
 
-        # Normalize position using workspace bounds
         pos_norm = self._normalize_position(ee_pos)
 
-        # Gripper state: average of two gripper joint positions, scaled from [0, 0.015] to [0, 1]
         gripper_pos = (self.data.qpos[7] + self.data.qpos[8]) / 2.0
         gripper_norm = np.clip(gripper_pos / 0.015, 0.0, 1.0)
 
-        # Extract rot_z and rot_xy from the current quaternion
-       # rot_z, rot_xy = self._quaternion_to_rotation_params(ee_quat)
+        # Get the single rotation parameter
+        rot = self._quaternion_to_rotation_params(gripper_quat)
 
-        task_space_obs = np.concatenate([pos_norm, [gripper_norm, rot_z, rot_xy]]).astype(np.float32)
+        # Concatenate: 3 pos + 1 gripper + 1 rot = 5 dims
+        task_space_obs = np.concatenate(
+            [pos_norm, [gripper_norm, rot]]
+        ).astype(np.float32)
 
         return task_space_obs
 
@@ -615,70 +700,6 @@ class KitchenMinimalEnv(MujocoEnv):
 
         return tuple(particles_in_cups)
 
-    def _action_rotations_to_quaternion(
-        self, rot_z: float, rot_xy: float
-    ) -> np.ndarray:
-        """
-        Convert normalized rotation parameters to a quaternion.
-
-        Args:
-            rot_z: [0, 1] rotation angle around z-axis (mapped to -0.3 to 0.3 radians)
-            rot_xy: [0, 1] rotation from sideways to top-down
-                   0 = completely sideways parallel to table
-                   1 = top-down (vertical)
-
-        Returns:
-            Quaternion [w, x, y, z] representing the desired end-effector orientation
-        """
-        # Map rot_z from [0, 1] to angle around z-axis
-        angle_z = (rot_z - 0.5) * 0.6
-
-        # Map rot_xy from [0, 1] to rotation between sideways and top-down
-        # We interpolate between two quaternions:
-        # 0 = completely sideways
-        # 1 = top-down
-        q_sideways = np.array([0.7071, 0.0, 0.0, -0.707], dtype=np.float32)
-        q_topdown = np.array([0.5, 0.5, 0.5, -0.5], dtype=np.float32)
-
-        dot = np.dot(q_sideways, q_topdown)
-        if dot < 0:
-            q_topdown = -q_topdown
-            dot = -dot
-
-        dot = np.clip(dot, -1.0, 1.0)
-        theta_0 = np.arccos(dot)
-        sin_theta_0 = np.sin(theta_0)
-
-        if sin_theta_0 < 1e-6:
-            q_interpolated = q_sideways
-        else:
-            t = rot_xy
-            sin_theta = np.sin(theta_0 * t)
-            sin_theta_1_minus_t = np.sin(theta_0 * (1 - t))
-
-            q_interpolated = (
-                sin_theta_1_minus_t * q_sideways + sin_theta * q_topdown
-            ) / sin_theta_0
-
-        w_z = np.cos(angle_z / 2)
-        z_z = np.sin(angle_z / 2)
-        q_z_rot = np.array([w_z, 0.0, 0.0, z_z], dtype=np.float32)
-
-        w1, x1, y1, z1 = q_z_rot
-        w2, x2, y2, z2 = q_interpolated
-
-        result = np.array(
-            [
-                w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2,
-                w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2,
-                w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2,
-                w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2,
-            ],
-            dtype=np.float32,
-        )
-
-        return result
-
     def step(
         self,
         action: np.ndarray,
@@ -690,13 +711,12 @@ class KitchenMinimalEnv(MujocoEnv):
         if action.shape[0] == 4:
             action = np.concatenate([action, np.array([0.5, 1.0], dtype=np.float32)])
 
-        action = action.reshape(6)
+        action = action.reshape(5)
 
-        # Parse task-space action: [x, y, z, gripper, rot_z, rot_xy]
+        # Parse task-space action: [x, y, z, gripper, rot]
         action_xyz = action[:3]
         gripper_val = action[3]
-        rot_z = action[4]
-        rot_xy = action[5]
+        rot = action[4]
 
         # Denormalize xyz from [0, 1] to workspace bounds
         bounds_x = self.workspace_bounds["x"]
@@ -711,7 +731,7 @@ class KitchenMinimalEnv(MujocoEnv):
             ]
         )
 
-        target_quat = self._action_rotations_to_quaternion(rot_z, rot_xy)
+        target_quat = self._action_rotations_to_quaternion(rot)
 
         # Solve IK to get target joint positions (7 arm joints)
         joint_indices = np.arange(7)  # 7 arm joints
@@ -763,7 +783,7 @@ class KitchenMinimalEnv(MujocoEnv):
         obs = np.concatenate([qpos, qvel]).astype(np.float32)
 
         if minimal:
-            task_space_obs = self._get_task_space_obs()  # 6D: xyz_norm + gripper
+            task_space_obs = self._get_task_space_obs()  # 5D: xyz_norm + gripper + rot
 
             # Normalize cup positions using workspace bounds
             cup0_pos_norm = self._normalize_position(qpos[30:33])
@@ -846,7 +866,6 @@ class KitchenMinimalEnv(MujocoEnv):
         target_pos = goal_state[6:9]
 
         dist = np.linalg.norm(curr_pos_norm - target_pos)
-        print(dist)
         pos_ok = dist < pos_tol
 
         w, x, y, z = curr_quat
