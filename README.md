@@ -58,3 +58,9 @@ Here are the changes that I did to get the agents to work:
 - the disadvantage is that it is quite hard to convert between quaternions and this representation. I need to do a gridserach over possible quaternions to find the best matching rot_z and rot_xy values. This is not very efficient but works and I am concerned about gradinents as well.
 - another option would be to use euler angles, but they have singularities and other issues.
 - In the long term it might be worth checking out https://arxiv.org/abs/1812.07035 for better rotation representations for RL.
+
+### commit ed6be57
+- changed the action and observation space to only use one scalar for roation to make puring possible again.
+- I am currently choosing a random rotation at the start of the episode.
+- It seems that the critic uses the rotation information in CRL to differenciate between the states like it did with two cups. 
+- I will test to use a set of preselected angles to see if that improves performance.
