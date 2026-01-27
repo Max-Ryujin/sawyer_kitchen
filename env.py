@@ -795,7 +795,7 @@ class KitchenMinimalEnv(MujocoEnv):
 
             obs = np.concatenate(
                 [
-                    task_space_obs,  # 6D
+                    task_space_obs,  # 5D
                     cup0_pos_norm,  # 3D
                     # cup1_pos_norm,  # 3D
                     cup0_vel,  # 3D

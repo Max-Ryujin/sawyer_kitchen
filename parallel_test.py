@@ -210,7 +210,7 @@ def run_single_episode(
                 state_stats_local[last_state]["count"] += 1
                 state_step_counter = 0
             # Only mark as successful if terminated or trunc from environment
-            if terminated or trunc:
+            if terminated or trunc or done2:
                 success = True
                 failure_reason = None
             env._noise_generator.reset()
@@ -302,7 +302,15 @@ def collect_moving_policy_dataset(
     success_count = 0
     failure_counts = defaultdict(int)
 
-    # Filter only valid results (non-None)
+    # Aggregate failure counts from ALL results first
+    for res in results:
+        is_success, fail_reason, data, steps, state_stats = res
+        if is_success:
+            success_count += 1
+        else:
+            failure_counts[str(fail_reason)] += 1
+
+    # Filter only valid results (non-None) for dataset
     valid_results = [r for r in results if r[2] is not None]
     num_valid = len(valid_results)
 
@@ -315,16 +323,13 @@ def collect_moving_policy_dataset(
 
     total_train_steps = 0
 
-    # Aggregate data
+    # Aggregate data from valid results only
 
     global_state_stats = defaultdict(lambda: {"total_steps": 0, "count": 0})
 
     for i, res in enumerate(valid_results):
         is_success, fail_reason, data, steps, state_stats = res
-        if is_success:
-            success_count += 1
-        else:
-            failure_counts[str(fail_reason)] += 1
+        # Note: is_success already counted above, skip re-counting
 
         # accumulate per-state stats
         for st, vals in state_stats.items():
@@ -400,6 +405,7 @@ def collect_moving_policy_dataset(
         "state_timings": state_timing_summary,
         "avg_steps_per_valid_episode": avg_steps_per_valid_episode,
         "avg_steps_per_attempted_episode": avg_steps_per_attempted_episode,
+        "failed_episodes": num_valid - success_count,
     }
     stats_path = os.path.join(save_root, "stats.json")
     with open(stats_path, "w") as fh:

@@ -82,7 +82,7 @@ def evaluate_agent(
     vel_idx=None,
 ):
     if vel_idx is None:
-        vel_idx = np.arange(7, 10)
+        vel_idx = np.arange(8, 11)
 
     if env is None:
         env = gym.make(
@@ -118,7 +118,7 @@ def evaluate_agent(
     #         )
     #         # Flatten action back to [Dim]
     #         action = np.array(action).flatten()
-    #         action = np.clip(action, -1, 1)
+    #         action = np.clip(action, 0, 1)
     #         obs, _, term, trunc, _ = env.unwrapped.step(action, minimal=True)
     #         raw_obs = np.asarray(obs)
 
@@ -178,7 +178,7 @@ def evaluate_agent(
             )
             # Flatten action back to [Dim]
             action = np.array(action).flatten()
-            action = np.clip(action, -1, 1)
+            action = np.clip(action, 0, 1)
             obs, _, term, trunc, _ = env.unwrapped.step(action, minimal=True)
             raw_obs = np.asarray(obs)
 
@@ -265,7 +265,7 @@ def evaluate_agent(
             )
             # Flatten action back to [Dim]
             action = np.array(action).flatten()
-            action = np.clip(action, -1, 1)
+            action = np.clip(action, 0, 1)
 
             obs, _, term, trunc, _ = env.unwrapped.step(
                 action, minimal=True, goal=goal_arr
@@ -343,8 +343,8 @@ def main(args):
     # Velocities are unbounded, so we normalize using dataset statistics.
     obs_data = train_dataset_raw["observations"]
 
-    # Velocity indices in minimal observation: 10-14
-    vel_idx = np.arange(7, 10)
+    # Velocity indices in minimal observation: 8-11
+    vel_idx = np.arange(8, 11)
 
     obs_mean = np.zeros(obs_data.shape[1], dtype=np.float32)
     obs_std = np.ones(obs_data.shape[1], dtype=np.float32)
