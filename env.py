@@ -230,9 +230,9 @@ class KitchenMinimalEnv(MujocoEnv):
             )
 
         # Task-space action simplified: [x, y, z, gripper, rot]
-        # x, y, z normalized to [0, 1] (workspace bounds)
-        # gripper: [0, 1]
-        # rot: [0, 1] rotation angle
+        # x, y, z normalized to [-1, 1] (workspace bounds)
+        # gripper: [-1, 1]
+        # rot: [-1, 1] rotation angle
 
         # Workspace bounds for denormalization: x: [-1.5, 0], y: [-2.5, 0], z: [1.5, 3]
         self.workspace_bounds = {
@@ -269,9 +269,9 @@ class KitchenMinimalEnv(MujocoEnv):
             **kwargs,
         )
 
-        # Action: [x, y, z, gripper, rot_z, rot_xy] all in [0, 1]
+        # Action: [x, y, z, gripper, rot] all in [-1, 1]
         self.action_space = spaces.Box(
-            low=np.array([0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32),
+            low=np.array([-1.0, -1.0, -1.0, -1.0, -1.0], dtype=np.float32),
             high=np.array([1.0, 1.0, 1.0, 1.0, 1.0], dtype=np.float32),
             shape=(5,),
             dtype=np.float32,
@@ -325,17 +325,18 @@ class KitchenMinimalEnv(MujocoEnv):
         bounds_z = self.workspace_bounds["z"]
 
         def normalize_position(pos_3d):
-            """Normalize a 3D position to [0, 1] range using workspace bounds."""
+            """Normalize a 3D position to [-1, 1] range using workspace bounds."""
             pos = np.asarray(pos_3d, dtype=np.float32)
+            # Map from workspace bounds to [-1, 1]
             normalized = np.array(
                 [
-                    (pos[0] - bounds_x[0]) / (bounds_x[1] - bounds_x[0]),
-                    (pos[1] - bounds_y[0]) / (bounds_y[1] - bounds_y[0]),
-                    (pos[2] - bounds_z[0]) / (bounds_z[1] - bounds_z[0]),
+                    2.0 * (pos[0] - bounds_x[0]) / (bounds_x[1] - bounds_x[0]) - 1.0,
+                    2.0 * (pos[1] - bounds_y[0]) / (bounds_y[1] - bounds_y[0]) - 1.0,
+                    2.0 * (pos[2] - bounds_z[0]) / (bounds_z[1] - bounds_z[0]) - 1.0,
                 ],
                 dtype=np.float32,
             )
-            return np.clip(normalized, 0.0, 1.0)
+            return np.clip(normalized, -1.0, 1.0)
 
         return normalize_position
 
@@ -346,10 +347,10 @@ class KitchenMinimalEnv(MujocoEnv):
         This defines a 180-degree arc around the X-axis starting from 'sideways'.
 
         Args:
-            rot: [0, 1] scalar.
-                 0.0 = Sideways (Parallel to table)
-                 0.5 = Top-down (Vertical)
-                 1.0 = Sideways (Opposite side 180 deg)
+            rot: [-1, 1] scalar.
+                 -1.0 = Sideways (Opposite side 180 deg)
+                 0.0 = Top-down (Vertical)
+                 1.0 = Sideways (Parallel to table)
 
         Returns:
             Quaternion [w, x, y, z]
@@ -357,7 +358,8 @@ class KitchenMinimalEnv(MujocoEnv):
         # 1. Base quaternion (Sideways) [0.707, 0, 0, -0.707]
         q_sideways = np.array([0.70710678, 0.0, 0.0, -0.70710678], dtype=np.float32)
 
-        angle = rot * np.pi
+        # Map rot from [-1, 1] to angle in [0, π]
+        angle = (rot + 1.0) * 0.5 * np.pi
 
         # q_rot = [cos(angle/2), sin(angle/2), 0, 0]
         half_angle = angle / 2.0
@@ -386,7 +388,7 @@ class KitchenMinimalEnv(MujocoEnv):
             quat: array-like quaternion [w, x, y, z]
 
         Returns:
-            rot: float in [0, 1]
+            rot: float in [-1, 1]
         """
         q = np.asarray(quat, dtype=np.float64)
         norm = np.linalg.norm(q)
@@ -412,10 +414,10 @@ class KitchenMinimalEnv(MujocoEnv):
 
         angle = 2.0 * np.arctan2(rel_x, rel_w)
 
-        # Map angle from [0, pi] to [0, 1]
-        rot = angle / np.pi
+        # Map angle from [0, pi] to [-1, 1]
+        rot = angle / np.pi * 2.0 - 1.0
 
-        return float(np.clip(rot, 0.0, 1.0))
+        return float(np.clip(rot, -1.0, 1.0))
 
     def _get_task_space_obs(self):
         """Get current task-space representation.
@@ -436,7 +438,8 @@ class KitchenMinimalEnv(MujocoEnv):
         pos_norm = self._normalize_position(ee_pos)
 
         gripper_pos = (self.data.qpos[7] + self.data.qpos[8]) / 2.0
-        gripper_norm = np.clip(gripper_pos / 0.015, 0.0, 1.0)
+        # Normalize gripper from [0, 0.015] to [-1, 1]
+        gripper_norm = np.clip(2.0 * (gripper_pos / 0.015) - 1.0, -1.0, 1.0)
 
         # Get the single rotation parameter
         rot = self._quaternion_to_rotation_params(gripper_quat)
@@ -720,16 +723,16 @@ class KitchenMinimalEnv(MujocoEnv):
         gripper_val = action[3]
         rot = action[4]
 
-        # Denormalize xyz from [0, 1] to workspace bounds
+        # Denormalize xyz from [-1, 1] to workspace bounds
         bounds_x = self.workspace_bounds["x"]
         bounds_y = self.workspace_bounds["y"]
         bounds_z = self.workspace_bounds["z"]
 
         target_pos = np.array(
             [
-                bounds_x[0] + action_xyz[0] * (bounds_x[1] - bounds_x[0]),
-                bounds_y[0] + action_xyz[1] * (bounds_y[1] - bounds_y[0]),
-                bounds_z[0] + action_xyz[2] * (bounds_z[1] - bounds_z[0]),
+                bounds_x[0] + (action_xyz[0] + 1.0) * 0.5 * (bounds_x[1] - bounds_x[0]),
+                bounds_y[0] + (action_xyz[1] + 1.0) * 0.5 * (bounds_y[1] - bounds_y[0]),
+                bounds_z[0] + (action_xyz[2] + 1.0) * 0.5 * (bounds_z[1] - bounds_z[0]),
             ]
         )
 
@@ -751,8 +754,10 @@ class KitchenMinimalEnv(MujocoEnv):
         self.data.ctrl[:7] = target_qpos[:7]
 
         # Set gripper commands (two gripper actuators at indices 7 and 8)
-        self.data.ctrl[7] = gripper_val
-        self.data.ctrl[8] = gripper_val
+        # Denormalize gripper from [-1, 1] to [0, 0.015]
+        gripper_denorm = (gripper_val + 1.0) * 0.5 * 0.015
+        self.data.ctrl[7] = gripper_denorm
+        self.data.ctrl[8] = gripper_denorm
 
         # Step the physics forward.
         mj.mj_step(self.model, self.data, nstep=self._n_steps)

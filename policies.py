@@ -78,33 +78,34 @@ def make_task_space_action(
 ) -> np.ndarray:
     """
     Build 5D task-space action [x, y, z, gripper, rot]
-    with xyz and gripper normalized to [0, 1].
+    with xyz and gripper normalized to [-1, 1].
 
     Args:
         target_pos: 3D world position in workspace bounds
         gripper_val: scalar in [0, 1] where 0=closed, 1=open
-        rot: scalar in [0, 1] representing rotation
+        rot: scalar in [-1, 1] representing rotation
 
     Returns:
-        5D action array
+        5D action array normalized to [-1, 1]
     """
 
     bounds_x = np.array([-1.5, 0.0])
     bounds_y = np.array([-2.5, 0.0])
     bounds_z = np.array([1.5, 3.0])
 
-    # Normalize xyz from workspace bounds to [0, 1]
-    x_norm = (target_pos[0] - bounds_x[0]) / (bounds_x[1] - bounds_x[0])
-    y_norm = (target_pos[1] - bounds_y[0]) / (bounds_y[1] - bounds_y[0])
-    z_norm = (target_pos[2] - bounds_z[0]) / (bounds_z[1] - bounds_z[0])
+    # Normalize xyz from workspace bounds to [-1, 1]
+    x_norm = 2.0 * (target_pos[0] - bounds_x[0]) / (bounds_x[1] - bounds_x[0]) - 1.0
+    y_norm = 2.0 * (target_pos[1] - bounds_y[0]) / (bounds_y[1] - bounds_y[0]) - 1.0
+    z_norm = 2.0 * (target_pos[2] - bounds_z[0]) / (bounds_z[1] - bounds_z[0]) - 1.0
 
-    # Clamp to [0, 1] to be safe
-    x_norm = np.clip(x_norm, 0.0, 1.0)
-    y_norm = np.clip(y_norm, 0.0, 1.0)
-    z_norm = np.clip(z_norm, 0.0, 1.0)
+    # Clamp to [-1, 1] to be safe
+    x_norm = np.clip(x_norm, -1.0, 1.0)
+    y_norm = np.clip(y_norm, -1.0, 1.0)
+    z_norm = np.clip(z_norm, -1.0, 1.0)
 
-    # Clamp gripper to [0, 1]
+    # Convert gripper from [0, 1] to [-1, 1]
     gripper = np.clip(float(gripper_val), 0.0, 1.0)
+    gripper = 2.0 * gripper - 1.0
 
     action = np.array(
         [x_norm, y_norm, z_norm, gripper, rot],
