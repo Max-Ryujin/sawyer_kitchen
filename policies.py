@@ -124,7 +124,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
 
     # Initialize rotation parameters at episode start
     if not hasattr(env, "_policy_rot") or env._policy_rot is None:
-        env._policy_rot = 0.3  # np.random.uniform(0.0, 1.0)
+        env._policy_rot = 0.3  # np.random.uniform(-1.0, 1.0)
 
     state = env._automaton_state
 

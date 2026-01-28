@@ -101,17 +101,17 @@ INIT_QPOS = np.array(
 
 
 MOVING_GOAL_OBS = [
-    4.2959806e-01,
-    7.6935011e-01,
-    1.0436400e-01,
-    5.5324817e-01,
-    0.3,
-    4.3643507e-01,
-    7.7704358e-01,
-    5.8516264e-02,
-    -1.8274069e-03,
-    3.3441608e-04,
-    2.5202857e-02,
+    -1.22121096e-01,
+    1.84582621e-01,
+    -7.86765397e-01,
+    -3.26333672e-01,
+    2.77931124e-01,
+    -1.24138199e-01,
+    2.01410145e-01,
+    -8.83509338e-01,
+    -2.18389439e-03,
+    1.01324687e-04,
+    3.08307838e-02,
 ]
 
 
@@ -407,12 +407,9 @@ class KitchenMinimalEnv(MujocoEnv):
         rel_w = w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2
         rel_x = w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2
 
-        # Handle Double Cover (q == -q):
-        if rel_w < 0:
-            rel_w = -rel_w
-            rel_x = -rel_x
-
-        angle = 2.0 * np.arctan2(rel_x, rel_w)
+        # Extract angle from quaternion: θ = 2 * arctan2(x_component, w_component)
+        # For a quaternion [cos(θ/2), sin(θ/2), 0, 0] representing rotation around X-axis
+        angle = 2.0 * np.arctan2(np.abs(rel_x), rel_w)
 
         # Map angle from [0, pi] to [-1, 1]
         rot = angle / np.pi * 2.0 - 1.0
@@ -754,8 +751,8 @@ class KitchenMinimalEnv(MujocoEnv):
         self.data.ctrl[:7] = target_qpos[:7]
 
         # Set gripper commands (two gripper actuators at indices 7 and 8)
-        # Denormalize gripper from [-1, 1] to [0, 0.015]
-        gripper_denorm = (gripper_val + 1.0) * 0.5 * 0.015
+        # Denormalize gripper from [-1, 1] to [0, 1]
+        gripper_denorm = (gripper_val + 1.0) * 0.5
         self.data.ctrl[7] = gripper_denorm
         self.data.ctrl[8] = gripper_denorm
 
