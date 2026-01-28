@@ -123,7 +123,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
 
     # Initialize rotation parameters at episode start
     if not hasattr(env, "_policy_rot") or env._policy_rot is None:
-        env._policy_rot = np.random.uniform(0.0, 1.0)
+        env._policy_rot = 0.3  # np.random.uniform(0.0, 1.0)
 
     state = env._automaton_state
 
@@ -146,7 +146,9 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
             env._above_position = target_pos
             print("→ move_towards")
 
-        action = make_task_space_action(target_pos, gripper_val=0.0, rot=env._policy_rot)
+        action = make_task_space_action(
+            target_pos, gripper_val=0.0, rot=env._policy_rot
+        )
         action[:3] += env._noise_generator.sample()
         return action
 
@@ -161,7 +163,9 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
             env._state_counter = 0
             print("→ move_down")
 
-        action = make_task_space_action(target_pos, gripper_val=0.0, rot=env._policy_rot)
+        action = make_task_space_action(
+            target_pos, gripper_val=0.0, rot=env._policy_rot
+        )
         action[:3] += env._noise_generator.sample()
         return action
 
@@ -182,7 +186,9 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
             env._automaton_state = "close_gripper"
             env._state_counter = 0
             print("→ close_gripper")
-        action = make_task_space_action(target_pos, gripper_val=0.0, rot=env._policy_rot)
+        action = make_task_space_action(
+            target_pos, gripper_val=0.0, rot=env._policy_rot
+        )
         action[:3] += env._noise_generator.sample()
         return action
 
@@ -207,7 +213,9 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
             env._state_counter = 0
             print("→ go up")
 
-        action = make_task_space_action(target_pos, gripper_val=1.0, rot=env._policy_rot)
+        action = make_task_space_action(
+            target_pos, gripper_val=1.0, rot=env._policy_rot
+        )
         action[:3] += env._noise_generator.sample()
         return action
 
@@ -248,7 +256,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
             env._state_counter += 1
         else:
             env._state_counter += 1
-        
+
         target_pos = env._cup_destination.copy()
         target_pos[2] += 0.15  # move above place position
 
@@ -263,7 +271,9 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
             env._state_counter = 0
             print("→ place_cup")
 
-        action = make_task_space_action(target_pos, gripper_val=1.0, rot=env._policy_rot)
+        action = make_task_space_action(
+            target_pos, gripper_val=1.0, rot=env._policy_rot
+        )
         action[:3] += env._noise_generator.sample()
         return action
 
@@ -274,7 +284,9 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
             env._automaton_state = "open_gripper"
             print("→ open_gripper")
 
-        action = make_task_space_action(target_pos, gripper_val=1.0, rot=env._policy_rot)
+        action = make_task_space_action(
+            target_pos, gripper_val=1.0, rot=env._policy_rot
+        )
         action[:3] += env._noise_generator.sample()
         return action
 
@@ -283,7 +295,9 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         env._state_counter += 1
         if env._state_counter > 20:
             env._automaton_state = "move_up_after_release"
-        action = make_task_space_action(target_pos,  gripper_val=0.0, rot=env._policy_rot)
+        action = make_task_space_action(
+            target_pos, gripper_val=0.0, rot=env._policy_rot
+        )
         action[:3] += env._noise_generator.sample()
         return action
 
@@ -292,7 +306,9 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         target_pos[2] += 0.35  # move up
         if at_target(target_pos, tol=0.4):
             env._automaton_state = "done"
-        action = make_task_space_action(target_pos, gripper_val=0.0, rot=env._policy_rot)
+        action = make_task_space_action(
+            target_pos, gripper_val=0.0, rot=env._policy_rot
+        )
         action[:3] += env._noise_generator.sample()
         return action
 

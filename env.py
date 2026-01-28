@@ -100,9 +100,19 @@ INIT_QPOS = np.array(
 )
 
 
-MOVING_GOAL_OBS = [ 4.2959806e-01,  7.6935011e-01,  1.0436400e-01,  5.5324817e-01,
-  7.0102924e-01,  4.3643507e-01,  7.7704358e-01,  5.8516264e-02,
- -1.8274069e-03,  3.3441608e-04,  2.5202857e-02]
+MOVING_GOAL_OBS = [
+    4.2959806e-01,
+    7.6935011e-01,
+    1.0436400e-01,
+    5.5324817e-01,
+    0.3,
+    4.3643507e-01,
+    7.7704358e-01,
+    5.8516264e-02,
+    -1.8274069e-03,
+    3.3441608e-04,
+    2.5202857e-02,
+]
 
 
 POUR_GOAL_OBS = [
@@ -332,9 +342,9 @@ class KitchenMinimalEnv(MujocoEnv):
     def _action_rotations_to_quaternion(self, rot: float) -> np.ndarray:
         """
         Convert normalized rotation parameter to a quaternion.
-        
+
         This defines a 180-degree arc around the X-axis starting from 'sideways'.
-        
+
         Args:
             rot: [0, 1] scalar.
                  0.0 = Sideways (Parallel to table)
@@ -348,25 +358,23 @@ class KitchenMinimalEnv(MujocoEnv):
         q_sideways = np.array([0.70710678, 0.0, 0.0, -0.70710678], dtype=np.float32)
 
         angle = rot * np.pi
-        
+
         # q_rot = [cos(angle/2), sin(angle/2), 0, 0]
         half_angle = angle / 2.0
         sin_a = np.sin(half_angle)
         cos_a = np.cos(half_angle)
-        
 
         # q_x_rot   = [cos_a, sin_a, 0, 0]
         # q_sideways = [w_s,   0,     0, z_s]
-        
+
         w_s = q_sideways[0]
         z_s = q_sideways[3]
 
-        
         new_w = cos_a * w_s
         new_x = sin_a * w_s
         new_y = -sin_a * z_s
         new_z = cos_a * z_s
-        
+
         return np.array([new_w, new_x, new_y, new_z], dtype=np.float32)
 
     def _quaternion_to_rotation_params(self, quat: np.ndarray) -> float:
@@ -382,10 +390,9 @@ class KitchenMinimalEnv(MujocoEnv):
         """
         q = np.asarray(quat, dtype=np.float64)
         norm = np.linalg.norm(q)
-        if norm == 0: 
+        if norm == 0:
             return 0.0
         q = q / norm
-
 
         # q_side = [0.707, 0, 0, -0.707] -> inverse = [0.707, 0, 0, 0.707]
         q_side_inv = np.array([0.70710678, 0.0, 0.0, 0.70710678], dtype=np.float64)
@@ -393,32 +400,30 @@ class KitchenMinimalEnv(MujocoEnv):
         # Calculate relative rotation: q_rel = q_current * q_base_inverse
         w1, x1, y1, z1 = q
         w2, x2, y2, z2 = q_side_inv
-        
+
         # Hamilton product q * q_inv
         rel_w = w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2
         rel_x = w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2
-
 
         # Handle Double Cover (q == -q):
         if rel_w < 0:
             rel_w = -rel_w
             rel_x = -rel_x
-        
 
         angle = 2.0 * np.arctan2(rel_x, rel_w)
-        
+
         # Map angle from [0, pi] to [0, 1]
         rot = angle / np.pi
-        
+
         return float(np.clip(rot, 0.0, 1.0))
 
     def _get_task_space_obs(self):
         """Get current task-space representation.
-        
+
         Returns 5D array: [x, y, z, gripper, rot]
         """
         grip_site_id = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_SITE, "grip_site")
-        
+
         if grip_site_id == -1:
             ee_pos = np.array([0.0, 0.0, 0.0])
             gripper_quat = np.array([1.0, 0.0, 0.0, 0.0])
@@ -437,9 +442,9 @@ class KitchenMinimalEnv(MujocoEnv):
         rot = self._quaternion_to_rotation_params(gripper_quat)
 
         # Concatenate: 3 pos + 1 gripper + 1 rot = 5 dims
-        task_space_obs = np.concatenate(
-            [pos_norm, [gripper_norm, rot]]
-        ).astype(np.float32)
+        task_space_obs = np.concatenate([pos_norm, [gripper_norm, rot]]).astype(
+            np.float32
+        )
 
         return task_space_obs
 
@@ -707,9 +712,6 @@ class KitchenMinimalEnv(MujocoEnv):
         goal=None,
     ) -> Tuple[np.ndarray, float, bool, bool, Dict]:
         action = np.asarray(action, dtype=np.float32)
-
-        if action.shape[0] == 4:
-            action = np.concatenate([action, np.array([0.5, 1.0], dtype=np.float32)])
 
         action = action.reshape(5)
 
