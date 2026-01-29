@@ -118,7 +118,7 @@ def evaluate_agent(
     #         )
     #         # Flatten action back to [Dim]
     #         action = np.array(action).flatten()
-    #         action = np.clip(action, 0, 1)
+    #         action = np.clip(action, -1, 1)
     #         obs, _, term, trunc, _ = env.unwrapped.step(action, minimal=True)
     #         raw_obs = np.asarray(obs)
 
@@ -178,7 +178,7 @@ def evaluate_agent(
             )
             # Flatten action back to [Dim]
             action = np.array(action).flatten()
-            action = np.clip(action, 0, 1)
+            action = np.clip(action, -1, 1)
             obs, _, term, trunc, _ = env.unwrapped.step(action, minimal=True)
             raw_obs = np.asarray(obs)
 
@@ -265,7 +265,7 @@ def evaluate_agent(
             )
             # Flatten action back to [Dim]
             action = np.array(action).flatten()
-            action = np.clip(action, 0, 1)
+            action = np.clip(action, -1, 1)
 
             obs, _, term, trunc, _ = env.unwrapped.step(
                 action, minimal=True, goal=goal_arr
