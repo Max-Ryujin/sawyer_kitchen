@@ -166,8 +166,8 @@ def run_single_episode(
             action = pour_policy_v2(env, obs)
         # --------------------
 
-      #  if noise:
-            #action = action + np.random.normal(0, 0.01, action.shape)
+        if noise:
+            action = action + np.random.normal(0, 0.01, action.shape)
 
         episode_data["qpos"].append(env.unwrapped.data.qpos.copy())
         episode_data["qvel"].append(env.unwrapped.data.qvel.copy())
