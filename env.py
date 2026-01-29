@@ -866,8 +866,8 @@ class KitchenMinimalEnv(MujocoEnv):
         curr_pos_norm = self._normalize_position(curr_pos)
 
         # In the new minimal observation layout the target cup position is at
-        # indices 8:11 (task_space_obs 0:5, cup0_pos 6:9,)
-        target_pos = goal_state[6:9]
+        # indices 8:11 (task_space_obs 0:5, cup0_pos 5:8,)
+        target_pos = goal_state[5:8]
 
         dist = np.linalg.norm(curr_pos_norm - target_pos)
         pos_ok = dist < pos_tol
