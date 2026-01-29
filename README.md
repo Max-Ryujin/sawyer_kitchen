@@ -64,3 +64,14 @@ Here are the changes that I did to get the agents to work:
 - I am currently choosing a random rotation at the start of the episode.
 - It seems that the critic uses the rotation information in CRL to differenciate between the states like it did with two cups. 
 - I will test to use a set of preselected angles to see if that improves performance.
+
+### commit 6718dea
+- fixing the rotation for the dataset did not improve the critic learning.
+- Either there is a bug or the network can somehow distinguish the states based on small variations in the rotation.
+- Can the network learn time corelated noise patterns to distinguish the states?
+
+
+### commit 37aadd1
+- yes the critic can learn the noise pattern.
+- switched from OGN noise back to gaussien
+- next step is finding a solution for the rotation issue and adding back pouring.
