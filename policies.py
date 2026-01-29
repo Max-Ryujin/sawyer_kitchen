@@ -150,7 +150,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         action = make_task_space_action(
             target_pos, gripper_val=0.0, rot=env._policy_rot
         )
-        #action[:3] += env._noise_generator.sample()
+        # action[:3] += env._noise_generator.sample()
         return action
 
     if state == "move_towards":
@@ -167,7 +167,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         action = make_task_space_action(
             target_pos, gripper_val=0.0, rot=env._policy_rot
         )
-        #action[:3] += env._noise_generator.sample()
+        # action[:3] += env._noise_generator.sample()
         return action
 
     elif state == "move_down":
@@ -190,7 +190,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         action = make_task_space_action(
             target_pos, gripper_val=0.0, rot=env._policy_rot
         )
-        #action[:3] += env._noise_generator.sample()
+        # action[:3] += env._noise_generator.sample()
         return action
 
     elif state == "close_gripper":
@@ -217,7 +217,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         action = make_task_space_action(
             target_pos, gripper_val=1.0, rot=env._policy_rot
         )
-        #action[:3] += env._noise_generator.sample()
+        # action[:3] += env._noise_generator.sample()
         return action
 
     elif state == "go_up":
@@ -275,7 +275,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         action = make_task_space_action(
             target_pos, gripper_val=1.0, rot=env._policy_rot
         )
-        #action[:3] += env._noise_generator.sample()
+        # action[:3] += env._noise_generator.sample()
         return action
 
     elif state == "place_cup":
@@ -288,7 +288,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         action = make_task_space_action(
             target_pos, gripper_val=1.0, rot=env._policy_rot
         )
-        #action[:3] += env._noise_generator.sample()
+        # action[:3] += env._noise_generator.sample()
         return action
 
     elif state == "open_gripper":
@@ -299,7 +299,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         action = make_task_space_action(
             target_pos, gripper_val=0.0, rot=env._policy_rot
         )
-        #action[:3] += env._noise_generator.sample()
+        # action[:3] += env._noise_generator.sample()
         return action
 
     elif state == "move_up_after_release":
@@ -310,7 +310,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
         action = make_task_space_action(
             target_pos, gripper_val=0.0, rot=env._policy_rot
         )
-        #action[:3] += env._noise_generator.sample()
+        # action[:3] += env._noise_generator.sample()
         return action
 
 
@@ -353,7 +353,7 @@ def pour_policy_v2(env, obs) -> np.ndarray:
             env._above_position = target_pos
 
         action = make_task_space_action(target_pos, gripper_val=0.0)
-        #action[:3] += env._noise_generator.sample()
+        # action[:3] += env._noise_generator.sample()
         return action
 
     # Move towards cup
@@ -374,7 +374,7 @@ def pour_policy_v2(env, obs) -> np.ndarray:
             print("→ move_down")
 
         action = make_task_space_action(target_pos, gripper_val=0.0)
-        #action[:3] += env._noise_generator.sample()
+        # action[:3] += env._noise_generator.sample()
         return action
 
     # Move down to grasp
@@ -396,7 +396,7 @@ def pour_policy_v2(env, obs) -> np.ndarray:
             env._state_counter = 0
             print("→ close_gripper")
         action = make_task_space_action(target_pos, gripper_val=0.0)
-        #action[:3] += env._noise_generator.sample()
+        # action[:3] += env._noise_generator.sample()
         return action
 
     # Close gripper
@@ -427,7 +427,7 @@ def pour_policy_v2(env, obs) -> np.ndarray:
             print("→ go up")
 
         action = make_task_space_action(target_pos, gripper_val=1.0)
-        #action[:3] += env._noise_generator.sample()
+        # action[:3] += env._noise_generator.sample()
         return action
 
     # Move up above cup
@@ -446,7 +446,7 @@ def pour_policy_v2(env, obs) -> np.ndarray:
             print("→ lift above")
 
         action = make_task_space_action(env._above_position, gripper_val=1.0)
-        #action[:3] += env._noise_generator.sample()
+        # action[:3] += env._noise_generator.sample()
         return action
 
     # Lift the cup up
@@ -469,7 +469,7 @@ def pour_policy_v2(env, obs) -> np.ndarray:
             env._automaton_state = "move_above"
             env._state_counter = 0
             action = make_task_space_action(target_pos, gripper_val=1.0)
-            #action[:3] += env._noise_generator.sample()
+            # action[:3] += env._noise_generator.sample()
             return action
 
         if (
@@ -488,7 +488,7 @@ def pour_policy_v2(env, obs) -> np.ndarray:
             print("→ lift_lower")
 
         action = make_task_space_action(target_pos, gripper_val=1.0)
-        #action[:3] += env._noise_generator.sample()
+        # action[:3] += env._noise_generator.sample()
         return action
 
     # Lower cup slightly
@@ -511,7 +511,7 @@ def pour_policy_v2(env, obs) -> np.ndarray:
             env._automaton_state = "move_above"
             env._state_counter = 0
             action = make_task_space_action(target_pos, gripper_val=1.0)
-            #action[:3] += env._noise_generator.sample()
+            # action[:3] += env._noise_generator.sample()
             return action
 
         if (
@@ -537,7 +537,7 @@ def pour_policy_v2(env, obs) -> np.ndarray:
         actual_quat = slow_down_quaternion(current_quat, target_quat, 0.5)
 
         action = make_task_space_action(actual_pos, gripper_val=1.0)
-        #action[:3] += env._noise_generator.sample()
+        # action[:3] += env._noise_generator.sample()
         return action
 
     # Tilt halfway
@@ -588,7 +588,7 @@ def pour_policy_v2(env, obs) -> np.ndarray:
         actual_quat = slow_down_quaternion(current_quat, target_quat, 0.5)
 
         action = make_task_space_action(actual_pos, env, gripper_val=1.0)
-        #action[:3] += env._noise_generator.sample()
+        # action[:3] += env._noise_generator.sample()
         return action
 
     elif state == "start_pouring":
@@ -638,7 +638,7 @@ def pour_policy_v2(env, obs) -> np.ndarray:
         actual_quat = slow_down_quaternion(current_quat, target_quat, 0.5)
 
         action = make_task_space_action(actual_pos, env, gripper_val=1.0)
-        #action[:3] += env._noise_generator.sample()
+        # action[:3] += env._noise_generator.sample()
         return action
 
     # Final pour
@@ -648,5 +648,5 @@ def pour_policy_v2(env, obs) -> np.ndarray:
         target_quat = [0.12278783, -0.69636423, 0.69636423, 0.12278783]
         target_quat = rotate_quat_around_z(target_quat, env._quat_offset)
         action = make_task_space_action(target_pos, gripper_val=1.0)
-        #action[:3] += env._noise_generator.sample()
+        # action[:3] += env._noise_generator.sample()
         return action

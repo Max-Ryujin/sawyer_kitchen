@@ -11,23 +11,6 @@ from joblib import Parallel, delayed
 from policies import moving_policy, pour_policy_v2
 
 
-class OUNoise:
-    def __init__(self, size, mu=0.0, theta=0.155, sigma=0.0055):
-        self.mu = mu * np.ones(size)
-        self.theta = theta
-        self.sigma = sigma
-        self.state = np.copy(self.mu)
-
-    def sample(self):
-        x = self.state
-        dx = self.theta * (self.mu - x) + self.sigma * np.random.randn(len(x))
-        self.state = x + dx
-        return self.state
-
-    def reset(self):
-        self.state = np.copy(self.mu)
-
-
 def collect_policy_episode(
     save_path="tmp/policy.mp4",
     steps=1000,
@@ -43,8 +26,8 @@ def collect_policy_episode(
     frames = []
     env._automaton_state = "move_above"
     env._state_counter = 0
-    # cup = np.random.choice(np.array([0, 1]))
-    cup = 0
+    cup = np.random.choice(np.array([0, 1]))
+    # cup = 0
     for t in range(steps):
         if policy_type == "moving":
             action = moving_policy(env, obs, cup_number=cup)
@@ -112,8 +95,6 @@ def run_single_episode(
         seed=seed, options={"randomise_cup_position": True, "minimal": True}
     )
 
-    env._noise_generator = OUNoise(size=3)
-
     # Initialize state tracking variables locally
     env._automaton_state = "move_above"
     env._state_counter = 0
@@ -122,7 +103,7 @@ def run_single_episode(
     success = False
     failure_reason = "max_steps"
 
-    move_operations = np.random.randint(0, 3)
+    move_operations = 1  # np.random.randint(0, 4)
     if move_operations == 0:
         perform_pouring = True
     else:
@@ -131,11 +112,9 @@ def run_single_episode(
     moves_completed = 0
     policy_mode = "moving" if move_operations > 0 else "pouring"
     # For testing:
-    policy_mode = "moving"  # For testing moving only
+    policy_mode = "moving"
     done2 = False
-    # cup = np.random.choice(np.array([0, 1]))
-    # I am fixing the cup and remove the other cup from the observation data to prevent the critic from cheating
-    cup = 0
+    cup = np.random.choice(np.array([0, 1]))
     steps_run = 0
 
     # --- State timing instrumentation ---
@@ -159,8 +138,7 @@ def run_single_episode(
                     else:
                         done2 = True
                 else:
-                    # cup = np.random.choice(np.array([0, 1]))
-                    cup = 0
+                    cup = np.random.choice(np.array([0, 1]))
                 env._automaton_state = "move_above"
         elif policy_mode == "pouring":
             action = pour_policy_v2(env, obs)
@@ -213,7 +191,6 @@ def run_single_episode(
             if terminated or trunc or done2:
                 success = True
                 failure_reason = None
-            env._noise_generator.reset()
             break
 
         if t == max_steps - 1:
@@ -224,7 +201,6 @@ def run_single_episode(
                 state_stats_local[last_state]["total_steps"] += state_step_counter
                 state_stats_local[last_state]["count"] += 1
                 state_step_counter = 0
-                env._noise_generator.reset()
 
     env.close()
 
@@ -419,7 +395,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", choices=["policy", "dataset"], default="policy")
     parser.add_argument("--out", default="tmp/kitchen_run.mp4")
-    parser.add_argument("--steps", type=int, default=1400)
+    parser.add_argument("--steps", type=int, default=800)
     parser.add_argument(
         "--save_failed_episodes",
         action="store_true",

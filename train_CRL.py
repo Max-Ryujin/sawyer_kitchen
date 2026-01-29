@@ -82,7 +82,7 @@ def evaluate_agent(
     vel_idx=None,
 ):
     if vel_idx is None:
-        vel_idx = np.arange(8, 11)
+        vel_idx = np.arange(8, 14)
 
     if env is None:
         env = gym.make(
@@ -344,7 +344,7 @@ def main(args):
     obs_data = train_dataset_raw["observations"]
 
     # Velocity indices in minimal observation: 8-11
-    vel_idx = np.arange(8, 11)
+    vel_idx = np.arange(8, 14)
 
     obs_mean = np.zeros(obs_data.shape[1], dtype=np.float32)
     obs_std = np.ones(obs_data.shape[1], dtype=np.float32)

@@ -101,17 +101,23 @@ INIT_QPOS = np.array(
 
 
 MOVING_GOAL_OBS = [
-    -1.22121096e-01,
-    1.84582621e-01,
-    -7.86765397e-01,
-    -3.26333672e-01,
-    2.77931124e-01,
-    -1.24138199e-01,
-    2.01410145e-01,
-    -8.83509338e-01,
-    -2.18389439e-03,
-    1.01324687e-04,
-    3.08307838e-02,
+    -1.78375408e-01,
+    5.75012863e-01,
+    -7.96347141e-01,
+    -2.74259359e-01,
+    2.43455157e-01,
+    -1.68792322e-01,
+    5.58651030e-01,
+    -8.83071125e-01,
+    -6.66102543e-02,
+    1.20024584e-01,
+    -8.81345928e-01,
+    -5.75924758e-03,
+    -9.57763579e-04,
+    2.72275358e-02,
+    3.21387888e-05,
+    7.24034762e-05,
+    3.66702094e-03,
 ]
 
 
@@ -603,12 +609,22 @@ class KitchenMinimalEnv(MujocoEnv):
             if name and "cup_freejoint" in name:
                 cup_joint_ids.append(int(j))
 
+        random_poisition = [
+            [-0.1, -0.2],
+            [0.0, 0.1],
+            [0.1, -0.5],
+        ]
+
         # Randomize cup positions
         for jid in cup_joint_ids:
+            # choose one random position
+            pos_xy = random_poisition[self.np_random.integers(0, len(random_poisition))]
             qpos_addr = int(self.model.jnt_qposadr[jid])
             pos = np.copy(qpos[qpos_addr : qpos_addr + 3])
-            pos[0] += self.np_random.uniform(-0.15, 0.15)
-            pos[1] += self.np_random.uniform(-0.42, 0.25)
+            # pos[0] += self.np_random.uniform(-0.15, 0.15)
+            # pos[1] += self.np_random.uniform(-0.42, 0.25)
+            pos[0] += pos_xy[0]
+            pos[1] += pos_xy[1]
             qpos[qpos_addr : qpos_addr + 3] = pos
 
         # Apply full state so MuJoCo updates positions
@@ -801,9 +817,9 @@ class KitchenMinimalEnv(MujocoEnv):
                 [
                     task_space_obs,  # 5D
                     cup0_pos_norm,  # 3D
-                    # cup1_pos_norm,  # 3D
+                    cup1_pos_norm,  # 3D
                     cup0_vel,  # 3D
-                    # cup1_vel,  # 3D
+                    cup1_vel,  # 3D
                 ]
             ).astype(np.float32)
         return obs
@@ -860,20 +876,31 @@ class KitchenMinimalEnv(MujocoEnv):
             pos_tol: Euclidean distance tolerance for position.
             rot_tol: Tolerance for upright orientation (1.0 = perfect, 0.0 = 90 deg tilt).
         """
-        curr_pos = self.data.qpos[30:33]
-        curr_quat = self.data.qpos[33:37]
+        curr_pos0 = self.data.qpos[30:33]
+        curr_pos1 = self.data.qpos[37:40]
+        curr_quat0 = self.data.qpos[33:37]
+        curr_quat1 = self.data.qpos[40:44]
 
-        curr_pos_norm = self._normalize_position(curr_pos)
+        curr_pos0_norm = self._normalize_position(curr_pos0)
+        curr_pos1_norm = self._normalize_position(curr_pos1)
 
         # In the new minimal observation layout the target cup position is at
         # indices 8:11 (task_space_obs 0:5, cup0_pos 5:8,)
-        target_pos = goal_state[5:8]
+        target_pos_cup0 = goal_state[5:8]
+        target_pos_cup1 = goal_state[8:11]
 
-        dist = np.linalg.norm(curr_pos_norm - target_pos)
-        pos_ok = dist < pos_tol
+        dist0 = np.linalg.norm(curr_pos0_norm - target_pos_cup0)
+        dist1 = np.linalg.norm(curr_pos1_norm - target_pos_cup1)
+        pos_ok = (dist0 < pos_tol) and (dist1 < pos_tol)
 
-        w, x, y, z = curr_quat
+        w, x, y, z = curr_quat0
         z_align = 1.0 - 2.0 * (x * x + y * y)
-        rot_ok = z_align > (1.0 - rot_tol)
+        rot_ok_0 = z_align > (1.0 - rot_tol)
+
+        w, x, y, z = curr_quat1
+        z_align = 1.0 - 2.0 * (x * x + y * y)
+        rot_ok_1 = z_align > (1.0 - rot_tol)
+
+        return bool(pos_ok and rot_ok_0 and rot_ok_1)
 
         return bool(pos_ok and rot_ok)
