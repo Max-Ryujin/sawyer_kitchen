@@ -339,8 +339,14 @@ def main(args):
     train_path = os.path.join(args.dataset_dir, "train_dataset.npz")
     val_path = os.path.join(args.dataset_dir, "val_dataset.npz")
 
-    train_dataset_raw = load_dataset(train_path, compact_dataset=True)
-    val_dataset_raw = load_dataset(val_path, compact_dataset=True, add_info=True)
+    should_load_rewards = args.agent_type == "SAC"
+
+    train_dataset_raw = load_dataset(
+        train_path, compact_dataset=True, load_rewards=should_load_rewards
+    )
+    val_dataset_raw = load_dataset(
+        val_path, compact_dataset=True, add_info=True, load_rewards=should_load_rewards
+    )
     # Normalize observations: only normalize velocity components.
     # Positions are already normalized by env.py using fixed workspace bounds.
     # Velocities are unbounded, so we normalize using dataset statistics.
