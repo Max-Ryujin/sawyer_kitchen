@@ -155,7 +155,7 @@ def run_single_episode(
             action, minimal=True
         )
         done = terminated or trunc or done2
-        mask = 1.0 - float(terminated)
+        mask = 1.0 - done
 
         if minimal_observations:
             episode_data["observations"].append(obs_to_store)

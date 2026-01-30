@@ -837,10 +837,6 @@ class KitchenMinimalEnv(MujocoEnv):
         return obs
 
     def _compute_reward(self, obs: np.ndarray, action: np.ndarray) -> float:
-        # return 1.0 if self.get_particles_in_cups()[0] >= 4 else 0.0
-        return 1 if self.check_moving_success(MOVING_GOAL_OBS) else 0.0
-
-    def _compute_reward(self, obs: np.ndarray, action: np.ndarray) -> float:
         """
         Computes a dense reward:
         1. If goal_pos is not set, uses MOVING_GOAL_OBS.
