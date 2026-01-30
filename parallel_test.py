@@ -155,6 +155,7 @@ def run_single_episode(
             action, minimal=True
         )
         done = terminated or trunc or done2
+        mask = 1.0 - float(terminated)
 
         if minimal_observations:
             episode_data["observations"].append(obs_to_store)
@@ -163,6 +164,8 @@ def run_single_episode(
 
         episode_data["actions"].append(action)
         episode_data["terminals"].append(done)
+        episode_data["rewards"].append(reward)
+        episode_data["masks"].append(mask)
 
         obs = obs_next
         steps_run += 1

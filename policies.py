@@ -126,7 +126,29 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
     if not hasattr(env, "_policy_rot") or env._policy_rot is None:
         env._policy_rot = 0.3  # np.random.uniform(-1.0, 1.0)
 
+    env.unwrapped.active_cup_id = cup_number
+
     state = env._automaton_state
+
+    if not hasattr(env, "_cup_destination") or env._cup_destination is None:
+        other_cup_id = 1 - cup_number
+        other_cup_pos = utils.get_object_pos(
+            env, (f"cup_freejoint{other_cup_id}", f"cup{other_cup_id}")
+        )
+        while True:
+            # randomise xy position
+            candidate = np.array(
+                [
+                    np.random.uniform(-1.0, -0.5),
+                    np.random.uniform(-1.2, -0.38),
+                    1.7,
+                ]
+            )
+            if np.linalg.norm(candidate - other_cup_pos) > 0.11:
+                env._cup_destination = candidate
+                break
+
+        env.unwrapped.goal_pos = env._cup_destination
 
     if state == "move_above":
         cup_pos = utils.get_object_pos(
@@ -229,21 +251,6 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
             < 0.2
         ):
             env._automaton_state = "move_cup"
-            other_cup_id = 1 - cup_number
-            other_cup_pos = utils.get_object_pos(
-                env, (f"cup_freejoint{other_cup_id}", f"cup{other_cup_id}")
-            )
-            while True:
-                # randomise xy position
-                env._cup_destination = np.array(
-                    [
-                        np.random.uniform(-1.0, -0.5),
-                        np.random.uniform(-1.2, -0.38),
-                        1.7,
-                    ]
-                )
-                if np.linalg.norm(env._cup_destination - other_cup_pos) > 0.11:
-                    break
             print("→ move_cup")
 
         return make_task_space_action(

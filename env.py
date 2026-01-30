@@ -219,6 +219,9 @@ class KitchenMinimalEnv(MujocoEnv):
             control_timestep=float(control_timestep),
         )
 
+        self.goal_pos: Optional[np.ndarray] = None
+        self.active_cup_id: Optional[int] = None
+
         # Set observation mode (either 'states' or 'pixels') and default render size
         assert ob_type in ("states", "pixels"), "ob_type must be 'states' or 'pixels'"
         self._ob_type = ob_type
@@ -537,6 +540,9 @@ class KitchenMinimalEnv(MujocoEnv):
         self.data.qpos[: INIT_QPOS.shape[0]] = self.get_random_robot_qpos()
         self.set_state(self.data.qpos, self.data.qvel)
 
+        self.goal_pos = None
+        self.active_cup_id = None
+
         mj.mj_forward(self.model, self.data)
 
         #  give water particles some initial random velocity
@@ -834,6 +840,29 @@ class KitchenMinimalEnv(MujocoEnv):
         # return 1.0 if self.get_particles_in_cups()[0] >= 4 else 0.0
         return 1 if self.check_moving_success(MOVING_GOAL_OBS) else 0.0
 
+    def _compute_reward(self, obs: np.ndarray, action: np.ndarray) -> float:
+        """
+        Computes a dense reward:
+        1. If goal_pos is not set, uses MOVING_GOAL_OBS.
+        2. Calculates negative Euclidean distance between the active cup and goal.
+        3. Adds a bonus for success.
+        """
+
+        if self.goal_pos is None or self.active_cup_id is None:
+            return 1 if self.check_moving_success(MOVING_GOAL_OBS) else 0.0
+
+        cup_start_idx = 30 + (self.active_cup_id * 7)
+        curr_cup_pos = self.data.qpos[cup_start_idx : cup_start_idx + 3]
+
+        # only use xy to not punish picking up
+        dist = np.linalg.norm(curr_cup_pos[:2] - self.goal_pos[:2])
+        reward = -dist
+
+        if dist < 0.05:
+            reward += 2.0
+
+        return float(reward)
+
     def _is_terminated(self, obs: np.ndarray) -> bool:
         # change condition to make dataset generation faster
         return True if self.get_particles_in_cups()[0] >= 5 else False
@@ -902,5 +931,3 @@ class KitchenMinimalEnv(MujocoEnv):
         rot_ok_1 = z_align > (1.0 - rot_tol)
 
         return bool(pos_ok and rot_ok_0 and rot_ok_1)
-
-        return bool(pos_ok and rot_ok)

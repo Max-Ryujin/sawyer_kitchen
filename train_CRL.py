@@ -31,6 +31,7 @@ from agents.tmd import TMDAgent, get_config as get_tmd_config
 from agents.gciql import GCIQLAgent, get_config as get_gciql_config
 from agents.gcivl import GCIVLAgent, get_config as get_gcivl_config
 from agents.hiql import HIQLAgent, get_config as get_hiql_config
+from agents.sac import SACAgent, get_config as get_sac_config
 
 # --- Utils ---
 from utils.flax_utils import save_agent
@@ -321,6 +322,8 @@ def main(args):
         cfg = get_gcivl_config()
     elif args.agent_type == "HIQL":
         cfg = get_hiql_config()
+    elif args.agent_type == "SAC":
+        cfg = get_sac_config()
     # convert to plain dict
     cfg = dict(cfg)
     cfg["batch_size"] = args.batch_size
@@ -366,12 +369,16 @@ def main(args):
     base_train = Dataset.create(**train_dataset_norm)
     if args.agent_type == "HIQL":
         train_dataset = HGCDataset(base_train, cfg)
+    elif args.agent_type == "SAC":
+        train_dataset = base_train
     else:
         train_dataset = GCDataset(base_train, cfg)
 
     base_val = Dataset.create(**val_dataset_norm)
     if args.agent_type == "HIQL":
         val_dataset = HGCDataset(base_val, cfg)
+    elif args.agent_type == "SAC":
+        val_dataset = base_val
     else:
         val_dataset = GCDataset(base_val, cfg)
 
@@ -420,6 +427,14 @@ def main(args):
     elif args.agent_type == "GCIVL":
 
         agent = GCIVLAgent.create(
+            seed=3141,
+            ex_observations=example_batch["observations"],
+            ex_actions=example_batch["actions"],
+            config=cfg,
+        )
+    elif args.agent_type == "SAC":
+
+        agent = SACAgent.create(
             seed=3141,
             ex_observations=example_batch["observations"],
             ex_actions=example_batch["actions"],
