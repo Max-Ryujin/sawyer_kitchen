@@ -548,11 +548,13 @@ def main(args):
             config=cfg,
         )
     elif args.agent_type == "SAC":
+        ex_goals = example_batch["goals"]
 
         agent = SACAgent.create(
             seed=3141,
             ex_observations=example_batch["observations"],
             ex_actions=example_batch["actions"],
+            ex_goals=ex_goals,
             config=cfg,
         )
 
