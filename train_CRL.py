@@ -279,6 +279,7 @@ def evaluate_agent(
             if agent.__class__.__name__ == "SACAgent":
                 action = agent.sample_actions(
                     observations=normalized_obs[None],
+                    goals=normalized_goal[None],
                     temperature=0.0,
                     seed=jax.random.PRNGKey(i * 10000 + t),
                 )
@@ -374,6 +375,7 @@ def evaluate_agent(
             if agent.__class__.__name__ == "SACAgent":
                 action = agent.sample_actions(
                     observations=normalized_obs[None],
+                    goals=normalized_goal[None],
                     temperature=0.0,
                     seed=jax.random.PRNGKey(i * 10000 + t),
                 )
@@ -571,6 +573,7 @@ def main(args):
             ex_observations=example_batch["observations"],
             ex_actions=example_batch["actions"],
             config=cfg,
+            ex_goals=ex_goals,
         )
 
     _wandb_run = None

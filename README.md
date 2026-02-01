@@ -75,3 +75,9 @@ Here are the changes that I did to get the agents to work:
 - yes the critic can learn the noise pattern.
 - switched from OGN noise back to gaussien
 - next step is finding a solution for the rotation issue and adding back pouring.
+
+
+### commit a9de97e
+- SAC notes:
+- training works with offline data, but without a goal it does not work because the goal position for the cup is different in each episode and the agent cannot learn where to go without a goal.
+- 
