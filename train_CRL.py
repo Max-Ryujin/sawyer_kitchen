@@ -275,12 +275,20 @@ def evaluate_agent(
             normalized_obs = normalize_observations_selective(
                 raw_obs, obs_mean, obs_std, vel_idx
             )
-            action = agent.sample_actions(
-                observations=normalized_obs[None],
-                goals=normalized_goal[None],
-                temperature=0.0,
-                seed=jax.random.PRNGKey(i * 10000 + t),
-            )
+            # only include goal if agent is not SAC
+            if agent.__class__.__name__ == "SACAgent":
+                action = agent.sample_actions(
+                    observations=normalized_obs[None],
+                    temperature=0.0,
+                    seed=jax.random.PRNGKey(i * 10000 + t),
+                )
+            else:
+                action = agent.sample_actions(
+                    observations=normalized_obs[None],
+                    goals=normalized_goal[None],
+                    temperature=0.0,
+                    seed=jax.random.PRNGKey(i * 10000 + t),
+                )
             # Flatten action back to [Dim]
             action = np.array(action).flatten()
             action = np.clip(action, -1, 1)
@@ -362,12 +370,20 @@ def evaluate_agent(
                 raw_obs, obs_mean, obs_std, vel_idx
             )
 
-            action = agent.sample_actions(
-                observations=normalized_obs[None],
-                goals=normalized_goal[None],
-                temperature=0.0,
-                seed=jax.random.PRNGKey(i * 10000 + t),
-            )
+            # only include goal if agent is not SAC
+            if agent.__class__.__name__ == "SACAgent":
+                action = agent.sample_actions(
+                    observations=normalized_obs[None],
+                    temperature=0.0,
+                    seed=jax.random.PRNGKey(i * 10000 + t),
+                )
+            else:
+                action = agent.sample_actions(
+                    observations=normalized_obs[None],
+                    goals=normalized_goal[None],
+                    temperature=0.0,
+                    seed=jax.random.PRNGKey(i * 10000 + t),
+                )
             # Flatten action back to [Dim]
             action = np.array(action).flatten()
             action = np.clip(action, -1, 1)
@@ -548,13 +564,12 @@ def main(args):
             config=cfg,
         )
     elif args.agent_type == "SAC":
-        ex_goals = example_batch["goals"]
+        ex_goals = example_batch["observations"]  # Using observations as goals for SAC
 
         agent = SACAgent.create(
             seed=3141,
             ex_observations=example_batch["observations"],
             ex_actions=example_batch["actions"],
-            ex_goals=ex_goals,
             config=cfg,
         )
 
