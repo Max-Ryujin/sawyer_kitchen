@@ -932,10 +932,10 @@ class KitchenSACOnlineEnv(MujocoEnv):
             rot_tol: Tolerance for upright orientation (1.0 = perfect, 0.0 = 90 deg tilt).
         """
         cup = self.active_cup_id
-        if cup is 1:
+        if cup == 1:
             pos = self.data.qpos[37:40]
             quat = self.data.qpos[40:44]
-        elif cup is 0:
+        else:
             pos = self.data.qpos[30:33]
             quat = self.data.qpos[33:37]
 
@@ -953,3 +953,42 @@ class KitchenSACOnlineEnv(MujocoEnv):
         rot_ok = z_align > (1.0 - rot_tol)
 
         return bool(pos_ok and rot_ok)
+
+    def check_moving_success(
+        self, goal_state: np.ndarray, pos_tol: float = 0.05, rot_tol: float = 0.9
+    ) -> bool:
+        """
+        Checks if the task is successful based on the cup position and orientation.
+        Assumes goal_state is a minimal observation.
+
+        Args:
+            goal_state: The goal observation (minimal format).
+            pos_tol: Euclidean distance tolerance for position.
+            rot_tol: Tolerance for upright orientation (1.0 = perfect, 0.0 = 90 deg tilt).
+        """
+        curr_pos0 = self.data.qpos[30:33]
+        curr_pos1 = self.data.qpos[37:40]
+        curr_quat0 = self.data.qpos[33:37]
+        curr_quat1 = self.data.qpos[40:44]
+
+        curr_pos0_norm = self._normalize_position(curr_pos0)
+        curr_pos1_norm = self._normalize_position(curr_pos1)
+
+        # In the new minimal observation layout the target cup position is at
+        # indices 8:11 (task_space_obs 0:5, cup0_pos 5:8,)
+        target_pos_cup0 = goal_state[5:8]
+        target_pos_cup1 = goal_state[8:11]
+
+        dist0 = np.linalg.norm(curr_pos0_norm - target_pos_cup0)
+        dist1 = np.linalg.norm(curr_pos1_norm - target_pos_cup1)
+        pos_ok = (dist0 < pos_tol) and (dist1 < pos_tol)
+
+        w, x, y, z = curr_quat0
+        z_align = 1.0 - 2.0 * (x * x + y * y)
+        rot_ok_0 = z_align > (1.0 - rot_tol)
+
+        w, x, y, z = curr_quat1
+        z_align = 1.0 - 2.0 * (x * x + y * y)
+        rot_ok_1 = z_align > (1.0 - rot_tol)
+
+        return bool(pos_ok and rot_ok_0 and rot_ok_1)
