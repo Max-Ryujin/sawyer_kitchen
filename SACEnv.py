@@ -834,7 +834,11 @@ class KitchenSACOnlineEnv(MujocoEnv):
                     cup1_pos_norm,  # 3D
                     cup0_vel,  # 3D
                     cup1_vel,  # 3D
-                    self.goal_pos if self.goal_pos is not None else self.sample_goal_position(),
+                    (
+                        self._normalize_position(self.goal_pos)
+                        if self.goal_pos is not None
+                        else self._normalize_position(self.sample_goal_position())
+                    ),
                 ]
             ).astype(np.float32)
         return obs
@@ -918,41 +922,34 @@ class KitchenSACOnlineEnv(MujocoEnv):
                 break
         return self.goal_pos
 
-    def check_moving_success(
-        self, goal_state: np.ndarray, pos_tol: float = 0.05, rot_tol: float = 0.9
-    ) -> bool:
+    def check_moving_success(self, pos_tol: float = 0.05, rot_tol: float = 0.9) -> bool:
         """
         Checks if the task is successful based on the cup position and orientation.
         Assumes goal_state is a minimal observation.
 
         Args:
-            goal_state: The goal observation (minimal format).
             pos_tol: Euclidean distance tolerance for position.
             rot_tol: Tolerance for upright orientation (1.0 = perfect, 0.0 = 90 deg tilt).
         """
-        curr_pos0 = self.data.qpos[30:33]
-        curr_pos1 = self.data.qpos[37:40]
-        curr_quat0 = self.data.qpos[33:37]
-        curr_quat1 = self.data.qpos[40:44]
+        cup = self.active_cup_id
+        if cup is 1:
+            pos = self.data.qpos[37:40]
+            quat = self.data.qpos[40:44]
+        elif cup is 0:
+            pos = self.data.qpos[30:33]
+            quat = self.data.qpos[33:37]
 
-        curr_pos0_norm = self._normalize_position(curr_pos0)
-        curr_pos1_norm = self._normalize_position(curr_pos1)
+        pos_norm = self._normalize_position(pos)
 
         # In the new minimal observation layout the target cup position is at
         # indices 8:11 (task_space_obs 0:5, cup0_pos 5:8,)
-        target_pos_cup0 = goal_state[5:8]
-        target_pos_cup1 = goal_state[8:11]
+        target = self.goal_pos
 
-        dist0 = np.linalg.norm(curr_pos0_norm - target_pos_cup0)
-        dist1 = np.linalg.norm(curr_pos1_norm - target_pos_cup1)
-        pos_ok = (dist0 < pos_tol) and (dist1 < pos_tol)
+        dist0 = np.linalg.norm(pos_norm - target)
+        pos_ok = dist0 < pos_tol
 
-        w, x, y, z = curr_quat0
+        w, x, y, z = quat
         z_align = 1.0 - 2.0 * (x * x + y * y)
-        rot_ok_0 = z_align > (1.0 - rot_tol)
+        rot_ok = z_align > (1.0 - rot_tol)
 
-        w, x, y, z = curr_quat1
-        z_align = 1.0 - 2.0 * (x * x + y * y)
-        rot_ok_1 = z_align > (1.0 - rot_tol)
-
-        return bool(pos_ok and rot_ok_0 and rot_ok_1)
+        return bool(pos_ok and rot_ok)
