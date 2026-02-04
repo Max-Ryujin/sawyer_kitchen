@@ -800,6 +800,8 @@ class KitchenSACOnlineEnv(MujocoEnv):
         # check if goal is assigned
         if goal is not None:
             terminated = self.check_moving_success(goal)
+        else:
+            terminated = self.check_moving_success_without_goal()
         truncated = terminated
         info = {}
 
@@ -922,7 +924,9 @@ class KitchenSACOnlineEnv(MujocoEnv):
                 break
         return self.goal_pos
 
-    def check_moving_success(self, pos_tol: float = 0.05, rot_tol: float = 0.9) -> bool:
+    def check_moving_success_without_goal(
+        self, pos_tol: float = 0.05, rot_tol: float = 0.9
+    ) -> bool:
         """
         Checks if the task is successful based on the cup position and orientation.
         Assumes goal_state is a minimal observation.

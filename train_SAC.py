@@ -72,9 +72,6 @@ def evaluate_agent(
     for i in range(num_episodes):
         obs, _ = env.reset(options={"randomise_cup_position": False, "minimal": True})
 
-        # Create moving goal state (positions already normalized, velocities are raw)
-        goal_arr = env.unwrapped.create_moving_goal_state()
-
         current_frames = []
         is_success = False
 
@@ -94,7 +91,7 @@ def evaluate_agent(
             if video:
                 current_frames.append(env.render())
 
-            if env.unwrapped.check_moving_success():
+            if env.unwrapped.check_moving_success_without_goal():
                 moving_success_count += 1
                 is_success = True
                 break
@@ -146,9 +143,7 @@ def evaluate_agent(
             action = np.array(action).flatten()
             action = np.clip(action, -1, 1)
 
-            obs, _, term, trunc, _ = env.unwrapped.step(
-                action, minimal=True, goal=goal_arr
-            )
+            obs, _, term, trunc, _ = env.unwrapped.step(action, minimal=True)
 
             if term or trunc:
                 rand_success_count += 1
