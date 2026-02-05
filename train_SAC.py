@@ -191,7 +191,7 @@ def main(args):
 
     # Initialize environments
     print("Initializing training environment...")
-    env = KitchenSACOnlineEnv(render_mode="rgb_array")
+    env = KitchenSACOnlineEnv(render_mode="rgb_array", randomise_cup_position=True)
 
     print("Initializing evaluation environment...")
     eval_env = KitchenSACOnlineEnv(render_mode="rgb_array")
@@ -253,6 +253,8 @@ def main(args):
             return float(v)
         except Exception:
             return v
+    recording = False
+    frames = []
 
     for step in range(1, args.train_steps + 1):
         # Sample action
@@ -268,6 +270,29 @@ def main(args):
         # Step environment
         action = np.clip(action, -1.0, 1.0)
         next_ob, reward, terminated, truncated, info = env.step(action)
+
+        # every 10000 steps render a video of the training for 1000 steps
+
+        if step % 10000 == 0:
+            recording = True
+            frames = []
+        if step % 11000 == 0:
+            # save video
+            if frames:
+                video_path = os.path.join(save_dir, f"train_step_{step}.mp4")
+                imageio.mimwrite(
+                    video_path, frames, fps=env.metadata.get("render_fps", 24)
+                )
+                print(f"Saved training video to {video_path}") 
+            recording = False
+        if recording:
+            frames.append(env.render())
+
+        
+        
+        # log reward in wandb
+        if _wandb_run is not None:
+            wandb.log({"reward": reward}, step=step)
 
         replay_buffer.add_transition(
             dict(
@@ -346,10 +371,10 @@ if __name__ == "__main__":
         "--train-steps", type=int, default=100000, help="Number of training steps"
     )
     p.add_argument(
-        "--seed-steps", type=int, default=1000, help="Number of seed exploration steps"
+        "--seed-steps", type=int, default=2000, help="Number of seed exploration steps"
     )
     p.add_argument(
-        "--save-interval", type=int, default=10000, help="Save checkpoint interval"
+        "--save-interval", type=int, default=100000, help="Save checkpoint interval"
     )
     p.add_argument(
         "--save-dir",

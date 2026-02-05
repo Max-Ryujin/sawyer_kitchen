@@ -211,11 +211,15 @@ class KitchenSACOnlineEnv(MujocoEnv):
         minimal: bool = True,
         physics_timestep: float = 0.001,
         control_timestep: float = 0.004,
+        max_episode_steps: int = 3000,
         **kwargs,
     ):
         # load model and data
         self.model = mj.MjModel.from_xml_path(model_path)
         self.data = mj.MjData(self.model)
+
+        self.max_episode_steps = max_episode_steps
+        self._episode_steps = 0
 
         # Determine sizes
         self.nq = self.model.nq  # number of generalized coordinates
@@ -536,6 +540,8 @@ class KitchenSACOnlineEnv(MujocoEnv):
         """
         super().reset(seed=seed)
 
+        self._episode_steps = 0
+
         randomise_cup_position = (
             options.get("randomise_cup_position", False) if options else False
         )
@@ -742,9 +748,8 @@ class KitchenSACOnlineEnv(MujocoEnv):
         goal=None,
     ) -> Tuple[np.ndarray, float, bool, bool, Dict]:
         action = np.asarray(action, dtype=np.float32)
-
         action = action.reshape(5)
-
+        self._episode_steps += 1
         # Parse task-space action: [x, y, z, gripper, rot]
         action_xyz = action[:3]
         gripper_val = action[3]
@@ -802,7 +807,8 @@ class KitchenSACOnlineEnv(MujocoEnv):
             terminated = self.check_moving_success(goal)
         else:
             terminated = self.check_moving_success_without_goal()
-        truncated = terminated
+        truncated = self._episode_steps >= self.max_episode_steps
+
         info = {}
 
         return obs, float(reward), bool(terminated), bool(truncated), info
