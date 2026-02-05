@@ -839,7 +839,7 @@ class KitchenSACOnlineEnv(MujocoEnv):
             if self.active_cup_id == 0:
                 goal_array = np.concatenate(
                     [
-                        self.goal_pos_norm,  # goal position
+                        goal_pos_norm,  # goal position
                         cup1_pos_norm,  # non-active cup position
                     ]
                 )
@@ -847,7 +847,7 @@ class KitchenSACOnlineEnv(MujocoEnv):
                 goal_array = np.concatenate(
                     [
                         cup0_pos_norm,  # non-active cup position
-                        self.goal_pos_norm,  # goal position
+                        goal_pos_norm,  # goal position
                     ]
                 )
 

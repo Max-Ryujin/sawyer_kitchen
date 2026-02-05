@@ -263,7 +263,7 @@ def main(args):
         else:
             expl_rng, key = jax.random.split(expl_rng)
             action = agent.sample_actions(
-                observations=ob[None], seed=key, temperature=0.0
+                observations=ob[None], seed=key, temperature=1.0
             )
             action = np.array(action).flatten()
 
@@ -294,12 +294,15 @@ def main(args):
         if _wandb_run is not None:
             wandb.log({"reward": reward}, step=step)
 
+        done = terminated or truncated
+        mask = 0.0 if done else 1.0
+
         replay_buffer.add_transition(
             dict(
                 observations=ob,
                 actions=action,
                 rewards=reward,
-                masks=float(not terminated),
+                masks=mask,
                 next_observations=next_ob,
             )
         )
