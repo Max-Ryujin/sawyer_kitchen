@@ -835,6 +835,22 @@ class KitchenSACOnlineEnv(MujocoEnv):
             cup0_vel = qvel[29:32]
             cup1_vel = qvel[35:38]
 
+            goal_pos_norm = self._normalize_position(self.goal_pos) if self.goal_pos is not None else self._normalize_position(self.sample_goal_position())
+            if self.active_cup_id == 0:
+                goal_array = np.concatenate(
+                    [
+                        self.goal_pos_norm,  # goal position
+                        cup1_pos_norm,  # non-active cup position
+                    ]
+                )
+            else:
+                goal_array = np.concatenate(
+                    [
+                        cup0_pos_norm,  # non-active cup position
+                        self.goal_pos_norm,  # goal position
+                    ]
+                )
+
             obs = np.concatenate(
                 [
                     task_space_obs,  # 5D
@@ -842,11 +858,8 @@ class KitchenSACOnlineEnv(MujocoEnv):
                     cup1_pos_norm,  # 3D
                     cup0_vel,  # 3D
                     cup1_vel,  # 3D
-                    (
-                        self._normalize_position(self.goal_pos)
-                        if self.goal_pos is not None
-                        else self._normalize_position(self.sample_goal_position())
-                    ),
+                    goal_array,  # 6D
+
                 ]
             ).astype(np.float32)
         return obs
@@ -871,19 +884,19 @@ class KitchenSACOnlineEnv(MujocoEnv):
         cup_start_idx = 30 + (self.active_cup_id * 7)
         curr_cup_pos = self.data.qpos[cup_start_idx : cup_start_idx + 3]
 
-        # only use xy to not punish picking up
+        # only use xy to not punish picking up the cup
         dist = np.linalg.norm(curr_cup_pos[:2] - self.goal_pos[:2])
         reward = -dist
 
-        if dist < 0.05:
-            reward += 2.0
+        if dist < 0.06:
+            reward += 1.0
 
         # add reward for close distance between gripper and cup to encourage picking up
         grip_site_id = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_SITE, "grip_site")
         if grip_site_id != -1:
             grip_pos = self.data.site_xpos[grip_site_id]
             dist_grip_cup = np.linalg.norm(grip_pos - curr_cup_pos)
-            reward += max(0.0, 1.0 - dist_grip_cup) * 0.5
+            reward += max(0.0, 1.0 - dist_grip_cup) * 0.7
 
         return float(reward)
 
