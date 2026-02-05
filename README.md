@@ -80,4 +80,10 @@ Here are the changes that I did to get the agents to work:
 ### commit a9de97e
 - SAC notes:
 - training works with offline data, but without a goal it does not work because the goal position for the cup is different in each episode and the agent cannot learn where to go without a goal.
-- 
+
+
+### commit 7049998
+- added training script for online learning
+- added new enviroment for online learning (goal and cup position in handled in the env now)
+- added evaluation during online training.
+- likly problems: better reward function, and solving velocity normalisation issues. 

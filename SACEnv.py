@@ -872,6 +872,13 @@ class KitchenSACOnlineEnv(MujocoEnv):
         if dist < 0.05:
             reward += 2.0
 
+        # add reward for close distance between gripper and cup to encourage picking up
+        grip_site_id = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_SITE, "grip_site")
+        if grip_site_id != -1:
+            grip_pos = self.data.site_xpos[grip_site_id]
+            dist_grip_cup = np.linalg.norm(grip_pos - curr_cup_pos)
+            reward += max(0.0, 1.0 - dist_grip_cup) * 0.5
+
         return float(reward)
 
     def _is_terminated(self, obs: np.ndarray) -> bool:
@@ -948,8 +955,9 @@ class KitchenSACOnlineEnv(MujocoEnv):
         # In the new minimal observation layout the target cup position is at
         # indices 8:11 (task_space_obs 0:5, cup0_pos 5:8,)
         target = self.goal_pos
+        target_norm = self._normalize_position(target)
 
-        dist0 = np.linalg.norm(pos_norm - target)
+        dist0 = np.linalg.norm(pos_norm - target_norm)
         pos_ok = dist0 < pos_tol
 
         w, x, y, z = quat
