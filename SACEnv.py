@@ -211,7 +211,7 @@ class KitchenSACOnlineEnv(MujocoEnv):
         minimal: bool = True,
         physics_timestep: float = 0.001,
         control_timestep: float = 0.004,
-        max_episode_steps: int = 3000,
+        max_episode_steps: int = 1500,
         **kwargs,
     ):
         # load model and data
@@ -233,6 +233,7 @@ class KitchenSACOnlineEnv(MujocoEnv):
 
         self.goal_pos: Optional[np.ndarray] = None
         self.active_cup_id: Optional[int] = np.random.choice([0, 1])
+        self._prev_cup_goal_dist = None
 
         # Set observation mode (either 'states' or 'pixels') and default render size
         assert ob_type in ("states", "pixels"), "ob_type must be 'states' or 'pixels'"
@@ -249,11 +250,6 @@ class KitchenSACOnlineEnv(MujocoEnv):
             self.ctrl_range = np.array(self.model.actuator_ctrlrange).reshape(
                 self.nu, 2
             )
-
-        # Task-space action simplified: [x, y, z, gripper, rot]
-        # x, y, z normalized to [-1, 1] (workspace bounds)
-        # gripper: [-1, 1]
-        # rot: [-1, 1] rotation angle
 
         # Workspace bounds for denormalization: x: [-1.5, 0], y: [-2.5, 0], z: [1.5, 3]
         self.workspace_bounds = {
@@ -290,13 +286,16 @@ class KitchenSACOnlineEnv(MujocoEnv):
             **kwargs,
         )
 
-        # Action: [x, y, z, gripper, rot] all in [-1, 1]
+        # Action: joints + gripper (8 dimensions: 7 arm joints + 1 gripper command)
+        # 7 arm joints + 1 gripper command
         self.action_space = spaces.Box(
-            low=np.array([-1.0, -1.0, -1.0, -1.0, -1.0], dtype=np.float32),
-            high=np.array([1.0, 1.0, 1.0, 1.0, 1.0], dtype=np.float32),
-            shape=(5,),
+            low=-1.0,
+            high=1.0,
+            shape=(8,),
             dtype=np.float32,
         )
+        self.arm_delta_scale = 0.5
+        self.gripper_delta_scale = 0.15
 
         self.init_qpos = self.data.qpos
         self.init_qvel = self.data.qvel
@@ -554,8 +553,8 @@ class KitchenSACOnlineEnv(MujocoEnv):
         self.data.qpos[: INIT_QPOS.shape[0]] = self.get_random_robot_qpos()
         self.set_state(self.data.qpos, self.data.qvel)
 
-        self.goal_pos = self.sample_goal_position()
         self.active_cup_id = np.random.choice([0, 1])
+        self.goal_pos = self.sample_goal_position()
 
         mj.mj_forward(self.model, self.data)
 
@@ -571,6 +570,18 @@ class KitchenSACOnlineEnv(MujocoEnv):
             self.randomise_cup_position()
         else:
             self._reset_water_in_cups()
+
+        self._prev_ee_cup_dist = None
+        self._prev_cup_goal_dist = None
+
+        cup_pos = self.data.qpos[30 + self.active_cup_id * 7 : 33 + self.active_cup_id * 7]
+
+        grip_site_id = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_SITE, "grip_site")
+        ee_pos = self.data.site_xpos[grip_site_id]
+
+        self._prev_ee_cup_dist = np.linalg.norm(ee_pos - cup_pos)
+        self._prev_cup_goal_dist = np.linalg.norm(cup_pos[:2] - self.goal_pos[:2])
+
 
         obs = self._get_observation(minimal=minimal)
         return obs, {}
@@ -746,67 +757,56 @@ class KitchenSACOnlineEnv(MujocoEnv):
         action: np.ndarray,
         minimal=True,
         goal=None,
-    ) -> Tuple[np.ndarray, float, bool, bool, Dict]:
-        action = np.asarray(action, dtype=np.float32)
-        action = action.reshape(5)
+    ):
+
+        action = np.asarray(action, dtype=np.float32).reshape(-1)
         self._episode_steps += 1
-        # Parse task-space action: [x, y, z, gripper, rot]
-        action_xyz = action[:3]
-        gripper_val = action[3]
-        rot = action[4]
 
-        # Denormalize xyz from [-1, 1] to workspace bounds
-        bounds_x = self.workspace_bounds["x"]
-        bounds_y = self.workspace_bounds["y"]
-        bounds_z = self.workspace_bounds["z"]
+        # Split action
+        arm_delta = action[:7]          # [-1, 1]
+        gripper_delta = action[7]       # [-1, 1]
 
-        target_pos = np.array(
-            [
-                bounds_x[0] + (action_xyz[0] + 1.0) * 0.5 * (bounds_x[1] - bounds_x[0]),
-                bounds_y[0] + (action_xyz[1] + 1.0) * 0.5 * (bounds_y[1] - bounds_y[0]),
-                bounds_z[0] + (action_xyz[2] + 1.0) * 0.5 * (bounds_z[1] - bounds_z[0]),
-            ]
-        )
+        # Current joint positions
+        qpos = self.data.qpos.copy()
 
-        target_quat = self._action_rotations_to_quaternion(rot)
+        # Arm joints: assume indices [0:7]
+        qpos[:7] += self.arm_delta_scale * arm_delta
 
-        # Solve IK to get target joint positions (7 arm joints)
-        joint_indices = np.arange(7)  # 7 arm joints
-        target_qpos = ik_solve_dm(
-            self.model,
-            self.data,
-            site_name="grip_site",
-            target_pos=target_pos,
-            target_quat=target_quat,
-            joint_indices=joint_indices,
-            inplace=False,
-        )
+        # Clip to joint limits
+        if self.model.jnt_limited is not None:
+            for j in range(7):
+                if self.model.jnt_limited[j]:
+                    jmin, jmax = self.model.jnt_range[j]
+                    qpos[j] = np.clip(qpos[j], jmin, jmax)
 
-        # Apply solved joint positions to first 7 actuators
-        self.data.ctrl[:7] = target_qpos[:7]
+        # Gripper joints (indices 7,8)
+        # Use symmetric control
+        grip = (qpos[7] + qpos[8]) * 0.5
+        grip += self.gripper_delta_scale * gripper_delta
+        grip = np.clip(grip, 0.0, 0.015)
 
-        # Set gripper commands (two gripper actuators at indices 7 and 8)
-        # Denormalize gripper from [-1, 1] to [0, 1]
-        gripper_denorm = (gripper_val + 1.0) * 0.5
-        self.data.ctrl[7] = gripper_denorm
-        self.data.ctrl[8] = gripper_denorm
+        qpos[7] = grip
+        qpos[8] = grip
 
-        # Step the physics forward.
+        # Apply control targets
+        self.data.ctrl[:9] = qpos[:9]
+
+        # Step physics
         mj.mj_step(self.model, self.data, nstep=self._n_steps)
 
-        # update water particle world positions after stepping
+        # Update water particles
         self._update_water_particle_positions()
 
-        # Build observation
+        # Observation
         obs = self.compute_observation(minimal=minimal)
+
+        # Reward
         reward = self._compute_reward(obs, action)
-        Goal, Start = self.get_particles_in_cups()
-        terminated = True if Goal >= 5 else False
-        # check if goal is assigned
-        if goal is not None:
-            terminated = self.check_moving_success(goal)
-        else:
-            terminated = self.check_moving_success_without_goal()
+
+        # Termination
+
+        terminated = self.check_moving_success()
+
         truncated = self._episode_steps >= self.max_episode_steps
 
         info = {}
@@ -820,48 +820,50 @@ class KitchenSACOnlineEnv(MujocoEnv):
         return self._get_observation(minimal=minimal)
 
     def _get_observation(self, minimal=True) -> np.ndarray:
-        qpos = np.array(self.data.qpos).reshape(-1)
-        qvel = np.array(self.data.qvel).reshape(-1)
-        obs = np.concatenate([qpos, qvel]).astype(np.float32)
+        qpos = self.data.qpos.copy()
+        qvel = self.data.qvel.copy()
 
-        if minimal:
-            task_space_obs = self._get_task_space_obs()  # 5D: xyz_norm + gripper + rot
+        robot_qpos = qpos[:9]
+        robot_qvel = qvel[:9]
 
-            # Normalize cup positions using workspace bounds
-            cup0_pos_norm = self._normalize_position(qpos[30:33])
-            cup1_pos_norm = self._normalize_position(qpos[37:40])
+        goal_pos = self.goal_pos
+        if goal_pos is None:
+            goal_pos = self.sample_goal_position()
 
-            # Cup velocities (not normalized, use as-is)
-            cup0_vel = qvel[29:32]
-            cup1_vel = qvel[35:38]
+        grip_site_id = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_SITE, "grip_site")
+        ee_pos = self.data.site_xpos[grip_site_id].copy()
 
-            goal_pos_norm = self._normalize_position(self.goal_pos) if self.goal_pos is not None else self._normalize_position(self.sample_goal_position())
-            if self.active_cup_id == 0:
-                goal_array = np.concatenate(
-                    [
-                        goal_pos_norm,  # goal position
-                        cup1_pos_norm,  # non-active cup position
-                    ]
-                )
-            else:
-                goal_array = np.concatenate(
-                    [
-                        cup0_pos_norm,  # non-active cup position
-                        goal_pos_norm,  # goal position
-                    ]
-                )
+        # Cup positions
+        cup0_pos = qpos[30:33]
+        cup1_pos = qpos[37:40]
 
-            obs = np.concatenate(
-                [
-                    task_space_obs,  # 5D
-                    cup0_pos_norm,  # 3D
-                    cup1_pos_norm,  # 3D
-                    cup0_vel,  # 3D
-                    cup1_vel,  # 3D
-                    goal_array,  # 6D
+        goal_pos = self.goal_pos
 
-                ]
-            ).astype(np.float32)
+        # Relative vectors (key for learning)
+        ee_to_cup0 = cup0_pos - ee_pos
+        ee_to_cup1 = cup1_pos - ee_pos
+        cup0_to_goal = goal_pos - cup0_pos
+        cup1_to_goal = goal_pos - cup1_pos
+
+        # Active cup encoding
+        active_cup = np.array(
+            [1.0, 0.0] if self.active_cup_id == 0 else [0.0, 1.0],
+            dtype=np.float32,
+        )
+
+        obs = np.concatenate(
+            [
+                robot_qpos,
+                robot_qvel,
+                ee_to_cup0,
+                ee_to_cup1,
+                cup0_to_goal,
+                cup1_to_goal,
+                active_cup,
+            ],
+            dtype=np.float32,
+        )
+
         return obs
 
     def _get_obs(self):  # not used
@@ -871,32 +873,41 @@ class KitchenSACOnlineEnv(MujocoEnv):
         return obs
 
     def _compute_reward(self, obs: np.ndarray, action: np.ndarray) -> float:
-        """
-        Computes a dense reward:
-        1. If goal_pos is not set, uses MOVING_GOAL_OBS.
-        2. Calculates negative Euclidean distance between the active cup and goal.
-        3. Adds a bonus for success.
-        """
+        cup_idx = 30 + self.active_cup_id * 7
+        cup_pos = self.data.qpos[cup_idx : cup_idx + 3]
+        cup_quat = self.data.qpos[cup_idx + 3 : cup_idx + 7]
 
-        if self.goal_pos is None or self.active_cup_id is None:
-            return 1 if self.check_moving_success(MOVING_GOAL_OBS) else 0.0
+        grip_site_id = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_SITE, "grip_site")
+        ee_pos = self.data.site_xpos[grip_site_id]
 
-        cup_start_idx = 30 + (self.active_cup_id * 7)
-        curr_cup_pos = self.data.qpos[cup_start_idx : cup_start_idx + 3]
+        # Distances
+        ee_cup_dist = np.linalg.norm(ee_pos - cup_pos)
+        cup_goal_dist = np.linalg.norm(cup_pos[:2] - self.goal_pos[:2])
 
-        # only use xy to not punish picking up the cup
-        dist = np.linalg.norm(curr_cup_pos[:2] - self.goal_pos[:2])
-        reward = -dist
+        reward = 0.0
 
-        if dist < 0.06:
+        reward += 3 * (self._prev_cup_goal_dist - cup_goal_dist)
+
+        reward += (self._prev_ee_cup_dist - ee_cup_dist)
+
+        # Update potentials
+        self._prev_ee_cup_dist = ee_cup_dist
+        self._prev_cup_goal_dist = cup_goal_dist
+
+        # Success bonus
+        if cup_goal_dist < 0.052:
             reward += 1.0
 
-        # add reward for close distance between gripper and cup to encourage picking up
-        grip_site_id = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_SITE, "grip_site")
-        if grip_site_id != -1:
-            grip_pos = self.data.site_xpos[grip_site_id]
-            dist_grip_cup = np.linalg.norm(grip_pos - curr_cup_pos)
-            reward += max(0.0, 1.0 - dist_grip_cup) * 0.7
+        # Penalty for tipping over
+        w, x, y, z = cup_quat
+        z_align = 1.0 - 2.0 * (x * x + y * y)  # How upright the cup is (1.0 = upright, 0.0 = sideways)
+        if z_align < 0.7:  # Cup is significantly tilted
+            reward -= 0.1
+
+        # Update potentials
+        self._prev_ee_cup_dist = ee_cup_dist
+        self._prev_cup_goal_dist = cup_goal_dist
+
 
         return float(reward)
 
@@ -936,6 +947,9 @@ class KitchenSACOnlineEnv(MujocoEnv):
         other_cup_pos = utils.get_object_pos(
             self, (f"cup_freejoint{other_cup_id}", f"cup{other_cup_id}")
         )
+        active_cup_pos = utils.get_object_pos(
+            self, (f"cup_freejoint{cup_number}", f"cup{cup_number}")
+        )
         while True:
             # randomise xy position
             candidate = np.array(
@@ -945,12 +959,12 @@ class KitchenSACOnlineEnv(MujocoEnv):
                     1.7,
                 ]
             )
-            if np.linalg.norm(candidate - other_cup_pos) > 0.11:
+            if np.linalg.norm(candidate - other_cup_pos) > 0.11 and np.linalg.norm(candidate - active_cup_pos) > 0.13:
                 self.goal_pos = candidate
                 break
         return self.goal_pos
 
-    def check_moving_success_without_goal(
+    def check_moving_success(
         self, pos_tol: float = 0.05, rot_tol: float = 0.9
     ) -> bool:
         """
@@ -984,42 +998,3 @@ class KitchenSACOnlineEnv(MujocoEnv):
         rot_ok = z_align > (1.0 - rot_tol)
 
         return bool(pos_ok and rot_ok)
-
-    def check_moving_success(
-        self, goal_state: np.ndarray, pos_tol: float = 0.05, rot_tol: float = 0.9
-    ) -> bool:
-        """
-        Checks if the task is successful based on the cup position and orientation.
-        Assumes goal_state is a minimal observation.
-
-        Args:
-            goal_state: The goal observation (minimal format).
-            pos_tol: Euclidean distance tolerance for position.
-            rot_tol: Tolerance for upright orientation (1.0 = perfect, 0.0 = 90 deg tilt).
-        """
-        curr_pos0 = self.data.qpos[30:33]
-        curr_pos1 = self.data.qpos[37:40]
-        curr_quat0 = self.data.qpos[33:37]
-        curr_quat1 = self.data.qpos[40:44]
-
-        curr_pos0_norm = self._normalize_position(curr_pos0)
-        curr_pos1_norm = self._normalize_position(curr_pos1)
-
-        # In the new minimal observation layout the target cup position is at
-        # indices 8:11 (task_space_obs 0:5, cup0_pos 5:8,)
-        target_pos_cup0 = goal_state[5:8]
-        target_pos_cup1 = goal_state[8:11]
-
-        dist0 = np.linalg.norm(curr_pos0_norm - target_pos_cup0)
-        dist1 = np.linalg.norm(curr_pos1_norm - target_pos_cup1)
-        pos_ok = (dist0 < pos_tol) and (dist1 < pos_tol)
-
-        w, x, y, z = curr_quat0
-        z_align = 1.0 - 2.0 * (x * x + y * y)
-        rot_ok_0 = z_align > (1.0 - rot_tol)
-
-        w, x, y, z = curr_quat1
-        z_align = 1.0 - 2.0 * (x * x + y * y)
-        rot_ok_1 = z_align > (1.0 - rot_tol)
-
-        return bool(pos_ok and rot_ok_0 and rot_ok_1)

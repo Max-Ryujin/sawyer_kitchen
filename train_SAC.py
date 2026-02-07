@@ -56,83 +56,28 @@ def evaluate_agent(
     env=None,
 ):
 
-    if env is None:
-        env = gym.make(
-            "KitchenMinimalEnv-v0", render_mode="rgb_array", width=1280, height=960
-        )
-
-    fixed_success_count = 0
-    fixed_frames = []
-    fixed_success_frames_list = []
-
-    moving_success_count = 0
-    moving_frames = []
-    moving_success_frames_list = []
+    """
+    Simplified evaluation loop for Online SAC.
+    """
+    success_count = 0
+    total_returns = []
+    video_saved = False
 
     for i in range(num_episodes):
-        obs, _ = env.reset(options={"randomise_cup_position": False, "minimal": True})
-
-        current_frames = []
-        is_success = False
-
-        for t in range(steps):
-
-            action = agent.sample_actions(
-                observations=obs[None],
-                temperature=0.0,
-                seed=jax.random.PRNGKey(i * 10000 + t),
-            )
-
-            # Flatten action back to [Dim]
-            action = np.array(action).flatten()
-            action = np.clip(action, -1, 1)
-            obs, _, term, trunc, _ = env.unwrapped.step(action, minimal=True)
-
-            if video:
-                current_frames.append(env.render())
-
-            if env.unwrapped.check_moving_success_without_goal():
-                moving_success_count += 1
-                is_success = True
-                break
-
-        if video:
-            if i == 0:
-                moving_frames = current_frames
-            if is_success:
-                moving_success_frames_list.append(current_frames)
-
-    if video and save_file_prefix:
-        imageio.mimwrite(
-            f"{save_file_prefix}_moving.mp4",
-            moving_frames,
-            fps=env.metadata.get("render_fps", 24),
-        )
-        # Save all successful attempts
-        for idx, frames in enumerate(moving_success_frames_list):
-            imageio.mimwrite(
-                f"{save_file_prefix}_moving_success_{idx}.mp4",
-                frames,
-                fps=env.metadata.get("render_fps", 24),
-            )
-
-    moving_success_rate = moving_success_count / num_episodes
-
-    rand_success_count = 0
-    val_test_frames = None
-
-    for i in range(2 * num_episodes):
-
-        obs, _ = env.reset(options={"randomise_cup_position": False, "minimal": True})
+        obs, _ = env.reset()
+        
+        # Handle custom sim forwarding if required by specific env wrapper
         if hasattr(env.unwrapped, "sim"):
             env.unwrapped.sim.forward()
-        obs = env.unwrapped._get_observation(minimal=True)
+            # Re-fetch obs after forward if necessary, depends on env impl
+            # obs = env.unwrapped._get_observation() 
 
         current_frames = []
+        episode_return = 0.0
         is_success = False
-
+        
         for t in range(steps):
-
+            # Deterministic action for evaluation (temperature=0.0)
             action = agent.sample_actions(
                 observations=obs[None],
                 temperature=0.0,
@@ -143,40 +88,49 @@ def evaluate_agent(
             action = np.array(action).flatten()
             action = np.clip(action, -1, 1)
 
-            obs, _, term, trunc, _ = env.unwrapped.step(action, minimal=True)
+            # Note: keeping minimal=True as per original script, assuming env requires it
+            try:
+                obs, reward, term, trunc, info = env.unwrapped.step(action, minimal=True)
+            except TypeError:
+                # Fallback if env doesn't accept kwargs in step
+                obs, reward, term, trunc, info = env.step(action)
 
-            if term or trunc:
-                rand_success_count += 1
-                is_success = True
-                break
+            episode_return += reward
 
-            if video:
+            if video and not video_saved:
                 current_frames.append(env.render())
 
-        # Save video from first validation test
-        if video and (i == 0 or i == 1) and save_file_prefix:
-            val_test_frames = current_frames
+            # Check success condition (env specific, usually term=True or info['success'])
+            if term or trunc:
+                if term or reward > 0.5:
+                    is_success = True
+                break
 
-        # Save video only if successful
-        if video and is_success and save_file_prefix:
-            save_path = f"{save_file_prefix}_val_ep{i}_success.mp4"
-            imageio.mimwrite(
-                save_path, current_frames, fps=env.metadata.get("render_fps", 24)
-            )
+        total_returns.append(episode_return)
+        
+        if is_success:
+            success_count += 1
 
-    # Save one validation test video
-    if video and val_test_frames and save_file_prefix:
-        imageio.mimwrite(
-            f"{save_file_prefix}_val_test.mp4",
-            val_test_frames,
-            fps=env.metadata.get("render_fps", 24),
-        )
+        # Save video logic:
+        # Save the first successful episode we find. 
+        # If we reach the last episode and haven't saved a success yet, save that one just to see what's happening.
+        if video and save_file_prefix and not video_saved:
+            if is_success or (i == num_episodes - 1):
+                suffix = "success" if is_success else "fail"
+                save_path = f"{save_file_prefix}_{suffix}.mp4"
+                imageio.mimwrite(
+                    save_path, 
+                    current_frames, 
+                    fps=env.metadata.get("render_fps", 24)
+                )
+                video_saved = True
 
-    rand_success_rate = rand_success_count / (2 * num_episodes)
+    success_rate = success_count / num_episodes
+    mean_return = np.mean(total_returns)
 
     return {
-        "moving_success_rate": moving_success_rate,
-        "validation_success_rate": rand_success_rate,
+        "success_rate": success_rate,
+        "mean_return": mean_return,
     }
 
 
@@ -187,6 +141,11 @@ def main(args):
     cfg = dict(cfg)
     cfg["batch_size"] = args.batch_size
 
+    # taken from ogbench
+    #value_hidden_dims="(1024, 1024, 1024)" --agent.layer_norm=True --agent.min_q=False
+    cfg["value_hidden_dims"] = (1024, 1024, 1024)
+    cfg["layer_norm"] = True
+    cfg["min_q"] = False
     print("Training config:", cfg)
 
     # Initialize environments
@@ -253,8 +212,14 @@ def main(args):
             return float(v)
         except Exception:
             return v
-    recording = False
-    frames = []
+
+
+    # Buffer for video frames of the current episode
+    current_episode_frames = []
+    episode_idx = 0
+    
+    # Render first frame
+    current_episode_frames.append(env.render())
 
     for step in range(1, args.train_steps + 1):
         # Sample action
@@ -270,26 +235,10 @@ def main(args):
         # Step environment
         action = np.clip(action, -1.0, 1.0)
         next_ob, reward, terminated, truncated, info = env.step(action)
-
-        # every 10000 steps render a video of the training for 1000 steps
-
-        if step % 10000 == 0:
-            recording = True
-            frames = []
-        if step % 11000 == 0:
-            # save video
-            if frames:
-                video_path = os.path.join(save_dir, f"train_step_{step}.mp4")
-                imageio.mimwrite(
-                    video_path, frames, fps=env.metadata.get("render_fps", 24)
-                )
-                print(f"Saved training video to {video_path}") 
-            recording = False
-        if recording:
-            frames.append(env.render())
-
         
-        
+        # Render frame for video buffer
+        current_episode_frames.append(env.render())
+
         # log reward in wandb
         if _wandb_run is not None:
             wandb.log({"reward": reward}, step=step)
@@ -308,17 +257,41 @@ def main(args):
         )
         ob = next_ob
 
-        if terminated or truncated:
+        if done:
+            episode_idx += 1
             expl_metrics = {
                 f"exploration/{k}": np.mean(v) for k, v in flatten(info).items()
             }
+            
+            # --- Video Saving Logic ---
+            # Save if the episode ended with high reward (Successful)
+            # Assuming reward is dense or binary 0/1, checking > 0.5 works for both to indicate success.
+            if reward > 0.5:
+                video_filename = f"train_ep_{episode_idx}_success_step_{step}.mp4"
+                video_path = os.path.join(save_dir, video_filename)
+                
+                # Use a separate thread or just write it (writing videos can be slow)
+                # For simplicity, blocking write:
+                imageio.mimwrite(
+                    video_path, 
+                    current_episode_frames, 
+                    fps=env.metadata.get("render_fps", 24)
+                )
+                print(f"*** Success! Saved training video to {video_path} ***")
+            
+            # Clear frames for next episode
+            current_episode_frames = []
+            
             ob, _ = env.reset()
+            # Render first frame of new episode
+            current_episode_frames.append(env.render())
 
         if replay_buffer.size < args.seed_steps:
             continue
 
-        batch = replay_buffer.sample(cfg["batch_size"])
-        agent, update_info = agent.update(batch)
+        if step % 2 == 0:  # Ogbench does every 4
+            batch = replay_buffer.sample(cfg["batch_size"])
+            agent, update_info = agent.update(batch)
 
         if step % 10 == 0 and _wandb_run is not None:
             log_dict = {f"training/{k}": _to_scalar(v) for k, v in update_info.items()}
@@ -331,18 +304,17 @@ def main(args):
         if step % max(1, args.train_steps // 10) == 0:
             print(f"Step {step}/{args.train_steps}")
             eval_metrics = evaluate_agent(
-                agent,
-                num_episodes=5,
+                agent=agent,
+                env=eval_env,
+                num_episodes=10,
                 video=True,
                 save_file_prefix=os.path.join(save_dir, f"eval_step_{step}"),
-                env=eval_env,
             )
-            update_info["eval/moving_success_rate"] = eval_metrics[
-                "moving_success_rate"
-            ]
-            update_info["eval/validation_success_rate"] = eval_metrics[
-                "validation_success_rate"
-            ]
+            
+            update_info["eval/success_rate"] = eval_metrics["success_rate"]
+            update_info["eval/mean_return"] = eval_metrics["mean_return"]
+            
+            print(f"Eval Success Rate: {eval_metrics['success_rate']:.2f}")
 
         if _wandb_run is not None:
             log_dict = {}
@@ -360,7 +332,6 @@ def main(args):
         wandb.save(save_dir)
         print("Saved agent checkpoint to wandb")
         wandb.finish()
-
 
 if __name__ == "__main__":
     try:
