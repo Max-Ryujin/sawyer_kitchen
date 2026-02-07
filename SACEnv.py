@@ -917,8 +917,8 @@ class KitchenSACOnlineEnv(MujocoEnv):
                 reward += 2.0
         
         # Sparse success bonus
-        if cup_goal_dist < 0.051:
-            reward = 10.0
+        if cup_goal_dist < 0.05:
+            reward += 1.0
 
         # Orientation Penalty
         w, x, y, z = cup_quat
@@ -980,7 +980,7 @@ class KitchenSACOnlineEnv(MujocoEnv):
                 self.goal_pos = candidate
                 break
         # testing
-        self.goal_pos = np.array([-0.65, -1.1, 1.7])
+        self.goal_pos = np.array([-0.75, -1.15, 1.7])
         return self.goal_pos
 
     def check_moving_success(
@@ -1002,14 +1002,9 @@ class KitchenSACOnlineEnv(MujocoEnv):
             pos = self.data.qpos[30:33]
             quat = self.data.qpos[33:37]
 
-        pos_norm = self._normalize_position(pos)
-
-        # In the new minimal observation layout the target cup position is at
-        # indices 8:11 (task_space_obs 0:5, cup0_pos 5:8,)
         target = self.goal_pos
-        target_norm = self._normalize_position(target)
 
-        dist0 = np.linalg.norm(pos_norm - target_norm)
+        dist0 = np.linalg.norm(pos - target)
         pos_ok = dist0 < pos_tol
 
         w, x, y, z = quat
