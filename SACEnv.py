@@ -783,7 +783,7 @@ class KitchenSACOnlineEnv(MujocoEnv):
         # Use symmetric control
         grip = (qpos[7] + qpos[8]) * 0.5
         grip += self.gripper_delta_scale * gripper_delta
-        grip = np.clip(grip, 0.0, 0.015)
+        grip = np.clip(grip, 0.0, 1.0)
 
         qpos[7] = grip
         qpos[8] = grip
@@ -872,42 +872,59 @@ class KitchenSACOnlineEnv(MujocoEnv):
         obs = np.concatenate([qpos, qvel]).astype(np.float32)
         return obs
 
+
     def _compute_reward(self, obs: np.ndarray, action: np.ndarray) -> float:
+        # Based on metaworld ^reward function
         cup_idx = 30 + self.active_cup_id * 7
         cup_pos = self.data.qpos[cup_idx : cup_idx + 3]
         cup_quat = self.data.qpos[cup_idx + 3 : cup_idx + 7]
-
+        
         grip_site_id = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_SITE, "grip_site")
         ee_pos = self.data.site_xpos[grip_site_id]
+        
+        # Get gripper state 
+        gripper_action = action[-1] 
 
-        # Distances
         ee_cup_dist = np.linalg.norm(ee_pos - cup_pos)
-        cup_goal_dist = np.linalg.norm(cup_pos[:2] - self.goal_pos[:2])
+        cup_goal_dist = np.linalg.norm(cup_pos - self.goal_pos)
 
-        reward = 0.0
 
-        reward += 10 * (self._prev_cup_goal_dist - cup_goal_dist)
+        # Returns 1.0 if dist is 0, falls to 0.0 as dist increases.
+        reach_reward = 1.0 / (1.0 + 10.0 * ee_cup_dist**2) 
 
-        reward += 2 * (self._prev_ee_cup_dist - ee_cup_dist)
+        # We want gripper CLOSED when NEAR cup, but OPEN when FAR (to approach).
+        caging_reward = 0.0
+        if ee_cup_dist < 0.05:
+            # If near, reward closing.
+            caging_reward = max(gripper_action, 0) 
+        else:
+            # If far, reward opening
+            caging_reward = max(-gripper_action, 0) * 0.1
 
-        # Update potentials
-        self._prev_ee_cup_dist = ee_cup_dist
-        self._prev_cup_goal_dist = cup_goal_dist
+        in_place_reward = 1.0 / (1.0 + 5.0 * cup_goal_dist**2)
+        
 
-        # Success bonus
-        if cup_goal_dist < 0.052:
-            reward += 1.0
+        reward = reach_reward + caging_reward
+        
+        # only reward with grasping
+        is_grasped = (ee_cup_dist < 0.03) and (gripper_action > 0.2)
+        
+        if is_grasped:
+            reward += 5.0 * in_place_reward
+            
+            # If grasped and lifted off table (assuming table is at z=0.0)
+            if cup_pos[2] > 1.65: 
+                reward += 2.0
+        
+        # Sparse success bonus
+        if cup_goal_dist < 0.051:
+            reward = 10.0
 
-        # Penalty for tipping over
+        # Orientation Penalty
         w, x, y, z = cup_quat
-        z_align = 1.0 - 2.0 * (x * x + y * y)  # How upright the cup is (1.0 = upright, 0.0 = sideways)
-        if z_align < 0.7:  # Cup is significantly tilted
-            reward -= 0.1
-
-        # Update potentials
-        self._prev_ee_cup_dist = ee_cup_dist
-        self._prev_cup_goal_dist = cup_goal_dist
-
+        z_align = 1.0 - 2.0 * (x * x + y * y)
+        if z_align < 0.7:
+            reward -= 1.0
 
         return float(reward)
 
@@ -962,6 +979,8 @@ class KitchenSACOnlineEnv(MujocoEnv):
             if np.linalg.norm(candidate - other_cup_pos) > 0.11 and np.linalg.norm(candidate - active_cup_pos) > 0.13:
                 self.goal_pos = candidate
                 break
+        # testing
+        self.goal_pos = np.array([-0.65, -1.1, 1.7])
         return self.goal_pos
 
     def check_moving_success(
