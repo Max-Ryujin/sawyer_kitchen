@@ -102,7 +102,7 @@ def evaluate_agent(
 
             # Check success condition (env specific, usually term=True or info['success'])
             if term or trunc:
-                if term or reward > 0.5:
+                if term or reward > 2.0:
                     is_success = True
                 break
 
