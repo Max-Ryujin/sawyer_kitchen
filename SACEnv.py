@@ -886,9 +886,9 @@ class KitchenSACOnlineEnv(MujocoEnv):
 
         reward = 0.0
 
-        reward += 3 * (self._prev_cup_goal_dist - cup_goal_dist)
+        reward += 10 * (self._prev_cup_goal_dist - cup_goal_dist)
 
-        reward += (self._prev_ee_cup_dist - ee_cup_dist)
+        reward += 2 * (self._prev_ee_cup_dist - ee_cup_dist)
 
         # Update potentials
         self._prev_ee_cup_dist = ee_cup_dist
