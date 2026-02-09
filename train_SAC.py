@@ -149,7 +149,7 @@ def main(args):
 
     # Initialize environments
     print("Initializing training environment...")
-    env = KitchenSACOnlineEnv(render_mode="rgb_array", randomise_cup_position=True)
+    env = KitchenSACOnlineEnv(render_mode="rgb_array", randomise_cup_position=False)
 
     print("Initializing evaluation environment...")
     eval_env = KitchenSACOnlineEnv(render_mode="rgb_array")
