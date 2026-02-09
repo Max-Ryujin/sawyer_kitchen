@@ -461,15 +461,44 @@ class KitchenSACOnlineEnv(MujocoEnv):
 
     def get_random_robot_qpos(self):
         """Sample a random robot qpos within joint limits."""
+
+        x = self.np_random.normal(
+            loc=(self.workspace_bounds["x"][0] + self.workspace_bounds["x"][1]) / 2,
+            scale=(self.workspace_bounds["x"][1] - self.workspace_bounds["x"][0]) / 4,
+        )
+        y = self.np_random.normal(
+            loc=(self.workspace_bounds["y"][0] + self.workspace_bounds["y"][1]) / 2,
+            scale=(self.workspace_bounds["y"][1] - self.workspace_bounds["y"][0]) / 4,
+        )
+        z = self.np_random.normal(
+            loc=(self.workspace_bounds["z"][0] + self.workspace_bounds["z"][1]) / 2,
+            scale=(self.workspace_bounds["z"][1] - self.workspace_bounds["z"][0]) / 4,
+        )
+        x = np.clip(x, self.workspace_bounds["x"][0], self.workspace_bounds["x"][1])
+        y = np.clip(y, self.workspace_bounds["y"][0], self.workspace_bounds["y"][1])
+        z = np.clip(z, self.workspace_bounds["z"][0], self.workspace_bounds["z"][1])
+        target_pos = np.array([x, y, z], dtype=np.float32)
+        target_quat = self._action_rotations_to_quaternion(0.0)
+        joint_indices = np.arange(7)
+        ik_qpos = ik_solve_dm(
+            self.model,
+            self.data,
+            site_name="grip_site",
+            target_pos=target_pos,
+            target_quat=target_quat,
+            joint_indices=joint_indices,
+            inplace=False,
+        )
+
         INIT_QPOS = np.array(
             [
-                np.random.uniform(0.6, 1.4),
-                np.random.uniform(-0.8, -0.2),
-                np.random.uniform(-0.2, 0.2),
-                np.random.uniform(-0.2, 0.2),
-                np.random.uniform(-0.2, 0.2),
-                np.random.uniform(-0.2, 0.2),
-                np.random.uniform(-0.2, 0.2),
+                0,  # np.random.uniform(0.6, 1.4),
+                0,  # np.random.uniform(-0.8, -0.2),
+                0,  # np.random.uniform(-0.2, 0.2),
+                0,  # np.random.uniform(-0.2, 0.2),
+                0,  # np.random.uniform(-0.2, 0.2),
+                0,  # np.random.uniform(-0.2, 0.2),
+                0,  # np.random.uniform(-0.2, 0.2),
                 0,
                 0,
                 -2.66279850e-04,
@@ -509,6 +538,7 @@ class KitchenSACOnlineEnv(MujocoEnv):
                 0.0,
             ]
         )
+        INIT_QPOS[:7] = ik_qpos[:7]
         return INIT_QPOS
 
     def reset(
