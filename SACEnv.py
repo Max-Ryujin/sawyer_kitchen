@@ -808,7 +808,7 @@ class KitchenSACOnlineEnv(MujocoEnv):
 
         self.data.ctrl[:7] = target_qpos[:7]
 
-        gripper_val = ((qpos[7] + qpos[8]) * 0.5) + delta_gripper_val
+        gripper_val = ((current[3] * 2) * 0.5) + delta_gripper_val
         gripper_denorm = (gripper_val + 1.0) * 0.5
         gripper_denorm = np.clip(gripper_denorm, 0.0, 1.0)
         self.data.ctrl[7] = gripper_denorm
