@@ -144,7 +144,7 @@ def main(args):
     # value_hidden_dims="(1024, 1024, 1024)" --agent.layer_norm=True --agent.min_q=False
     cfg["value_hidden_dims"] = (1024, 1024, 1024)
     cfg["layer_norm"] = True
-    cfg["min_q"] = False
+    # cfg["min_q"] = False
     print("Training config:", cfg)
 
     # Initialize environments

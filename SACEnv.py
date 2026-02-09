@@ -1,10 +1,3 @@
-"""
-This file is nearly identical to the kitchen environment from env.py
-The only changes I made include:
-- adding the goal position to the observation for SAC training
-- letting the env handle random initial positions of the cups and goals for online training.
-"""
-
 import os
 from typing import Optional, Tuple, Dict
 
@@ -291,7 +284,7 @@ class KitchenSACOnlineEnv(MujocoEnv):
         self.action_space = spaces.Box(
             low=-1.0,
             high=1.0,
-            shape=(8,),
+            shape=(5,),
             dtype=np.float32,
         )
         self.arm_delta_scale = 0.5
@@ -764,11 +757,10 @@ class KitchenSACOnlineEnv(MujocoEnv):
 
         :param action: dx, dy, dz, dgripper, drot
         """
-
-        action = np.asarray(action, dtype=np.float32).reshape(-1)
         self._episode_steps += 1
 
         # Split action
+        action = np.asarray(action, dtype=np.float32).flatten()
         delta_action_xyz = action[:3]
         delta_gripper_val = action[3]
         delta_rot = action[4]
@@ -922,31 +914,31 @@ class KitchenSACOnlineEnv(MujocoEnv):
         # Returns 1.0 if dist is 0, falls to 0.0 as dist increases.
         reach_reward = 1.0 / (1.0 + 10.0 * ee_cup_dist**2)
 
-        # We want gripper CLOSED when NEAR cup, but OPEN when FAR (to approach).
-        caging_reward = 0.0
-        if ee_cup_dist < 0.05:
-            # If near, reward closing.
-            caging_reward = max(gripper_action, 0)
+        if ee_cup_dist > 0.1:
+            # Reward opening when far
+            gripper_reward = -action[3] * 0.1
         else:
-            # If far, reward opening
-            caging_reward = max(-gripper_action, 0) * 0.1
+            # Reward closing when close (shaping towards grasp)
+            gripper_reward = action[3] * 0.5
 
         in_place_reward = 1.0 / (1.0 + 5.0 * cup_goal_dist**2)
 
-        reward = reach_reward + caging_reward
+        reward = reach_reward + gripper_reward
 
         # only reward with grasping
-        is_grasped = (ee_cup_dist < 0.05) and (gripper_action > 0.2)
+        is_grasped = (ee_cup_dist < 0.06) and (action[3] > 0.1)
+        if is_grasped:
+            print("grasping")
 
         if is_grasped:
-            reward += 5.0 * in_place_reward
+            reward += 4.0 * in_place_reward
 
             # If grasped and lifted off table
             if cup_pos[2] > 1.65:
                 reward += 2.0
 
         # Sparse success bonus
-        if cup_goal_dist < 0.051:
+        if cup_goal_dist < 0.06:
             reward += 2.0
 
         cup_rot_mat = np.zeros(9)
