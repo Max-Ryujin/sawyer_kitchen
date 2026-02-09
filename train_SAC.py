@@ -261,21 +261,15 @@ def main(args):
                 f"exploration/{k}": np.mean(v) for k, v in flatten(info).items()
             }
 
-            # --- Video Saving Logic ---
-            # Save if the episode ended with high reward (Successful)
-            # Assuming reward is dense or binary 0/1, checking > 0.5 works for both to indicate success.
             if reward > 5.0:
                 video_filename = f"train_ep_{episode_idx}_success_step_{step}.mp4"
                 video_path = os.path.join(save_dir, video_filename)
 
-                # Use a separate thread or just write it (writing videos can be slow)
-                # For simplicity, blocking write:
                 imageio.mimwrite(
                     video_path,
                     current_episode_frames,
                     fps=env.metadata.get("render_fps", 24),
                 )
-                print(f"*** Success! Saved training video to {video_path} ***")
 
             # Clear frames for next episode
             current_episode_frames = []

@@ -914,7 +914,7 @@ class KitchenSACOnlineEnv(MujocoEnv):
         ee_pos = self.data.site_xpos[grip_site_id]
 
         # Get gripper state
-        gripper_action = action[-1]
+        gripper_action = action[-2]
 
         ee_cup_dist = np.linalg.norm(ee_pos - cup_pos)
         cup_goal_dist = np.linalg.norm(cup_pos - self.goal_pos)
@@ -936,7 +936,7 @@ class KitchenSACOnlineEnv(MujocoEnv):
         reward = reach_reward + caging_reward
 
         # only reward with grasping
-        is_grasped = (ee_cup_dist < 0.03) and (gripper_action > 0.2)
+        is_grasped = (ee_cup_dist < 0.05) and (gripper_action > 0.2)
 
         if is_grasped:
             reward += 5.0 * in_place_reward
@@ -946,8 +946,8 @@ class KitchenSACOnlineEnv(MujocoEnv):
                 reward += 2.0
 
         # Sparse success bonus
-        if cup_goal_dist < 0.05:
-            reward += 1.0
+        if cup_goal_dist < 0.051:
+            reward += 2.0
 
         cup_rot_mat = np.zeros(9)
         mj.mju_quat2Mat(cup_rot_mat, cup_quat)
