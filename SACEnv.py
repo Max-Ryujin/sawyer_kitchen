@@ -287,8 +287,6 @@ class KitchenSACOnlineEnv(MujocoEnv):
             shape=(5,),
             dtype=np.float32,
         )
-        self.arm_delta_scale = 0.5
-        self.gripper_delta_scale = 0.15
 
         self.init_qpos = self.data.qpos
         self.init_qvel = self.data.qvel
@@ -767,7 +765,7 @@ class KitchenSACOnlineEnv(MujocoEnv):
 
         current = self._get_task_space_obs()
 
-        new_pos_normalised = current[:3] + delta_action_xyz
+        new_pos_normalised = current[:3] + (delta_action_xyz * 0.1)
 
         bounds_x = self.workspace_bounds["x"]
         bounds_y = self.workspace_bounds["y"]
@@ -784,7 +782,9 @@ class KitchenSACOnlineEnv(MujocoEnv):
             ]
         )
 
-        target_quat = self._action_rotations_to_quaternion(current[4] + delta_rot)
+        target_quat = self._action_rotations_to_quaternion(
+            current[4] + (delta_rot * 0.1)
+        )
 
         # Solve IK to get target joint positions (7 arm joints)
         joint_indices = np.arange(7)  # 7 arm joints
