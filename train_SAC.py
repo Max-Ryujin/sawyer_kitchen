@@ -55,7 +55,6 @@ def evaluate_agent(
     save_file_prefix=None,
     env=None,
 ):
-
     """
     Simplified evaluation loop for Online SAC.
     """
@@ -65,17 +64,17 @@ def evaluate_agent(
 
     for i in range(num_episodes):
         obs, _ = env.reset()
-        
+
         # Handle custom sim forwarding if required by specific env wrapper
         if hasattr(env.unwrapped, "sim"):
             env.unwrapped.sim.forward()
             # Re-fetch obs after forward if necessary, depends on env impl
-            # obs = env.unwrapped._get_observation() 
+            # obs = env.unwrapped._get_observation()
 
         current_frames = []
         episode_return = 0.0
         is_success = False
-        
+
         for t in range(steps):
             # Deterministic action for evaluation (temperature=0.0)
             action = agent.sample_actions(
@@ -90,7 +89,9 @@ def evaluate_agent(
 
             # Note: keeping minimal=True as per original script, assuming env requires it
             try:
-                obs, reward, term, trunc, info = env.unwrapped.step(action, minimal=True)
+                obs, reward, term, trunc, info = env.unwrapped.step(
+                    action, minimal=True
+                )
             except TypeError:
                 # Fallback if env doesn't accept kwargs in step
                 obs, reward, term, trunc, info = env.step(action)
@@ -107,21 +108,19 @@ def evaluate_agent(
                 break
 
         total_returns.append(episode_return)
-        
+
         if is_success:
             success_count += 1
 
         # Save video logic:
-        # Save the first successful episode we find. 
+        # Save the first successful episode we find.
         # If we reach the last episode and haven't saved a success yet, save that one just to see what's happening.
         if video and save_file_prefix and not video_saved:
             if is_success or (i == num_episodes - 1):
                 suffix = "success" if is_success else "fail"
                 save_path = f"{save_file_prefix}_{suffix}.mp4"
                 imageio.mimwrite(
-                    save_path, 
-                    current_frames, 
-                    fps=env.metadata.get("render_fps", 24)
+                    save_path, current_frames, fps=env.metadata.get("render_fps", 24)
                 )
                 video_saved = True
 
@@ -142,7 +141,7 @@ def main(args):
     cfg["batch_size"] = args.batch_size
 
     # taken from ogbench
-    #value_hidden_dims="(1024, 1024, 1024)" --agent.layer_norm=True --agent.min_q=False
+    # value_hidden_dims="(1024, 1024, 1024)" --agent.layer_norm=True --agent.min_q=False
     cfg["value_hidden_dims"] = (1024, 1024, 1024)
     cfg["layer_norm"] = True
     cfg["min_q"] = False
@@ -213,11 +212,10 @@ def main(args):
         except Exception:
             return v
 
-
     # Buffer for video frames of the current episode
     current_episode_frames = []
     episode_idx = 0
-    
+
     # Render first frame
     current_episode_frames.append(env.render())
 
@@ -235,7 +233,7 @@ def main(args):
         # Step environment
         action = np.clip(action, -1.0, 1.0)
         next_ob, reward, terminated, truncated, info = env.step(action)
-        
+
         # Render frame for video buffer
         current_episode_frames.append(env.render())
 
@@ -262,26 +260,26 @@ def main(args):
             expl_metrics = {
                 f"exploration/{k}": np.mean(v) for k, v in flatten(info).items()
             }
-            
+
             # --- Video Saving Logic ---
             # Save if the episode ended with high reward (Successful)
             # Assuming reward is dense or binary 0/1, checking > 0.5 works for both to indicate success.
-            if reward > 0.5:
+            if reward > 5.0:
                 video_filename = f"train_ep_{episode_idx}_success_step_{step}.mp4"
                 video_path = os.path.join(save_dir, video_filename)
-                
+
                 # Use a separate thread or just write it (writing videos can be slow)
                 # For simplicity, blocking write:
                 imageio.mimwrite(
-                    video_path, 
-                    current_episode_frames, 
-                    fps=env.metadata.get("render_fps", 24)
+                    video_path,
+                    current_episode_frames,
+                    fps=env.metadata.get("render_fps", 24),
                 )
                 print(f"*** Success! Saved training video to {video_path} ***")
-            
+
             # Clear frames for next episode
             current_episode_frames = []
-            
+
             ob, _ = env.reset()
             # Render first frame of new episode
             current_episode_frames.append(env.render())
@@ -310,10 +308,10 @@ def main(args):
                 video=True,
                 save_file_prefix=os.path.join(save_dir, f"eval_step_{step}"),
             )
-            
+
             update_info["eval/success_rate"] = eval_metrics["success_rate"]
             update_info["eval/mean_return"] = eval_metrics["mean_return"]
-            
+
             print(f"Eval Success Rate: {eval_metrics['success_rate']:.2f}")
 
         if _wandb_run is not None:
@@ -332,6 +330,7 @@ def main(args):
         wandb.save(save_dir)
         print("Saved agent checkpoint to wandb")
         wandb.finish()
+
 
 if __name__ == "__main__":
     try:
