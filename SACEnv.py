@@ -949,7 +949,7 @@ class KitchenSACOnlineEnv(MujocoEnv):
 
         reward += reward_orient
 
-        return float(reward)
+        return float(reward * 0.1)
 
     def _is_terminated(self, obs: np.ndarray) -> bool:
         # change condition to make dataset generation faster
