@@ -103,7 +103,7 @@ def evaluate_agent(
 
             # Check success condition (env specific, usually term=True or info['success'])
             if term or trunc:
-                if term or reward > 6.0:
+                if term or reward > 0.6:
                     is_success = True
                 break
 
@@ -261,7 +261,7 @@ def main(args):
                 f"exploration/{k}": np.mean(v) for k, v in flatten(info).items()
             }
 
-            if reward > 5.0:
+            if reward > 0.5:
                 video_filename = f"train_ep_{episode_idx}_success_step_{step}.mp4"
                 video_path = os.path.join(save_dir, video_filename)
 
@@ -281,7 +281,7 @@ def main(args):
         if replay_buffer.size < args.seed_steps:
             continue
 
-        if step % 2 == 0:  # Ogbench does every 4
+        if step % 4 == 0:  # Ogbench does every 4
             batch = replay_buffer.sample(cfg["batch_size"])
             agent, update_info = agent.update(batch)
 

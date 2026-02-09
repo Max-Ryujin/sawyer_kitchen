@@ -246,9 +246,9 @@ class KitchenSACOnlineEnv(MujocoEnv):
 
         # Workspace bounds for denormalization: x: [-1.5, 0], y: [-2.5, 0], z: [1.5, 3]
         self.workspace_bounds = {
-            "x": np.array([-1.5, 0.0]),
-            "y": np.array([-2.5, 0.0]),
-            "z": np.array([1.5, 3.0]),
+            "x": np.array([-1.5, 0.3]),
+            "y": np.array([-2.3, 0.3]),
+            "z": np.array([1.0, 2.5]),
         }
 
         # Helper method to normalize position to [-1, 1] using workspace bounds
@@ -782,9 +782,10 @@ class KitchenSACOnlineEnv(MujocoEnv):
             ]
         )
 
-        target_quat = self._action_rotations_to_quaternion(
-            current[4] + (delta_rot * 0.1)
-        )
+        # target_quat = self._action_rotations_to_quaternion(
+        #    current[4] + (delta_rot * 0.1)
+        # )
+        target_quat = self._action_rotations_to_quaternion(0)
 
         # Solve IK to get target joint positions (7 arm joints)
         joint_indices = np.arange(7)  # 7 arm joints
