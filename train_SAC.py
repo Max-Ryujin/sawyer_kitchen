@@ -50,7 +50,7 @@ def flatten(d, parent_key="", sep="."):
 def evaluate_agent(
     agent,
     num_episodes=5,
-    steps=1500,
+    steps=1000,
     video=False,
     save_file_prefix=None,
     env=None,
@@ -87,14 +87,7 @@ def evaluate_agent(
             action = np.array(action).flatten()
             action = np.clip(action, -1, 1)
 
-            # Note: keeping minimal=True as per original script, assuming env requires it
-            try:
-                obs, reward, term, trunc, info = env.unwrapped.step(
-                    action, minimal=True
-                )
-            except TypeError:
-                # Fallback if env doesn't accept kwargs in step
-                obs, reward, term, trunc, info = env.step(action)
+            obs, reward, term, trunc, info = env.unwrapped.step(action)
 
             episode_return += reward
 
@@ -142,7 +135,7 @@ def main(args):
 
     # taken from ogbench
     # value_hidden_dims="(1024, 1024, 1024)" --agent.layer_norm=True --agent.min_q=False
-    cfg["value_hidden_dims"] = (1024, 1024, 1024)
+    # cfg["value_hidden_dims"] = (1024, 1024, 1024)  # try without
     cfg["layer_norm"] = True
     # cfg["min_q"] = False
     print("Training config:", cfg)
@@ -261,7 +254,7 @@ def main(args):
                 f"exploration/{k}": np.mean(v) for k, v in flatten(info).items()
             }
 
-            if reward > 0.5:
+            if reward > 0.1:
                 video_filename = f"train_ep_{episode_idx}_success_step_{step}.mp4"
                 video_path = os.path.join(save_dir, video_filename)
 
@@ -270,6 +263,7 @@ def main(args):
                     current_episode_frames,
                     fps=env.metadata.get("render_fps", 24),
                 )
+            wandb.log(expl_metrics, step=step)
 
             # Clear frames for next episode
             current_episode_frames = []
@@ -281,7 +275,7 @@ def main(args):
         if replay_buffer.size < args.seed_steps:
             continue
 
-        if step % 4 == 0:  # Ogbench does every 4
+        if step % 2 == 0:  # Ogbench does every 4
             batch = replay_buffer.sample(cfg["batch_size"])
             agent, update_info = agent.update(batch)
 

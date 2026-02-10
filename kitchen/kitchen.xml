@@ -17,7 +17,15 @@
     <include file="../kitchen/assets/kettle_asset.xml"/>
     <include file="../kitchen/assets/cup_asset.xml"/>
     <include file="../kitchen/assets/cup_custom_asset.xml"/>
+    <equality>
+        <weld site1="grip_site" site2="mocap_site" torquescale='3' solref="0.005 1" 
+          solimp="0.95 0.99 0.001"/>
+    </equality>
     <worldbody>
+
+        <body mocap="true" name="mocap" pos="0 0 0">
+            <site name="mocap_site" pos="0 0 0"/>
+        </body>
 
             <!-- Sawyer Robot -->
         <body pos='-0.069 -1 0.7' euler='0 0 1.6'>
