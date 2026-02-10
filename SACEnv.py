@@ -953,29 +953,22 @@ class KitchenSACOnlineEnv(MujocoEnv):
         cup_goal_dist = np.linalg.norm(cup_pos - self.goal_pos)
 
         # Returns 1.0 if dist is 0, falls to 0.0 as dist increases.
-        reach_reward = 2.0 / (2.0 + 5.0 * ee_cup_dist)
+        reach_reward = 1.0 - np.tanh(5.0 * ee_cup_dist)
 
-        if ee_cup_dist < 0.02:
-            # Reward closing when close (shaping towards grasp)
-            gripper_reward = action[3] * 0.5
+        gripper_act = (action[3] + 1.0) / 2.0
+        if ee_cup_dist < 0.1:
+            grasp_incentive = gripper_act
         else:
-            gripper_reward = 0.0
+            # If far away, keep gripper open to make approaching easier
+            grasp_incentive = -0.1 * gripper_act
 
-        in_place_reward = 2.0 / (2.0 + 10.0 * cup_goal_dist)
+        cup_goal_dist = np.linalg.norm(cup_pos - self.goal_pos)
+        in_place_reward = 1.0 - np.tanh(5.0 * cup_goal_dist)
 
-        reward = reach_reward + gripper_reward
+        reward = reach_reward + (0.5 * grasp_incentive)
 
-        # only reward with grasping
-        is_grasped = (ee_cup_dist < 0.05) and (action[3] > 0.1)
-        if is_grasped:
-            print("grasping")
-
-        if is_grasped:
-            reward += 4.0 * in_place_reward
-
-            # If grasped and lifted off table
-            if cup_pos[2] > 1.65:
-                reward += 2.0
+        if cup_pos[2] > 1.65:
+            reward += 2.0
 
         # Sparse success bonus
         if cup_goal_dist < 0.06:
@@ -989,7 +982,7 @@ class KitchenSACOnlineEnv(MujocoEnv):
 
         reward += reward_orient
 
-        return float(reward * 0.1)
+        return float(reward * 0.5)
 
     def _is_terminated(self, obs: np.ndarray) -> bool:
         # change condition to make dataset generation faster
