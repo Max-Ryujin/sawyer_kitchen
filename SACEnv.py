@@ -965,7 +965,7 @@ class KitchenSACOnlineEnv(MujocoEnv):
         self._prev_ee_cup_dist = ee_cup_dist
 
         # slow down
-        reward -= 0.05 * np.linalg.norm(action[:3])
+        reward -= 0.01 * np.linalg.norm(action[:3])
 
         if ee_cup_dist < 0.02:
             reward += 0.05 * action[-2]
