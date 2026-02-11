@@ -964,7 +964,8 @@ class KitchenSACOnlineEnv(MujocoEnv):
         reward = 0.5 * (self._prev_ee_cup_dist - ee_cup_dist)
         self._prev_ee_cup_dist = ee_cup_dist
 
-        cup_goal_dist = np.linalg.norm(cup_pos - self.goal_pos)
+        # slow down
+        reward -= 0.05 * np.linalg.norm(action[:3])
 
         if ee_cup_dist < 0.02:
             reward += 0.05 * action[-2]
@@ -1038,7 +1039,9 @@ class KitchenSACOnlineEnv(MujocoEnv):
         self.goal_pos = np.array([-0.75, -1.15, 1.7])
         return self.goal_pos
 
-    def check_moving_success(self, pos_tol: float = 0.05, rot_tol: float = 0.9) -> bool:
+    def check_moving_success(
+        self, pos_tol: float = 0.045, rot_tol: float = 0.9
+    ) -> bool:
         """
         Checks if the task is successful based on the cup position and orientation.
         Assumes goal_state is a minimal observation.

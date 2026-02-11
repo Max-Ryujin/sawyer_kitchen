@@ -139,6 +139,8 @@ def main(args):
     # cfg["value_hidden_dims"] = (1024, 1024, 1024)  # try without
     cfg["layer_norm"] = True
     # cfg["min_q"] = False
+    cfg["target_entropy_multiplier"] = 0.1
+    cfg["discount"] = 0.992
     print("Training config:", cfg)
 
     # Initialize environments
