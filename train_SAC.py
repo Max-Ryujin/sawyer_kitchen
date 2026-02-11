@@ -33,6 +33,7 @@ from utils.datasets import Dataset, ReplayBuffer
 
 # --- Local Imports ---
 from SACEnv import KitchenSACOnlineEnv
+from debug_env import DebugKitchenEnv
 
 
 def flatten(d, parent_key="", sep="."):
@@ -96,7 +97,7 @@ def evaluate_agent(
 
             # Check success condition (env specific, usually term=True or info['success'])
             if term or trunc:
-                if term or reward > 0.6:
+                if term:
                     is_success = True
                 break
 
@@ -143,9 +144,11 @@ def main(args):
     # Initialize environments
     print("Initializing training environment...")
     env = KitchenSACOnlineEnv(render_mode="rgb_array", randomise_cup_position=False)
+    # env = DebugKitchenEnv(render_mode="rgb_array")
 
     print("Initializing evaluation environment...")
     eval_env = KitchenSACOnlineEnv(render_mode="rgb_array")
+    # eval_env = DebugKitchenEnv(render_mode="rgb_array")
 
     # Example transition for replay buffer initialization
     example_transition = dict(
@@ -208,6 +211,8 @@ def main(args):
     # Buffer for video frames of the current episode
     current_episode_frames = []
     episode_idx = 0
+    episode_return = 0.0
+    episode_length = 0
 
     # Render first frame
     current_episode_frames.append(env.render())
@@ -234,8 +239,11 @@ def main(args):
         if _wandb_run is not None:
             wandb.log({"reward": reward}, step=step)
 
+        episode_return += reward
+        episode_length += 1
+
         done = terminated or truncated
-        mask = 0.0 if done else 1.0
+        mask = 0.0 if terminated else 1.0
 
         replay_buffer.add_transition(
             dict(
@@ -254,7 +262,15 @@ def main(args):
                 f"exploration/{k}": np.mean(v) for k, v in flatten(info).items()
             }
 
-            if reward > 0.1:
+            wandb.log(
+                {
+                    "episode/return": episode_return,
+                    "episode/length": episode_length,
+                },
+                step=step,
+            )
+
+            if episode_length < 599:
                 video_filename = f"train_ep_{episode_idx}_success_step_{step}.mp4"
                 video_path = os.path.join(save_dir, video_filename)
 
@@ -265,7 +281,8 @@ def main(args):
                 )
             wandb.log(expl_metrics, step=step)
 
-            # Clear frames for next episode
+            episode_return = 0.0
+            episode_length = 0
             current_episode_frames = []
 
             ob, _ = env.reset()
@@ -275,7 +292,7 @@ def main(args):
         if replay_buffer.size < args.seed_steps:
             continue
 
-        if step % 2 == 0:  # Ogbench does every 4
+        if step % 1 == 0:  # Ogbench does every 4
             batch = replay_buffer.sample(cfg["batch_size"])
             agent, update_info = agent.update(batch)
 

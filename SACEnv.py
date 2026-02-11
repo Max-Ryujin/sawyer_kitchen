@@ -193,7 +193,7 @@ DEFAULT_CAMERA_CONFIG = {
 
 
 class KitchenSACOnlineEnv(MujocoEnv):
-    metadata = {"render_modes": ["rgb_array"], "render_fps": 8}
+    metadata = {"render_modes": ["rgb_array"], "render_fps": 17}
 
     def __init__(
         self,
@@ -202,9 +202,9 @@ class KitchenSACOnlineEnv(MujocoEnv):
         ob_type: str = "states",
         randomise_cup_position: bool = False,
         minimal: bool = True,
-        physics_timestep: float = 0.001,
+        physics_timestep: float = 0.002,
         control_timestep: float = 0.01,
-        max_episode_steps: int = 800,
+        max_episode_steps: int = 600,
         **kwargs,
     ):
         # load model and data
@@ -213,6 +213,7 @@ class KitchenSACOnlineEnv(MujocoEnv):
 
         self.max_episode_steps = max_episode_steps
         self._episode_steps = 0
+        self._prev_ee_to_cup_dist = None
 
         # Determine sizes
         self.nq = self.model.nq  # number of generalized coordinates
@@ -289,7 +290,7 @@ class KitchenSACOnlineEnv(MujocoEnv):
 
         super().__init__(
             model_path=model_path,
-            frame_skip=60,
+            frame_skip=30,
             observation_space=self.observation_space,
             default_camera_config=DEFAULT_CAMERA_CONFIG,
             render_mode=render_mode,
@@ -465,8 +466,13 @@ class KitchenSACOnlineEnv(MujocoEnv):
         # Get the single rotation parameter
         rot = self._quaternion_to_rotation_params(gripper_quat)
 
+        # normalise ee pos
+        pos_gripper_norm = self._normalize_position(ee_pos)
+
         # Concatenate: 3 pos + 1 gripper + 1 rot = 5 dims
-        task_space_obs = np.concatenate([ee_pos, [gripper_pos, rot]]).astype(np.float32)
+        task_space_obs = np.concatenate([pos_gripper_norm, [gripper_pos, rot]]).astype(
+            np.float32
+        )
 
         return task_space_obs
 
@@ -488,9 +494,9 @@ class KitchenSACOnlineEnv(MujocoEnv):
             scale=0.05,
         )
         z = self.np_random.normal(
-            loc=(self.workspace_bounds["z"][0] + self.workspace_bounds["z"][1]) / 2,
+            loc=1.95,
             scale=np.abs(
-                (self.workspace_bounds["z"][1] - self.workspace_bounds["z"][0]) / 4
+                (self.workspace_bounds["z"][1] - self.workspace_bounds["z"][0]) / 5
             ),
         )
         x = np.clip(x, self.workspace_bounds["x"][0], self.workspace_bounds["x"][1])
@@ -585,7 +591,6 @@ class KitchenSACOnlineEnv(MujocoEnv):
         randomise_cup_position = (
             options.get("randomise_cup_position", False) if options else False
         )
-        minimal = True
 
         # Reset simulation state
         if self.model.nv:
@@ -636,6 +641,9 @@ class KitchenSACOnlineEnv(MujocoEnv):
         self._prev_cup_goal_dist = np.linalg.norm(cup_pos[:2] - self.goal_pos[:2])
 
         obs = self._get_observation()
+
+        ee_to_cup = obs[8:11]
+        self._prev_ee_to_cup_dist = np.linalg.norm(ee_to_cup)
         return obs, {}
 
     def _reset_water_in_cups(self):
@@ -815,7 +823,7 @@ class KitchenSACOnlineEnv(MujocoEnv):
         self._episode_steps += 1
         # Split action
         action = np.asarray(action, dtype=np.float32).flatten()
-        delta_action_xyz = action[:3] * 0.01
+        delta_action_xyz = action[:3] * 0.05
         delta_gripper_val = action[3]
         delta_rot = action[4]
 
@@ -837,7 +845,7 @@ class KitchenSACOnlineEnv(MujocoEnv):
 
         target_quat = self._action_rotations_to_quaternion(0)
 
-        mocap_pos = np.copy(new_pos)
+        mocap_pos = pos + (0.5 * (new_pos - pos))
         mocap_quat = np.copy(target_quat)
         self.data.mocap_pos[0] = mocap_pos
         self.data.mocap_quat[0] = mocap_quat
@@ -921,27 +929,27 @@ class KitchenSACOnlineEnv(MujocoEnv):
             ee_to_cup = ee_to_cup1
             cup_to_goal = cup1_to_goal
 
+        # normalise them to be centered around 0 using worspace bounds
+        cup_pos = self._normalize_position(cup_pos)
+        goal_pos = self._normalize_position(goal_pos)
+
         obs = np.concatenate(  # 17d
             [
                 action_space,  # 5d
                 cup_pos,  # 3d
-                goal_pos,  # 3d
                 ee_to_cup,  # 3d
                 cup_to_goal,  # 3d
+                goal_pos,  # 3d
             ],
             dtype=np.float32,
         )
 
         return obs
 
-    def _get_obs(self):  # not used
-        qpos = np.array(self.data.qpos).reshape(-1)
-        qvel = np.array(self.data.qvel).reshape(-1)
-        obs = np.concatenate([qpos, qvel]).astype(np.float32)
-        return obs
+    def _get_obs(self):
+        return self._get_observation()
 
     def _compute_reward(self, obs: np.ndarray, action: np.ndarray) -> float:
-        # Based on metaworld ^reward function
         cup_idx = 30 + self.active_cup_id * 7
         cup_pos = self.data.qpos[cup_idx : cup_idx + 3]
         cup_quat = self.data.qpos[cup_idx + 3 : cup_idx + 7]
@@ -952,37 +960,25 @@ class KitchenSACOnlineEnv(MujocoEnv):
         ee_cup_dist = np.linalg.norm(ee_pos - cup_pos)
         cup_goal_dist = np.linalg.norm(cup_pos - self.goal_pos)
 
-        # Returns 1.0 if dist is 0, falls to 0.0 as dist increases.
-        reach_reward = 1.0 - np.tanh(5.0 * ee_cup_dist)
-
-        gripper_act = (action[3] + 1.0) / 2.0
-        if ee_cup_dist < 0.1:
-            grasp_incentive = gripper_act
-        else:
-            # If far away, keep gripper open to make approaching easier
-            grasp_incentive = -0.1 * gripper_act
+        # reward for moving towards the cup
+        reward = 0.5 * (self._prev_ee_cup_dist - ee_cup_dist)
+        self._prev_ee_cup_dist = ee_cup_dist
 
         cup_goal_dist = np.linalg.norm(cup_pos - self.goal_pos)
-        in_place_reward = 1.0 - np.tanh(5.0 * cup_goal_dist)
 
-        reward = reach_reward + (0.5 * grasp_incentive)
-
-        if cup_pos[2] > 1.65:
-            reward += 2.0
+        if ee_cup_dist < 0.02:
+            reward += 0.05 * action[-2]
+            reward += 2 * (1.0 - np.tanh(10.0 * cup_goal_dist))
+            if cup_pos[2] > 1.65:
+                reward += 0.4
+        else:
+            reward += -0.01 * action[-2]
 
         # Sparse success bonus
-        if cup_goal_dist < 0.06:
+        if cup_goal_dist < 0.05:
             reward += 2.0
 
-        cup_rot_mat = np.zeros(9)
-        mj.mju_quat2Mat(cup_rot_mat, cup_quat)
-        z_axis_cup = cup_rot_mat.reshape(3, 3)[:, 2]
-        z_alignment = z_axis_cup[2]
-        reward_orient = (max(z_alignment, 0.0)) ** 2
-
-        reward += reward_orient
-
-        return float(reward * 0.5)
+        return float(reward)
 
     def _is_terminated(self, obs: np.ndarray) -> bool:
         # change condition to make dataset generation faster
@@ -1069,3 +1065,56 @@ class KitchenSACOnlineEnv(MujocoEnv):
         rot_ok = z_align > (1.0 - rot_tol)
 
         return bool(pos_ok and rot_ok)
+
+    def print_qpos_qvel_structure(self, model: mj.MjModel):
+        """
+        Prints a formatted table of joints, their types, and corresponding
+        qpos/qvel indices matching the requested format.
+        """
+        print("\n=== QPOS / QVEL OVERVIEW ===")
+
+        for i in range(model.njnt):
+            name = mj.mj_id2name(model, mj.mjtObj.mjOBJ_JOINT, i)
+
+            # Get Joint Type and Start Addresses
+            jnt_type = model.jnt_type[i]
+            qpos_adr = model.jnt_qposadr[i]
+            dof_adr = model.jnt_dofadr[i]
+
+            type_str = "UNKNOWN"
+            details_str = ""
+
+            # Determine dimensions and strings based on joint type
+            if jnt_type == mj.mjtJoint.mjJNT_FREE:
+                type_str = "FREE"
+                # FREE: 7 pos (3 pos + 4 quat), 6 vel (3 lin + 3 ang)
+                q_end = qpos_adr + 7
+                v_end = dof_adr + 6
+                details_str = (
+                    f"qpos[{qpos_adr}:{q_end}] (x,y,z,quat wxyz), "
+                    f"qvel[{dof_adr}:{v_end}] (lin+ang)"
+                )
+
+            elif jnt_type == mj.mjtJoint.mjJNT_BALL:
+                type_str = "BALL"
+                # BALL: 4 pos (quat), 3 vel (ang)
+                q_end = qpos_adr + 4
+                v_end = dof_adr + 3
+                details_str = (
+                    f"qpos[{qpos_adr}:{q_end}] (quat), "
+                    f"qvel[{dof_adr}:{v_end}] (ang)"
+                )
+
+            elif jnt_type == mj.mjtJoint.mjJNT_SLIDE:
+                type_str = "SLIDE"
+                # SLIDE: 1 pos, 1 vel
+                details_str = f"qpos[{qpos_adr}], qvel[{dof_adr}]"
+
+            elif jnt_type == mj.mjtJoint.mjJNT_HINGE:
+                type_str = "HINGE"
+                # HINGE: 1 pos, 1 vel
+                details_str = f"qpos[{qpos_adr}], qvel[{dof_adr}]"
+
+            print(f"joint {name:<26} | {type_str:<9} | {details_str}")
+
+        print("=== END OVERVIEW ===\n")
