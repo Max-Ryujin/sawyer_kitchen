@@ -139,8 +139,7 @@ def main(args):
     # cfg["value_hidden_dims"] = (1024, 1024, 1024)  # try without
     cfg["layer_norm"] = True
     # cfg["min_q"] = False
-    cfg["target_entropy_multiplier"] = 0.1
-    cfg["discount"] = 0.992
+    # cfg["target_entropy_multiplier"] = 0.1
     print("Training config:", cfg)
 
     # Initialize environments
@@ -287,7 +286,7 @@ def main(args):
             episode_length = 0
             current_episode_frames = []
 
-            ob, _ = env.reset()
+            ob, _ = env.reset(options={"randomise_cup_position": True})
             # Render first frame of new episode
             current_episode_frames.append(env.render())
 
