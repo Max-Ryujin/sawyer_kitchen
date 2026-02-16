@@ -35,7 +35,7 @@ from agents.sac import SACAgent, get_config as get_sac_config
 
 # --- Utils ---
 from utils.flax_utils import save_agent
-from utils.datasets import GCDataset, Dataset, HGCDataset
+from utils.datasets import GCDataset, Dataset, HGCDataset, CRTRDataset
 
 
 # Copied from ogbench to include my custom changes for loading rewards in this repo
@@ -446,6 +446,8 @@ def main(args):
         cfg = get_hiql_config()
     elif args.agent_type == "SAC":
         cfg = get_sac_config()
+    else:
+        cfg = get_crl_config()
     # convert to plain dict
     cfg = dict(cfg)
     cfg["batch_size"] = args.batch_size
@@ -504,6 +506,8 @@ def main(args):
         train_dataset = HGCDataset(base_train, cfg)
     elif args.agent_type == "SAC":
         train_dataset = base_train
+    elif args.agent_type == "CRTR":
+        train_dataset = CRTRDataset(base_train, cfg)
     else:
         train_dataset = GCDataset(base_train, cfg)
 
@@ -512,6 +516,8 @@ def main(args):
         val_dataset = HGCDataset(base_val, cfg)
     elif args.agent_type == "SAC":
         val_dataset = base_val
+    elif args.agent_type == "CRTR":
+        val_dataset = CRTRDataset(base_val, cfg)
     else:
         val_dataset = GCDataset(base_val, cfg)
 
@@ -519,6 +525,13 @@ def main(args):
 
     if args.agent_type == "CRL":
 
+        agent = CRLAgent.create(
+            seed=3141,
+            ex_observations=example_batch["observations"],
+            ex_actions=example_batch["actions"],
+            config=cfg,
+        )
+    elif args.agent_type == "CRTR":
         agent = CRLAgent.create(
             seed=3141,
             ex_observations=example_batch["observations"],

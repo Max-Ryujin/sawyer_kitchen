@@ -108,13 +108,13 @@ def make_task_space_action(
     gripper = 2.0 * gripper - 1.0
 
     action = np.array(
-        [x_norm, y_norm, z_norm, gripper, rot],
+        [x_norm, y_norm, z_norm, gripper],
         dtype=np.float32,
     )
     return action
 
 
-def moving_policy(env, obs, cup_number) -> np.ndarray:
+def moving_policy(env, obs) -> np.ndarray:
     """Policy for moving a cup from one position to another."""
     model, data = env.unwrapped.model, env.unwrapped.data
 
@@ -126,7 +126,7 @@ def moving_policy(env, obs, cup_number) -> np.ndarray:
     if not hasattr(env, "_policy_rot") or env._policy_rot is None:
         env._policy_rot = 0.3  # np.random.uniform(-1.0, 1.0)
 
-    env.unwrapped.active_cup_id = cup_number
+    cup_number = env.unwrapped.active_cup_id
 
     state = env._automaton_state
 

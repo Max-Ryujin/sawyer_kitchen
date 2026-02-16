@@ -13,7 +13,7 @@ from policies import moving_policy, pour_policy_v2
 
 def collect_policy_episode(
     save_path="tmp/policy.mp4",
-    steps=1000,
+    steps=600,
     noise=True,
     random_action=False,
     policy_type="pouring",
@@ -114,7 +114,6 @@ def run_single_episode(
     # For testing:
     policy_mode = "moving"
     done2 = False
-    cup = np.random.choice(np.array([0, 1]))
     steps_run = 0
 
     # --- State timing instrumentation ---
@@ -127,7 +126,7 @@ def run_single_episode(
         action = None
         # --- POLICY LOGIC ---
         if policy_mode == "moving":
-            action = moving_policy(env, obs, cup_number=cup)
+            action = moving_policy(env, obs)
             if env._automaton_state == "done":
                 moves_completed += 1
                 if moves_completed == move_operations:
@@ -137,8 +136,6 @@ def run_single_episode(
                         done2 = True
                     else:
                         done2 = True
-                else:
-                    cup = np.random.choice(np.array([0, 1]))
                 env._automaton_state = "move_above"
         elif policy_mode == "pouring":
             action = pour_policy_v2(env, obs)
@@ -223,10 +220,10 @@ def run_single_episode(
 def collect_moving_policy_dataset(
     save_root: str = "tmp/policy_dataset",
     episodes: int = 100,
-    max_steps: int = 1900,
+    max_steps: int = 1000,
     width: int = 320,
     height: int = 240,
-    noise: bool = True,
+    noise: bool = False,
     pixel_observations: bool = False,
     random_action: bool = False,
     minimal_observations: bool = True,
@@ -398,7 +395,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", choices=["policy", "dataset"], default="policy")
     parser.add_argument("--out", default="tmp/kitchen_run.mp4")
-    parser.add_argument("--steps", type=int, default=800)
+    parser.add_argument("--steps", type=int, default=700)
     parser.add_argument(
         "--save_failed_episodes",
         action="store_true",

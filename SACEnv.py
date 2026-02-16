@@ -193,7 +193,7 @@ DEFAULT_CAMERA_CONFIG = {
 
 
 class KitchenSACOnlineEnv(MujocoEnv):
-    metadata = {"render_modes": ["rgb_array"], "render_fps": 17}
+    metadata = {"render_modes": ["rgb_array"], "render_fps": 100}
 
     def __init__(
         self,
@@ -290,7 +290,7 @@ class KitchenSACOnlineEnv(MujocoEnv):
 
         super().__init__(
             model_path=model_path,
-            frame_skip=30,
+            frame_skip=5,
             observation_space=self.observation_space,
             default_camera_config=DEFAULT_CAMERA_CONFIG,
             render_mode=render_mode,
@@ -612,9 +612,6 @@ class KitchenSACOnlineEnv(MujocoEnv):
         self.data.mocap_pos[0] = hand_pos
         self.data.mocap_quat[0] = hand_quat
 
-        self.active_cup_id = np.random.choice([0, 1])
-        self.goal_pos = self.sample_goal_position()
-
         #  give water particles some initial random velocity
         for j in range(self.model.njnt):
             name = mj.mj_id2name(self.model, mj.mjtObj.mjOBJ_JOINT, j)
@@ -627,6 +624,9 @@ class KitchenSACOnlineEnv(MujocoEnv):
             self.randomise_cup_position()
         else:
             self._reset_water_in_cups()
+
+        self.active_cup_id = np.random.choice([0, 1])
+        self.goal_pos = self.sample_goal_position()
 
         self._prev_ee_cup_dist = None
         self._prev_cup_goal_dist = None
@@ -910,8 +910,6 @@ class KitchenSACOnlineEnv(MujocoEnv):
         cup0_pos = qpos[30:33]
         cup1_pos = qpos[37:40]
 
-        goal_pos = self.goal_pos
-
         # Relative vectors
         ee_to_cup0 = cup0_pos - ee_pos
         ee_to_cup1 = cup1_pos - ee_pos
@@ -961,17 +959,18 @@ class KitchenSACOnlineEnv(MujocoEnv):
         cup_goal_dist = np.linalg.norm(cup_pos - self.goal_pos)
 
         # reward for moving towards the cup
-        reward = 0.5 * (self._prev_ee_cup_dist - ee_cup_dist)
+        reward = 0.4 * (self._prev_ee_cup_dist - ee_cup_dist)
         self._prev_ee_cup_dist = ee_cup_dist
 
         # slow down
-        reward -= 0.01 * np.linalg.norm(action[:3])
+        reward -= 0.005 * np.linalg.norm(action[:3])
 
         if ee_cup_dist < 0.02:
+            reward += 0.05  # for staying at the cup
             reward += 0.05 * action[-2]
-            reward += 2 * (1.0 - np.tanh(10.0 * cup_goal_dist))
-            if cup_pos[2] > 1.65:
-                reward += 0.4
+            reward += 1.0 - np.tanh(10.0 * cup_goal_dist)
+            if cup_pos[2] > 1.7:
+                reward += 0.3
         else:
             reward += -0.01 * action[-2]
 
